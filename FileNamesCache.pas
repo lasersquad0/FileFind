@@ -895,6 +895,9 @@ var
    i,j: Cardinal;
 begin
   ZeroMemory(@Result, sizeof(Result));
+
+  if FCacheData.Count = 0 then exit;
+
 	//	var totalItems: Cardinal := 0;
 	var countedItems: Cardinal := 0;
 
