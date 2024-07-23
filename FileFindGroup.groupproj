@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{169826AB-644D-4498-A561-C93B248191A8}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="FileFind.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="..\FileList Component\MyFileListCtlPackage.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="FileFind">
+        <MSBuild Projects="FileFind.dproj"/>
+    </Target>
+    <Target Name="FileFind:Clean">
+        <MSBuild Projects="FileFind.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="FileFind:Make">
+        <MSBuild Projects="FileFind.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="MyFileListCtlPackage">
+        <MSBuild Projects="..\FileList Component\MyFileListCtlPackage.dproj"/>
+    </Target>
+    <Target Name="MyFileListCtlPackage:Clean">
+        <MSBuild Projects="..\FileList Component\MyFileListCtlPackage.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="MyFileListCtlPackage:Make">
+        <MSBuild Projects="..\FileList Component\MyFileListCtlPackage.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="FileFind;MyFileListCtlPackage"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="FileFind:Clean;MyFileListCtlPackage:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="FileFind:Make;MyFileListCtlPackage:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
