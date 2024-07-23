@@ -69,6 +69,7 @@ type
     StartSearchBtn: TBitBtn;
     PopupMenu1: TPopupMenu;
     Openfilefolder1: TMenuItem;
+    Statistics1: TMenuItem;
    // procedure BuildIndexBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -87,6 +88,7 @@ type
     procedure SearchEditKeyPress(Sender: TObject; var Key: Char);
     procedure Openfilefolder1Click(Sender: TObject);
     procedure About1Click(Sender: TObject);
+    procedure Statistics1Click(Sender: TObject);
   private
     { Private declarations }
     //FIndexingThread: TLoadFSThread;
@@ -120,7 +122,8 @@ var
 implementation
 
 uses
-  WinAPI.ShellAPI, WinAPI.CommCtrl, Math, Settings, SettingsForm, About, Functions;
+  WinAPI.ShellAPI, WinAPI.CommCtrl, Math,
+  Settings, SettingsForm, About, Functions, StatisticForm;
 
 {$R *.dfm}
 
@@ -500,6 +503,11 @@ end;
 procedure TMainForm.StartSearchBtnClick(Sender: TObject);
 begin
   MAkeSearch(); // execute the same code when timer has triggered
+end;
+
+procedure TMainForm.Statistics1Click(Sender: TObject);
+begin
+  StatisticForm1.ShowModal;
 end;
 
 procedure TMainForm.About1Click(Sender: TObject);

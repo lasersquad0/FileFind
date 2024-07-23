@@ -10,7 +10,8 @@ uses
   Settings in 'Settings.pas',
   IndexingLog in 'IndexingLog.pas' {IndexingLogForm},
   Functions in 'Functions.pas',
-  ABOUT in 'About.pas' {AboutBox};
+  About in 'About.pas' {AboutBox},
+  StatisticForm in 'StatisticForm.pas' {StatisticForm1};
 
 {$R *.res}
 
@@ -22,5 +23,6 @@ begin
   Application.CreateForm(TSettingsForm1, SettingsForm1);
   Application.CreateForm(TIndexingLogForm, IndexingLogForm);
   Application.CreateForm(TAboutBox, AboutBox);
+  Application.CreateForm(TStatisticForm1, StatisticForm1);
   Application.Run;
 end.

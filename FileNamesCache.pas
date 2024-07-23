@@ -7,9 +7,9 @@ uses System.Classes, System.SysUtils, Windows, DynamicArray;
 type
 
 	TCacheItemRef = record
-	ItemLevel: Cardinal;
-	ItemIndex: Cardinal;
-  constructor Create(level, index: Cardinal);
+    ItemLevel: Cardinal;
+    ItemIndex: Cardinal;
+    constructor Create(level, index: Cardinal);
 end;
 
  TCacheItem = class
@@ -31,9 +31,17 @@ end;
  TLevelType = THArrayG<TCacheItem>;
 
  TFileTypes = (ftFile, ftDir, ftTemp, ftArchive, ftReadOnly, ftHidden, ftSystem, ftDevice, ftSymbolic, ftCompressed,
-							ftEncrypted, ftOffline, ftSparse, ftPinned, ftNotIndexed, ftAll);
+							ftEncrypted, ftOffline, ftSparse, ftPinned, ftNotIndexed, ftVirtual, ftAll);
 
+ TFileTypeNames = array [TFileTypes] of string;
  TFileSystemStat = array [TFileTypes] of Cardinal;
+ TFileSystemStatIndex = array [Ord(Low(TFileTypes)).. Ord(High(TFileTypes))] of TFileTypes;
+
+ TFileSystemStatRecord = record
+   Stat: TFileSystemStat;
+   Index: TFileSystemStatIndex;
+ end;
+
 
  TStatRecord = record
   	Directories: Cardinal;
@@ -104,6 +112,8 @@ end;
   constructor CreatePrivate;
   destructor Destroy; override;
   class procedure FreeInst;
+  procedure StatSort(var Stat: TFileSystemStatRecord);
+
  public
   constructor Create; // raises an exception to avoid creating other instances of cache
   class function Instance: TFileNamesCache;
@@ -111,7 +121,8 @@ end;
   procedure DeserializeFrom(const fileName:string);
   procedure Clear;
   function Count: Cardinal;
-  function GetItem(level: Cardinal; index: Cardinal): TCacheItem; overload;
+  function GetItem(Level: Cardinal; Index: Cardinal): TCacheItem; overload;
+  function GetLevelCount(Level: Cardinal): Cardinal;
 	function ReadFileSystem(const startDir: string): uint64;
 	function MakePathString(ref: TCacheItemRef): string; overload;
 	function MakePathString(itemLevel, itemIndex: Cardinal): string; overload;
@@ -121,13 +132,36 @@ end;
 
 	procedure PrintLevelsStat(list: TStrings);
 	procedure PrintAllItems(list: TStrings);
-	function GetStat: TFileSystemStat;
+	function GetStat: TFileSystemStatRecord;
   procedure PrintStat(stat: TFileSystemStat; list: TStrings);
 
   property Modified: Boolean read FModified write FModified;
 end;
 
+
+  TTopFolders = class
+  protected
+    FItems: THArrayG<TCacheItem>;
+    FMin: uint64;
+    FMax: uint64;
+    FSize: Cardinal;
+    procedure UpdateMinMaxAndDelete();
+    procedure AddValue(Item: TCacheItem);
+    function CompareProc(Item1, Item2: TCacheItem): Integer;
+  public
+    constructor Create(Num: Cardinal);
+    destructor Destroy; override;
+    procedure BuildTopFolders;
+    procedure BuildTopFiles;
+    function GetItem(Index: Cardinal): TCacheItem;
+  end;
+
+
   TFSC = TFileNamesCache;  // short alias for class name, just for convenience
+
+var
+  FileTypeNames: TFileTypeNames = ('File', 'Directory', 'Temporary', 'Archive', 'ReadOnly', 'Hidden', 'System', 'Device',
+                                 'Symbolic Link', 'Compressed', 'Encrypted', 'Offline', 'Sparse', 'Pinned', 'NotIndexed', 'Virtual', 'UNDEF');
 
 implementation
 
@@ -136,6 +170,7 @@ uses
 
 const MAX_DIR_LEVELS = 100;
 const MAX_DIRS = 10000;
+
 
 ////////////////////////////////////
 // Common Functions
@@ -540,9 +575,14 @@ begin
     FModified := True;
 end;
 
-function TFileNamesCache.GetItem(level, index: Cardinal): TCacheItem;
+function TFileNamesCache.GetItem(Level, Index: Cardinal): TCacheItem;
 begin
-	Result := FCacheData[level].GetValue(index);
+	Result := FCacheData[Level].GetValue(Index);
+end;
+
+function TFileNamesCache.GetLevelCount(Level: Cardinal): Cardinal;
+begin
+  Result := FCacheData[Level].Count;
 end;
 
 class function TFileNamesCache.Instance: TFileNamesCache;
@@ -850,48 +890,72 @@ begin
 		end;
  end;
 
-function TFileNamesCache.GetStat(): TFileSystemStat;
+function TFileNamesCache.GetStat(): TFileSystemStatRecord;
+var
+   i,j: Cardinal;
 begin
-    ZeroMemory(@Result, sizeof(Result));
-	 //	var totalItems: Cardinal := 0;
-		var countedItems: Cardinal := 0;
+  ZeroMemory(@Result, sizeof(Result));
+	//	var totalItems: Cardinal := 0;
+	var countedItems: Cardinal := 0;
 
-		for var i:Cardinal := 0 to FCacheData.Count - 1 do begin
-      var lv := FCacheData[i];
-		 //	totalItems := totalItems + lv.Count;
-			for var j: Cardinal := 0 to lv.Count - 1 do begin
-        var item := lv[j];
-				//Assert(item.FFullFileSize > 0);
+	for i := 0 to FCacheData.Count - 1 do begin
+    var lv := FCacheData[i];
+	 //	totalItems := totalItems + lv.Count;
+		for j := 0 to lv.Count - 1 do begin
+      var item := lv[j];
+			var counted: Boolean := false;
 
-				var counted: Boolean := false;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY)    > 0 then begin Inc(Result.Stat[ftDir]);       counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_ARCHIVE)      > 0 then begin Inc(Result.Stat[ftArchive]);   counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_READONLY)     > 0 then begin Inc(Result.Stat[ftReadOnly]);  counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_NORMAL)       > 0 then begin Inc(Result.Stat[ftFile]);      counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_HIDDEN)       > 0 then begin Inc(Result.Stat[ftHidden]);    counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_TEMPORARY)    > 0 then begin Inc(Result.Stat[ftTemp]);      counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_SYSTEM)       > 0 then begin Inc(Result.Stat[ftSystem]);    counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE)       > 0 then begin Inc(Result.Stat[ftDevice]);    counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT)> 0 then begin Inc(Result.Stat[ftSymbolic]);  counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_COMPRESSED)   > 0 then begin Inc(Result.Stat[ftCompressed]);counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_ENCRYPTED)    > 0 then begin Inc(Result.Stat[ftEncrypted]); counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_OFFLINE)      > 0 then begin Inc(Result.Stat[ftOffline]);   counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_SPARSE_FILE)  > 0 then begin Inc(Result.Stat[ftSparse]);    counted := true; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_VIRTUAL)      > 0 then begin Inc(Result.Stat[ftVirtual]); counted := true; end;
+			if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) > 0 then begin Inc(Result.Stat[ftNotIndexed]); counted := true; end;
+		 	//if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_PINNED) > 0 then begin Inc(Result[ftPinned]); counted := true; end;
+  		if counted
+      	then Inc(countedItems)
+        else raise Exception.Create('Uncounted file type encontered!'); //list.Add(Format('Missing file attribute : %s : %u', [item.FFileData.cFileName, item.FFileData.dwFileAttributes]));
+	  end;
+	end;
 
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY)    > 0 then begin Inc(Result[ftDir]);       counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_ARCHIVE)      > 0 then begin Inc(Result[ftArchive]);   counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_READONLY)     > 0 then begin Inc(Result[ftReadOnly]);  counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_NORMAL)       > 0 then begin Inc(Result[ftFile]);      counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_HIDDEN)       > 0 then begin Inc(Result[ftHidden]);    counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_TEMPORARY)    > 0 then begin Inc(Result[ftTemp]);      counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_SYSTEM)       > 0 then begin Inc(Result[ftSystem]);    counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE)       > 0 then begin Inc(Result[ftDevice]);    counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT)> 0 then begin Inc(Result[ftSymbolic]);  counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_COMPRESSED)   > 0 then begin Inc(Result[ftCompressed]);counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_ENCRYPTED)    > 0 then begin Inc(Result[ftEncrypted]); counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_OFFLINE)      > 0 then begin Inc(Result[ftOffline]);   counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_SPARSE_FILE)  > 0 then begin Inc(Result[ftSparse]);    counted := true; end;
-			 //	if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_PINNED) > 0 then begin Inc(Result[ftPinned]); counted := true; end;
-				if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) > 0 then begin Inc(Result[ftNotIndexed]); counted := true; end;
+  Result.Stat[ftAll] := countedItems;
 
-				if counted
-        	then Inc(countedItems)
-          else raise Exception.Create('Uncounted item type encontered!'); //list.Add(Format('Missing file attribute : %s : %u', [item.FFileData.cFileName, item.FFileData.dwFileAttributes]));
-			end;
-		end;
-
-    Result[ftAll] := countedItems;
-
+  StatSort(Result);
 end;
 
-procedure TFileNamesCache.PrintStat(stat: TFileSystemStat; list:TStrings);
+procedure TFileNamesCache.StatSort(var Stat: TFileSystemStatRecord);
+var
+	i, j: Cardinal;
+  k, val, L, R: Cardinal;
+  valInd: TFileTypes;
+begin
+  for k := Low(Stat.Index) to High(Stat.Index) do Stat.Index[k] := TFileTypes(k);
+
+  L := Low(Stat.Index);
+  R := High(Stat.Index);
+
+  for i := L + 1 to R do begin
+    j := i;
+    valInd := Stat.Index[i];
+    val := Stat.Stat[valInd];
+    while (j > L) AND (Stat.Stat[Stat.Index[j - 1]] < val) do begin  // '<' means sorting in reverse order
+        Stat.Index[j] := Stat.Index[j - 1];
+        Dec(j);
+      end;
+    Stat.Index[j] := valInd;
+  end;
+end;
+
+procedure TFileNamesCache.PrintStat(stat: TFileSystemStat; list: TStrings);
 begin
 		list.Add(Format('Total number of files and dirs : %u', [stat[ftAll]]));
 	//	list.Add(Format('Total without dirs : %u', [totalItems - stat[ftDir]]));
@@ -915,6 +979,115 @@ begin
 
 end;
 
+
+
+
+
+procedure TTopFolders.UpdateMinMaxAndDelete();
+var
+  i, MinIndex: Cardinal;
+  Item: TCacheItem;
+begin
+  if FItems.Count = 0 then exit;
+
+  FMax := 0;
+  FMin := FItems[0].FFullFileSize;
+  MinIndex := 0;
+  for i := 0 to FItems.Count - 1 do
+  begin
+    Item := FItems[i];
+    if FMax < item.FFullFileSize then FMax := item.FFullFileSize;
+    if FMin > item.FFullFileSize then begin
+      FMin := item.FFullFileSize;
+      MinIndex := i;
+    end;
+  end;
+
+  FItems.DeleteValue(minIndex);
+end;
+
+function TTopFolders.CompareProc(Item1, Item2: TCacheItem): Integer;
+begin
+  if Item1.FFullFileSize > Item2.FFullFileSize then Result := 1
+  else if Item1.FFullFileSize < Item2.FFullFileSize then Result := -1
+  else Result := 0;
+end;
+
+constructor TTopFolders.Create(Num: Cardinal);
+begin
+  FItems := THarrayG<TCacheItem>.Create;
+  FItems.SetCapacity(Num);
+  FSize := Num;
+end;
+
+destructor TTopFolders.Destroy;
+begin
+  FItems.Free;
+  inherited;
+end;
+
+function TTopFolders.GetItem(Index: Cardinal): TCacheItem;
+begin
+  Result := FItems[Index];
+end;
+
+procedure TTopFolders.AddValue(Item: TCacheItem);
+begin
+  if FItems.Count < FSize then begin
+    FItems.AddValue(Item);
+    if FMax < item.FFullFileSize then FMax := item.FFullFileSize;
+    if FMin > item.FFullFileSize then FMin := item.FFullFileSize;
+  end else begin
+    if Item.FFullFileSize > FMin then begin
+      FItems.AddValue(Item);
+      UpdateMinMaxAndDelete();
+    end;
+  end;
+end;
+
+procedure TTopFolders.BuildTopFolders();
+var
+  level: TLevelType;
+  Item: TCacheItem;
+  i, j: Cardinal;
+begin
+  var Cache: TFileNamesCache := TFSC.Instance;
+  if Cache.Count = 0 then exit;
+
+		//for i = (int)FCacheData.size() - 1; i >= 0; --i)
+  for i := 0 to Cache.FCacheData.Count - 1 do begin
+    Level := Cache.FCacheData[i];
+    for j := 0 to Level.Count - 1 do begin
+      Item := Level[j];
+      if (Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0 then AddValue(Item);
+    end;
+  end;
+
+  FItems.InsertSort(CompareProc);
+end;
+
+procedure TTopFolders.BuildTopFiles();
+var
+  level: TLevelType;
+  Item: TCacheItem;
+  i, j: Cardinal;
+begin
+  var Cache: TFileNamesCache := TFSC.Instance;
+  if Cache.Count = 0 then exit;
+
+  for i := 0 to Cache.FCacheData.Count - 1 do begin
+    Level := Cache.FCacheData[i];
+    for j := 0 to Level.Count - 1 do begin
+      Item := Level[j];
+      if NOT (((Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0)
+         OR ((Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE) > 0)) then AddValue(Item);
+    end;
+  end;
+
+  FItems.InsertSort(CompareProc);
+end;
+
+
 initialization
 		GPath := THArrayG<PChar>.Create;
 		GPath.SetCapacity(MAX_DIR_LEVELS);
@@ -923,56 +1096,6 @@ finalization
   TFSC.FreeInst; // free cache singlton
 end.
 
-
-
-	template<size_t SIZE>
-	class TopFolders
-	{
-	protected:
-		std::vector<TCacheItem> FItems;
-		ullong FMin{};
-		ullong FMax{};
-
-		void UpdateMinMaxAndDelete()
-		{
-			if (FItems.size() == 0) return;
-
-			FMax = 0;
-			FMin = FItems[0].FFullFileSize;
-			size_t minIndex = 0;
-			for (size_t i = 0; i < FItems.size(); i++)
-			{
-				CacheItem& item = FItems[i];
-				if (FMax < item.FFullFileSize) FMax = item.FFullFileSize;
-				if (FMin > item.FFullFileSize) { FMin = item.FFullFileSize; minIndex = i; };
-			}
-
-			FItems.erase(FItems.begin() + minIndex);
-		}
-
-	public:
-		TopFolders()
-		{
-			FItems.reserve(SIZE);
-		}
-
-		void AddValue(CacheItem& item)
-		{
-			if (FItems.size() < SIZE)
-			{
-				FItems.push_back(item);
-				if (FMax < item.FFullFileSize) FMax = item.FFullFileSize;
-				if (FMin > item.FFullFileSize) FMin = item.FFullFileSize;
-			}
-			else
-			{
-				if (item.FFullFileSize > FMin)
-				{
-					FItems.push_back(item);
-					UpdateMinMaxAndDelete();
-				}
-			}
-		}
 
 		void PrintTopFolders(FileNamesCache& cache)
 		{
@@ -995,112 +1118,9 @@ end.
 		}
 	};
 
-	void PrintTop10Folders()
-	{
-		TopFolders<30> top10;
-
-		for (int i = (int)FCacheData.size() - 1; i >= 0; --i)
-		{
-			level_type& level = FCacheData.at(i);
-
-			for (size_t j = 0; j < level.size(); j++)
-			{
-				CacheItem& sitem = level.at(j);
-				//assert(sitem.FFullFileSize > 0);
-
-				if ((sitem.FFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-				{
-					top10.AddValue(sitem);
-				}
-			}
-		}
-
-		top10.PrintTopFolders(*this);
-	}
-
-	void PrintByLevel(size_t filterLevel, ulong filterAttr = FILE_ATTRIBUTE_DIRECTORY)
-	{
-		level_type& levelData = FCacheData.at(filterLevel);
-
-		for (size_t j = 0; j < levelData.size(); j++)
-		{
-			CacheItem& item = levelData.at(j);
-
-			assert(item.FFullFileSize > 0);
-
-			if ((item.FFileData.dwFileAttributes & filterAttr) == filterAttr)
-			{
-				std::wcout << std::setw(30) << item.FFileData.cFileName << "\t" << toStringSep(MAKE_FULL_FILESIZE(item.FFileData.nFileSizeHigh, item.FFileData.nFileSizeLow)) << std::endl;
-			}
-		}
-	}
-
-	void PrintSearch(const ci_string& wildCard, size_t filterLevel, ulong filterAttr)
-	{
-		std::wregex rgx(wildCard);
-		std::wsmatch wideMatch;
-		std::wcmatch wideMatch2;
-
-		//std::basic_regex<typename ci_string::value_type> rgx(wildCard);
 
 
-		if (filterLevel == -1)
-		{
-		}
-		else
-		{
-			level_type& levelData = FCacheData.at(filterLevel);
-
-			for (size_t j = 0; j < levelData.size(); j++)
-			{
-				CacheItem& item = levelData.at(j);
-
-				assert(item.FFullFileSize > 0);
-
-				if ((item.FFileData.dwFileAttributes & filterAttr) == filterAttr)
-				{
-					//bool found = std::regex_match<typename ci_string::value_type, typename std::regex_traits<typename ci_string::value_type>>(item.FFileData.cFileName, rgx);
-					bool found = std::regex_match(item.FFileData.cFileName, wideMatch2, rgx);
-
-					if(found)
-						std::wcout << std::setw(30) << item.FFileData.cFileName << "\t" << toStringSep(MAKE_FULL_FILESIZE(item.FFileData.nFileSizeHigh, item.FFileData.nFileSizeLow)) << std::endl;
-				}
-			}
-		}
-	}
 
 
-	void LoadFrom(const std::string& fileName)
-	{
-		TFileStream fin(fileName, fmRead);
 
-		ci_string str;
-		str.reserve(MAX_PATH);
-		std::vector<ci_string> path;
-		path.reserve(MAX_DIR_LEVELS); // we do not expect more that 100 levels of subdirs
 
-		int lines = 0;
-		while (true)
-		{
-			if (fin.Eof()) break;
-
-			fin >> str;
-			lines++;
-
-			AddFullPath(str);
-		}
-
-		std::cout << "Lines processed : " << lines << std::endl;
-		std::cout << "Levels : " << FCacheData.size() << std::endl;
-
-		size_t i = 0, sum = 0;
-		for (auto item : FCacheData)
-		{
-			std::cout << "Level" << i << " : " << item.size() << std::endl;
-			i++;
-			sum += item.size();
-		}
-
-		std::cout << "SUMM of Levels : " << sum << std::endl;
-	}
-};
