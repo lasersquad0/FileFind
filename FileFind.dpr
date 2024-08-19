@@ -11,7 +11,8 @@ uses
   IndexingLog in 'IndexingLog.pas' {IndexingLogForm},
   Functions in 'Functions.pas',
   About in 'About.pas' {AboutBox},
-  StatisticForm in 'StatisticForm.pas' {StatisticForm1};
+  StatisticForm in 'StatisticForm.pas' {StatisticForm1},
+  MaskSearch in 'MaskSearch.pas';
 
 {$R *.res}
 

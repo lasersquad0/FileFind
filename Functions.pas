@@ -160,8 +160,15 @@ begin
   end;
   if WritePtr^ = FormatSettings.ThousandSeparator {'.'} then Inc(WritePtr);
   Count := MaxChar - ((NativeInt(WritePtr) - NativeInt(@Res)) shr 1);
-  SetLength(Result, Count);
-  Move(WritePtr^, PByte(Result)^, Count * SizeOf(Char));
+
+  if Count = 0 then begin
+    Result := '0';
+  end
+  else
+  begin
+    SetLength(Result, Count);
+    Move(WritePtr^, PByte(Result)^, Count * SizeOf(Char));
+  end;
 end;
 
 // This function retrieves the last time, the given file was written to disk

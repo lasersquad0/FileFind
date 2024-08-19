@@ -22,6 +22,7 @@ end;
     FDisplayName: string;
     FFileType: string;
     FIconIndex: Integer;
+    FDenied: Boolean;
   	constructor Create; overload;
   	constructor Create(Parent: Cardinal; var FileData: TWin32FindData; FullFileSize:uint64; Level: Cardinal); overload;
 		procedure Serialize(OStream: TStream);
@@ -166,7 +167,7 @@ var
 implementation
 
 uses
-  System.UITypes, Vcl.Dialogs, Functions;
+  System.UITypes, System.Math, Dialogs, Functions, MaskSearch;
 
 const MAX_DIR_LEVELS = 100;
 const MAX_DIRS = 10000;
@@ -204,61 +205,62 @@ begin
     ZeroMemory(@FFileData, sizeof(TWin32FindData));
     FFullFileSize := 0;
     FIconIndex := -1;
+    FDenied := False;
     FUpperCaseName := '';
 end;
 
-constructor TCacheItem.Create(Parent:Cardinal; var FileData:TWin32FindData; FullFileSize:uint64; Level:Cardinal);
+constructor TCacheItem.Create(Parent: Cardinal; var FileData: TWin32FindData; FullFileSize: uint64; Level: Cardinal);
 begin
     FParent := Parent;
     FLevel := Level;
     FFileData := FileData;
     FFullFileSize := FullFileSize;
+    FDenied := False;
     FUpperCaseName := AnsiUpperCase(FileData.cFileName);
 end;
 
 procedure TCacheItem.Serialize(OStream: TStream);
 begin
-	OStream.WriteData<Cardinal>(FParent);
+  OStream.WriteData<Cardinal>(FParent);
   OStream.WriteData<Cardinal>(FFileData.dwFileAttributes);
-	OStream.WriteData<Cardinal>(FFileData.ftCreationTime.dwHighDateTime);
-	OStream.WriteData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
-	OStream.WriteData<Cardinal>(FFileData.ftLastAccessTime.dwHighDateTime);
-	OStream.WriteData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
-	OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwHighDateTime);
-	OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
-	OStream.WriteData<Cardinal>(FFileData.nFileSizeHigh);
-	OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);
+  OStream.WriteData<Cardinal>(FFileData.ftCreationTime.dwHighDateTime);
+  OStream.WriteData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
+  OStream.WriteData<Cardinal>(FFileData.ftLastAccessTime.dwHighDateTime);
+  OStream.WriteData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
+  OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwHighDateTime);
+  OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
+  OStream.WriteData<Cardinal>(FFileData.nFileSizeHigh);
+  OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);
   OStream.WriteData<uint64>(FFullFileSize); // require to store FFullFileSize for directories
-	OStream.WriteData<Cardinal>(FLevel);
-   var len := Length(FFileData.cFileName);
-	//size_t len = _tcslen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]); // size in bytes
-	//assert(len < MAX_PATH);
-	OStream.WriteData<Integer>(len);
-	OStream.Write(FFileData.cFileName, len);
+  OStream.WriteData<Cardinal>(FLevel);
+ // var lenBytes := Length(FFileData.cFileName) * sizeof(FFileData.cFileName[0]); // this is unlikely that only file name will be longer than 259 symbols
+  var lenBytes := StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
+  Assert(lenBytes < MAX_PATH * sizeof(FFileData.cFileName[0]));
+  OStream.WriteData<Cardinal>(lenBytes);
+  OStream.Write(FFileData.cFileName, lenBytes);
 end;
 
 procedure TCacheItem.Deserialize(IStream: TStream);
 var
   lenBytes: Cardinal;
 begin
-	IStream.ReadData<Cardinal>(FParent);
-	IStream.ReadData<Cardinal>(FFileData.dwFileAttributes);
-	IStream.ReadData<Cardinal>(FFileData.ftCreationTime.dwHighDateTime);
-	IStream.ReadData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
-	IStream.ReadData<Cardinal>(FFileData.ftLastAccessTime.dwHighDateTime);
-	IStream.ReadData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
-	IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwHighDateTime);
-	IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
-	IStream.ReadData<Cardinal>(FFileData.nFileSizeHigh);
-	IStream.ReadData<Cardinal>(FFileData.nFileSizeLow);
-  IStream.ReadData<uint64>(FFullFileSize);
-	//FFullFileSize := MakeFileSize(FFileData.nFileSizeHigh, FFileData.nFileSizeLow);
-	IStream.ReadData<Cardinal>(FLevel);
+  IStream.ReadData<Cardinal>(FParent);
+  IStream.ReadData<Cardinal>(FFileData.dwFileAttributes);
+  IStream.ReadData<Cardinal>(FFileData.ftCreationTime.dwHighDateTime);
+  IStream.ReadData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
+  IStream.ReadData<Cardinal>(FFileData.ftLastAccessTime.dwHighDateTime);
+  IStream.ReadData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
+  IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwHighDateTime);
+  IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
+  IStream.ReadData<Cardinal>(FFileData.nFileSizeHigh);
+  IStream.ReadData<Cardinal>(FFileData.nFileSizeLow);
+  IStream.ReadData<uint64>(FFullFileSize);    // require to store FFullFileSize for directories
+  //FFullFileSize := MakeFileSize(FFileData.nFileSizeHigh, FFileData.nFileSizeLow);
+  IStream.ReadData<Cardinal>(FLevel);
 
-	IStream.ReadData<Cardinal>(lenBytes);
-	// assert(lenBytes < MAX_PATH);
-	// FName.resize(lenBytes / sizeof(FName[0])); // convert from bytes to chars
-	IStream.Read(FFileData.cFileName, lenBytes);
+  IStream.ReadData<Cardinal>(lenBytes);
+  Assert(lenBytes < MAX_PATH * sizeof(FFileData.cFileName[0]));
+  IStream.Read(FFileData.cFileName, lenBytes);
   FUpperCaseName := AnsiUpperCase(FFileData.cFileName);
 end;
 
@@ -300,11 +302,11 @@ var
   hFind: THandle;
   tmp: LARGE_INTEGER;
 begin
-		Assert(sizeof(uint64) = 8);
+    Assert(sizeof(uint64) = 8);
 
-		dirSize := 0;
+    dirSize := 0;
     tmp.QuadPart := 0;
-		searchDir := currDir + '\*';
+    searchDir := currDir + '\*';
     ZeroMemory(@fileData, sizeof(fileData));
 
     // this will be true only for the first ReadDirectory call in reccursion because for all other calls ShowProgress=false
@@ -313,55 +315,58 @@ begin
       NotifyStart;
     end;
 
-	 //	hFind := FindFirstFileEx(PChar(searchDir), FindExInfoBasic, @fileData, FindExSearchNameMatch, nil, FIND_FIRST_EX_LARGE_FETCH);
-  	hFind := Windows.FindFirstFile(PChar(searchDir), fileData);
+  //	hFind := FindFirstFileEx(PChar(searchDir), FindExInfoBasic, @fileData, FindExSearchNameMatch, nil, FIND_FIRST_EX_LARGE_FETCH);
+    hFind := Windows.FindFirstFile(PChar(searchDir), fileData);
 
-		if (hFind = INVALID_HANDLE_VALUE) then begin
-    	var err := GetLastError();
-			if err = ERROR_ACCESS_DENIED then // print error message only if other than ERROR_ACCESS_DENIED error occurred
-        NotifyError('Access denied: ' + currDir)
+    if (hFind = INVALID_HANDLE_VALUE) then begin
+      var err := GetLastError();
+      if err = ERROR_ACCESS_DENIED then begin // print error message only if other than ERROR_ACCESS_DENIED error occurred
+        NotifyError('Access denied: ' + currDir);
+        var item := GetItem(parent);
+        item.FDenied := True; // set flag that we cannot enter into this folder because of permission denied or other reason.
+      end
       else
-				MessageDlg('ERROR: ' + searchDir + ' GetLastError: ' + IntToStr(err), mtError, [mbOK], 0);
+        MessageDlg('ERROR: ' + searchDir + ' GetLastError: ' + IntToStr(err), mtError, [mbOK], 0);
 
-			Result := dirSize;
-    	exit;
+      Result := dirSize;
+      exit;
     end;
 
-		Assert(fileData.cFileName[0] <> #0);
+    Assert(fileData.cFileName[0] <> #0);
 
-		// bypass dirs with names '.' and '..'
-		if NOT IS_DOT_DIR(fileData.cFileName) then begin
-			var itemRef := AddItem(parent.ItemIndex, fileData, parent.ItemLevel + 1);
+    // bypass dirs with names '.' and '..'
+    if NOT IS_DOT_DIR(fileData.cFileName) then begin
+    var itemRef := AddItem(parent.ItemIndex, fileData, parent.ItemLevel + 1);
 
-			if (fileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0
-      	then dirSize := ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, false)
-				else dirSize := MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
-		end;
+    if (fileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0
+      then dirSize := ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, false)
+      else dirSize := MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
+    end;
 
-		while (true) do begin
+    while (true) do begin
       if ShowProgress then begin
         Inc(ProgressCounter);
         NotifyProgress(ProgressCounter); // TODO: add handling interruptions by user here
       end;
 
-			if Windows.FindNextFile(hFind, &fileData) then begin
-				Assert(fileData.cFileName[0] <> #0);
+      if Windows.FindNextFile(hFind, &fileData) then begin
+        Assert(fileData.cFileName[0] <> #0);
 
-				if IS_DOT_DIR(fileData.cFileName) then continue;
+        if IS_DOT_DIR(fileData.cFileName) then continue;
 
-				var itemRef := AddItem(parent.ItemIndex, fileData, parent.ItemLevel + 1);
+        var itemRef := AddItem(parent.ItemIndex, fileData, parent.ItemLevel + 1);
 
-				if (fileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0
-        	then dirSize := dirSize + ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, false)
-					else dirSize := dirSize + MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
+        if (fileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0
+          then dirSize := dirSize + ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, false)
+          else dirSize := dirSize + MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
       end
-			else
-			begin
-				if (GetLastError() = ERROR_NO_MORE_FILES) then break;
-				MessageDlg('Error in FindNextFile().', TMsgDlgType.mtError, [mbOK], 0);
-				break;
-			end
-		end;
+      else
+      begin
+        if (GetLastError() = ERROR_NO_MORE_FILES) then break;
+        MessageDlg('Error in FindNextFile().', TMsgDlgType.mtError, [mbOK], 0);
+        break;
+      end
+    end;
 
 		var item := GetItem(parent);
 		tmp.QuadPart := Int64(dirSize);
@@ -453,28 +458,37 @@ end;
 ////////////////////////////////////
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
-function CheckForFileSize(var Filter: TSearchFilter; FileSize: uint64; IsDir: Boolean): Boolean;
-var
-  FilterFileSize: uint64;
+function CheckForFileSize(var Filter: TSearchFilter; FileSize: uint64{; IsDir: Boolean}): Boolean;
+//var
+//  FilterFileSize: uint64;
 begin
-  if IsDir
-    then FilterFileSize := 0 // for directories assume that FileSize=0
-    else FilterFileSize := Filter.FileSize;
+  //if IsDir
+  //  then FilterFileSize := 0 // for directories assume that FileSize=0
+  //  else FilterFileSize := Filter.FileSize;
 
   Result := False;
   case Filter.FileSizeCmpType of
-    fscEquals: Result := FileSize = FilterFileSize;
-    fscMore:   Result := FileSize > FilterFileSize;
-    fscLess:   Result := FileSize > FilterFileSize;
+    fscEquals: Result := FileSize = Filter.FileSize;
+    fscMore:   Result := FileSize > Filter.FileSize;
+    fscLess:   Result := FileSize < Filter.FileSize;
   end;
 end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
-function CheckForFileName(var Filter: TSearchFilter; FileName, FileNameUpper: string): Boolean;
+// True if SearchStr is a substring of FileName
+function CheckForFileName(var Filter: TSearchFilter; GrepList: TStringList; FileName, FileNameUpper: string): Boolean;
 begin
-  if Filter.CaseSensitive
-    then Result := Pos(Filter.SearchStr, FileName) > 0
-    else Result := Pos(Filter.SearchStrUpper, FileNameUpper) > 0;
+  if GrepList = nil then begin
+    if Filter.CaseSensitive
+      then Result := Pos(Filter.SearchStr, FileName) > 0
+      else Result := Pos(Filter.SearchStrUpper, FileNameUpper) > 0;
+  end
+  else
+  begin
+    if Filter.CaseSensitive
+      then Result := cmpmask(FileName, GrepList)
+      else Result := cmpmask(FileNameUpper, GrepList);
+  end;
 end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
@@ -495,13 +509,14 @@ begin
 end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
-function ApplyFilter(var Filter: TSearchFilter; Item: TCacheItem): Boolean;
+// if GrepList=nil use substr search otherwise use mask search functions
+function ApplyFilter(var Filter: TSearchFilter; GrepList: TStringList; Item: TCacheItem): Boolean;
 begin
-  Result := False;
+  Result := False; //Result=false by default means 'not found'
   if Filter.SearchStr <> '' then
-    if NOT CheckForFileName(Filter, Item.FFileData.cFileName, item.FUpperCaseName) then exit; //Result=false by default
+    if NOT CheckForFileName(Filter, GrepList, Item.FFileData.cFileName, item.FUpperCaseName) then exit;
   if Filter.SearchByFileSize then
-    if NOT CheckForFileSize(Filter, Item.FFullFileSize, IsDirectory(Item)) then exit;
+    if NOT CheckForFileSize(Filter, Item.FFullFileSize{, IsDirectory(Item)}) then exit;
   if Filter.SearchByModifiedDate then
     if NOT CheckForModifiedDate(Filter, item.FFileData.ftLastWriteTime) then exit;
   if Filter.SearchByAttributes then
@@ -512,34 +527,47 @@ end;
 
 procedure TFileNamesCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResult);
 var
-  SearchStrUpper: string;
+  //SearchStrUpper: string;
+  GrepList: TStringList;
+ // MaskSearch: Boolean;
 begin
   if FCacheData.Count = 0 then exit;
-
   Filter.SearchStrUpper := AnsiUpperCase(Filter.SearchStr);
 
-	for var i: Cardinal := 0 to FCacheData.Count - 1 do begin
-		var lv := FCacheData[i];
-		for var j: Cardinal := 0 to lv.Count - 1 do begin
-			var item := lv[j];
-      if ApplyFilter(Filter, item) then
+  GrepList := nil; // substr search by default
+
+  //check if filter str has wildcards
+  if (Pos('*', Filter.SearchStr) > 0) OR (Pos('?', Filter.SearchStr) > 0 ) then begin
+    GrepList := TStringList.Create;
+    if Filter.CaseSensitive // compile filters into GrepList
+      then SetFilters(Filter.SearchStr, GrepList)
+      else SetFilters(Filter.SearchStrUpper, GrepList);
+  end;
+
+  for var i: Cardinal := 0 to FCacheData.Count - 1 do begin
+    var lv := FCacheData[i];
+    for var j: Cardinal := 0 to lv.Count - 1 do begin
+      var item := lv[j];
+      if ApplyFilter(Filter, GrepList, item) then
         if NOT Callback(MakePathString(i, j), item) then exit;   //TODO: optimization: cache PathString in the item and use it during next searches
-		end;
-	end;
+    end;
+  end;
+
+  FreeAndNil(GrepList);
 end;
 
 procedure TFileNamesCache.Serialize(OStream: TStream);
 var
   i, j: Cardinal;
 begin
-		OStream.WriteData<Cardinal>(FCacheData.Count);
+    OStream.WriteData<Cardinal>(FCacheData.Count);
     for i := 0 to FCacheData.Count - 1 do begin
       var lv := FCacheData[i];
-    	OStream.WriteData<Cardinal>(lv.Count);
-    	for j := 0 to lv.Count - 1 do begin
-				var item := lv[j];
-				item.Serialize(OStream);
-			end;
+      OStream.WriteData<Cardinal>(lv.Count);
+      for j := 0 to lv.Count - 1 do begin
+        var item := lv[j];
+        item.Serialize(OStream);
+      end;
     end;
 end;
 
@@ -698,7 +726,7 @@ var
 begin
   mout := TMemoryStream.Create;
   try
- 		Serialize(mout);
+    Serialize(mout);
     mout.SaveToFile(FileName);
   finally
     mout.Free;

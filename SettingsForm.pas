@@ -166,7 +166,13 @@ end;
 
 procedure TSettingsIndexingProgress.Finish;
 begin
-  IndexingLogForm.LogMemo.Lines.Add('Finished Indexing');
+   TLoadFSThread.Synchronize(SettingsForm1.FIndexingThread,
+   procedure
+   begin
+      IndexingLogForm.LogMemo.Lines.Add('Finished Indexing');
+      IndexingLogForm.Caption := 'Indexing Error Log - ' + IntToStr(IndexingLogForm.LogMemo.Lines.Count);
+   end
+   );
 end;
 
 function TSettingsIndexingProgress.Progress(Prgress: Integer): Boolean;
@@ -183,14 +189,26 @@ end;
 
 procedure TSettingsIndexingProgress.ReportError(ErrorStr: string);
 begin
-  inherited;
-  IndexingLogForm.LogMemo.Lines.Add(ErrorStr);
+//   inherited;
+   TLoadFSThread.Synchronize(SettingsForm1.FIndexingThread,
+   procedure
+   begin
+     IndexingLogForm.LogMemo.Lines.Add(ErrorStr);
+     IndexingLogForm.Caption := 'Indexing Error Log - ' + IntToStr(IndexingLogForm.LogMemo.Lines.Count);
+   end
+   );
 end;
 
 procedure TSettingsIndexingProgress.Start(P100: Integer);
 begin
   FMaxValue := P100;
-  IndexingLogForm.LogMemo.Lines.Add('Start Indexing');
+  TLoadFSThread.Synchronize(SettingsForm1.FIndexingThread,
+    procedure
+    begin
+      IndexingLogForm.LogMemo.Lines.Add('Start Indexing');
+      IndexingLogForm.Caption := 'Indexing Error Log - ' + IntToStr(IndexingLogForm.LogMemo.Lines.Count);
+    end
+    );
 end;
 
 end.

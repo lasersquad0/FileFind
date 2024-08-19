@@ -163,6 +163,7 @@
             <Form>StatisticForm1</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="MaskSearch.pas"/>
         <None Include="FileFind.todo"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
@@ -868,9 +869,6 @@
                         <Operation>1</Operation>
                     </Platform>
                     <Platform Name="Win64">
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="Win64x">
                         <Operation>1</Operation>
                     </Platform>
                 </DeployClass>

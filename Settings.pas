@@ -33,10 +33,10 @@ constructor TSettings.Create;
 begin
   inherited;
 
-  // default setting values
-	CaseSensitiveSearch := false;
-  CaseSensitiveSort := false;
-  FoldersOnTop := false;
+  // default settings values
+	CaseSensitiveSearch := False;
+  CaseSensitiveSort := False;
+  FoldersOnTop := False;
   MaxFoundItems := 20000;
   FolderToIndex := 'c:\';
 end;

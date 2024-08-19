@@ -6,9 +6,6 @@
         <Projects Include="FileFind.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="..\FileList Component\MyFileListCtlPackage.dproj">
-            <Dependencies/>
-        </Projects>
     </ItemGroup>
     <ProjectExtensions>
         <Borland.Personality>Default.Personality.12</Borland.Personality>
@@ -26,23 +23,14 @@
     <Target Name="FileFind:Make">
         <MSBuild Projects="FileFind.dproj" Targets="Make"/>
     </Target>
-    <Target Name="MyFileListCtlPackage">
-        <MSBuild Projects="..\FileList Component\MyFileListCtlPackage.dproj"/>
-    </Target>
-    <Target Name="MyFileListCtlPackage:Clean">
-        <MSBuild Projects="..\FileList Component\MyFileListCtlPackage.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="MyFileListCtlPackage:Make">
-        <MSBuild Projects="..\FileList Component\MyFileListCtlPackage.dproj" Targets="Make"/>
-    </Target>
     <Target Name="Build">
-        <CallTarget Targets="FileFind;MyFileListCtlPackage"/>
+        <CallTarget Targets="FileFind"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="FileFind:Clean;MyFileListCtlPackage:Clean"/>
+        <CallTarget Targets="FileFind:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="FileFind:Make;MyFileListCtlPackage:Make"/>
+        <CallTarget Targets="FileFind:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

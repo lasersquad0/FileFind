@@ -69,11 +69,11 @@ end;
 
 procedure TLoadFSThread.Execute;
 begin
-		var	start := GetTickCount;
-		ExecData.DirSize := TFSC.Instance.ReadFileSystem(StartDir);
-		var	stop := GetTickCount;
-    ExecData.ExecTime := stop - start;
-    ExecData.StartDir := StartDir;
+   var start := GetTickCount;
+   ExecData.DirSize := TFSC.Instance.ReadFileSystem(StartDir);
+   var stop := GetTickCount;
+   ExecData.ExecTime := stop - start;
+   ExecData.StartDir := StartDir;
 end;
 
 end.

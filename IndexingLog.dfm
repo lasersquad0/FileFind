@@ -17,8 +17,7 @@ object IndexingLogForm: TIndexingLogForm
     Width = 675
     Height = 237
     Align = alClient
-    Lines.Strings = (
-      'Memo1')
+    ScrollBars = ssVertical
     TabOrder = 0
   end
 end
