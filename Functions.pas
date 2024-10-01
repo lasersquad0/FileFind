@@ -7,7 +7,7 @@ uses
 
 
   function MillisecToStr(ms: Cardinal): string;
-  function GetLocalTime(ftm: TFileTime):string;
+  function GetLocalTime(ftm: TFileTime): string;
   // split string to array of strings using Delim as delimiter
   procedure StringToArray(const str: string; var arr:THArrayG<string>; const Delim:Char {= '\n'});
   // splits string to array of strings using Delim as delimiter
@@ -24,24 +24,23 @@ uses
 
 function MillisecToStr(ms: Cardinal): string;
 var
-	milliseconds: Cardinal;
-	seconds: Cardinal;
-	minutes: Cardinal;
-	hours: Cardinal;
-
+  milliseconds: Cardinal;
+  seconds: Cardinal;
+  minutes: Cardinal;
+  hours: Cardinal;
 begin
-	milliseconds := ms mod 1000;
-	seconds := (ms div 1000) mod 60;
-	minutes := (ms div 60000) mod 60;
-	hours := (ms div 3600000) mod 24;
+  milliseconds := ms mod 1000;
+  seconds := (ms div 1000) mod 60;
+  minutes := (ms div 60000) mod 60;
+  hours := (ms div 3600000) mod 24;
 
-	//char buf[100];
-	if hours > 0 then
-		Result := Format('%u h %u min %u sec %u ms', [hours, minutes, seconds, milliseconds])
-	else if minutes > 0 then
-		Result := Format('%u min %u sec %u ms', [minutes, seconds, milliseconds])
-	else
-		Result := Format('%u sec %u ms', [seconds, milliseconds]);
+  //char buf[100];
+  if hours > 0 then
+    Result := Format('%u h %u min %u sec %u ms', [hours, minutes, seconds, milliseconds])
+  else if minutes > 0 then
+    Result := Format('%u min %u sec %u ms', [minutes, seconds, milliseconds])
+  else
+    Result := Format('%u sec %u ms', [seconds, milliseconds]);
 end;
 
 
@@ -172,10 +171,10 @@ begin
 end;
 
 // This function retrieves the last time, the given file was written to disk
-function GetLocalTime(ftm: TFileTime):string;
+function GetLocalTime(ftm: TFileTime): string;
 var
   mtm: TSystemTime;
-  at : TFileTime;
+  at: TFileTime;
   //ds, ts:ShortString;
   ds, ts: string;
 const
@@ -186,7 +185,7 @@ begin
   // Time must get converted, else there is an error of one hour
   // Does anybody know what this function does ?
   // Maybe something like summertime/wintertime (or what you call it out of Germany) ?
-	FileTimeToLocalFileTime(ftm, at);
+  FileTimeToLocalFileTime(ftm, at);
   FileTimeToSystemTime(at, mtm);
 
   SetLength(ds, GetDateFormat(LOCALE_USER_DEFAULT, 0, @mtm, NIL, @ds[1], MAX_DATETIME_STR) - 1);
