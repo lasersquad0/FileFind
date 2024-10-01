@@ -92,6 +92,14 @@ object MainForm: TMainForm
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   TextHeight = 15
+  object ProgressLabel: TLabel
+    Left = 832
+    Top = 480
+    Width = 73
+    Height = 15
+    Caption = 'ProgressLabel'
+    Visible = False
+  end
   object StatusBar1: TStatusBar
     Left = 0
     Top = 472
@@ -338,6 +346,23 @@ object MainForm: TMainForm
       TabOrder = 16
       OnClick = StartSearchBtnClick
     end
+    object IndexingBitBtn: TBitBtn
+      Left = 568
+      Top = 8
+      Width = 97
+      Height = 28
+      Caption = 'Refresh Index...'
+      TabOrder = 17
+      OnClick = IndexingBitBtnClick
+    end
+  end
+  object ProgressBar1: TProgressBar
+    Left = 948
+    Top = 477
+    Width = 150
+    Height = 17
+    TabOrder = 3
+    Visible = False
   end
   object Timer1: TTimer
     Enabled = False

@@ -84,6 +84,9 @@ type
     PopupMenu1: TPopupMenu;
     Openfilefolder1: TMenuItem;
     Statistics1: TMenuItem;
+    ProgressBar1: TProgressBar;
+    ProgressLabel: TLabel;
+    IndexingBitBtn: TBitBtn;
    // procedure BuildIndexBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -103,6 +106,7 @@ type
     procedure Openfilefolder1Click(Sender: TObject);
     procedure About1Click(Sender: TObject);
     procedure Statistics1Click(Sender: TObject);
+    procedure IndexingBitBtnClick(Sender: TObject);
   private
     { Private declarations }
     //FIndexingThread: TLoadFSThread;
@@ -111,16 +115,19 @@ type
     FSearchResults: THArrayG<TSearchResultsItem>;
     FSearchResultsCache: TSearchResultsCache;
     FColumnMap: THash<Integer, Integer>;
-    //FProgressListener: TMainFormIndexingProgress;
-    //procedure OnThreadTerminate(Sender: TObject);
+    FProgressBar: TProgressBar;
+    FProgressLabel: TLabel;
+    FIndexingThread: TLoadFSThread;
+    FProgressListener: TIndexingProgress;
+    procedure OnThreadTerminate(Sender: TObject);
     //procedure ReCreateIndexingThread;
     class function GetFileShellInfo(FileName: TFileName; Item: TCacheItem): Boolean;
-		procedure GetSystemImageList;
+    procedure GetSystemImageList;
     procedure ClearSearchResults;
     procedure ClearSortingMarks;
     procedure DoSort;
     function CompareData(arr : THArrayG<TSearchResultsItem>; i, j: Cardinal): Integer;
-		function CompareData2(item1, item2: TSearchResultsItem): Integer;
+    function CompareData2(item1, item2: TSearchResultsItem): Integer;
    // function GetValue(item: TSearchResultsItem; ColID: Integer): string;
     procedure UpdateStatusBar(ExecTime, ItemsCount: Cardinal; DirSize: uint64);
     function OnSearchFile(FullPath: string; Item: TCacheItem): Boolean;
@@ -140,7 +147,7 @@ implementation
 
 uses
   WinAPI.ShellAPI, WinAPI.CommCtrl, Math,
-  Settings, SettingsForm, About, Functions, StatisticForm;
+  Settings, SettingsForm, IndexingLog, About, Functions, StatisticForm;
 
 {$R *.dfm}
 
@@ -440,51 +447,20 @@ begin
 	res := ShellExecute(Handle, 'explore', PChar(path), nil, nil, SW_SHOWNORMAL);
   if res < 33 then MessageDlg('ShellExecute error: ' + IntToStr(res), TMsgDlgType.mtError, [mbOK], 0);
 end;
-{
-procedure TMainForm.BuildIndexBtnClick(Sender: TObject);
-//var
-//  stat: TFileSystemStat;
-begin
-  Label1.Caption := 'Indexing in progress...';
-  SearchEdit.Enabled := False;
-  BuildIndexBtn.Enabled := False;
-  ActivityIndicator1.Visible := True;
-  ActivityIndicator1.Animate := True;
-
-  ReCreateIndexingThread;
-  //FIndexingThread.Cache := FCache;
-  FIndexingThread.StartDir := Edit1.Text;
-  FIndexingThread.Start;
-end;
 
 procedure TMainForm.OnThreadTerminate(Sender: TObject);
 begin
- // if FIndexingThread = nil then exit;
+  TFSC.Instance.RemoveProgressListener(FProgressListener);
+  FreeAndNil(FProgressListener);
 
-  Label1.Caption := 'Indexing Done.';
-  SearchEdit.Enabled := True;
-  BuildIndexBtn.Enabled := True;
-  ActivityIndicator1.Animate := False;
-  ActivityIndicator1.Visible := False;
+  ListView1.Items.Count := 0; // reset search results to zero
+  ClearSearchResults;
 
-  StatusBar1.Panels[2].Text := Format('FS data load time: %s', [MillisecToStr(SettingsForm1.ExecData.ExecTime)]);
-  StatusBar1.Panels[3].Text := Format('Items loaded: %s', [ThousandSep(TFSC.Get.Count)]);
-  StatusBar1.Panels[4].Text := Format('Folder size: %s', [ThousandSep(SettingsForm1.ExecData.DirSize)]);
+  Settings1.Enabled := True; // main menu item
+
+  UpdateStatusBar(FIndexingThread.ExecData.ExecTime, TFSC.Instance.Count, FIndexingThread.ExecData.DirSize {TFSC.Instance.GetItem(0, 0).FFullFileSize});
 end;
 
-procedure TMainForm.SpeedButton1Click(Sender: TObject);
-begin
-  FileOpenDialog1.DefaultFolder := Edit1.Text;
-  if FileOpenDialog1.Execute then Edit1.Text := FileOpenDialog1.FileName;
-end;
-
-procedure TMainForm.ReCreateIndexingThread;
-begin
-  FIndexingThread := TLoadFSThread.Create(True); // create suspended
-  FIndexingThread.OnTerminate := OnThreadTerminate;
-  FIndexingThread.FreeOnTerminate := True;
-end;
- }
 procedure TMainForm.ClearSearchResults;
 var
   i:Cardinal;
@@ -538,7 +514,7 @@ begin
   //SettingsForm1.FCache := FCache;
   if SettingsForm1.ShowModal = mrOk then begin
     ListView1.Items.Count := 0; // reset search results to zero
-  	ClearSearchResults;
+    ClearSearchResults;
   end;
 
   UpdateStatusBar(SettingsForm1.ExecData.ExecTime, TFSC.Instance.Count, SettingsForm1.ExecData.DirSize);
@@ -580,8 +556,37 @@ begin
   end;
 end;
 
+procedure TMainForm.IndexingBitBtnClick(Sender: TObject);
+begin
+  FIndexingThread := TLoadFSThread.Create(True); // create suspended
+  FProgressListener := TIndexingProgress.Create(FIndexingThread, IndexingLogForm.LogMemo.Lines);
+  TFSC.Instance.AddProgressListener(FProgressListener);
+
+  FIndexingThread.OnTerminate := OnThreadTerminate;
+  FIndexingThread.FreeOnTerminate := True;
+  FIndexingThread.ProgressBar := ProgressBar1;
+  FIndexingThread.StartDir := AppSettings.FolderToIndex;
+
+  Settings1.Enabled := False;  // main menu item
+  FIndexingThread.Start([StartSearchBtn, SearchEdit, IndexingBitBtn], [ProgressBar1, ProgressLabel], []);
+
+end;
+
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
+  ProgressBar1.Parent := StatusBar1;
+  ProgressBar1.Width := 100;
+  ProgressBar1.Height := 17;
+  ProgressBar1.Left := StatusBar1.Width - ProgressBar1.Width - 20;
+  ProgressBar1.Top := 4;
+
+  ProgressLabel.Parent := StatusBar1;
+  ProgressLabel.Width := 110;
+  ProgressLabel.Height := 17;
+  ProgressLabel.Top := 5;
+  ProgressLabel.Left := ProgressBar1.Left - ProgressLabel.Width;
+  ProgressLabel.Caption := 'Indexing progress...';
+
   var start := GetTickCount;
   TFSC.Instance.DeserializeFrom(INDEX_FILENAME);
   TFSC.Instance.Modified := False;
@@ -593,8 +598,6 @@ begin
   FSearchResults := THArrayG<TSearchResultsItem>.Create(AppSettings.MaxFoundItems + 1);  // default capacity (+1 just in case)
   FSearchResultsCache := TSearchResultsCache.Create(AppSettings.MaxFoundItems + 1);
   FColumnMap := THash<Integer, Integer>.Create; // maps column IDs into default column indexes
-  //FProgressListener := TMainFormIndexingProgress.Create;
-  //TFSC.Get.AddProgressListener(FProgressListener);
 
   SearchByFileSizeClick(SearchByFileSize); // disable search controls by default
   SearchByModifiedDateClick(SearchByModifiedDate);
@@ -672,12 +675,12 @@ end;
 
 procedure TMainForm.GetSystemImageList;
 var
-  SysImageList: uint;      // temporary handle for System ImageLists
+  SysImageList: UInt64;      // temporary handle for System ImageLists
   ShFileInfo: TShFileInfo; // Shell File Info structure
 begin
   ListView1.LargeImages := TImageList.Create(self);
   FillChar(ShFileInfo, SizeOf(ShFileInfo), 0);
-  SysImageList := ShGetFileInfo('', 0, ShFileInfo, SizeOf(ShFileInfo), SHGFI_SYSICONINDEX or SHGFI_LARGEICON);
+  SysImageList := ShGetFileInfo(nil, 0, ShFileInfo, SizeOf(ShFileInfo), SHGFI_SYSICONINDEX or SHGFI_LARGEICON);
   if SysImageList <> 0 then
   begin
     ListView1.LargeImages.Handle := SysImageList;

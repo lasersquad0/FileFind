@@ -91,20 +91,21 @@ end;
  private
   class var GInstance: TFileNamesCache; // single instance of cache
  private // do not remove this 'private' keyword
-	FCacheData: THArrayG<TLevelType>;
+  FCacheData: THArrayG<TLevelType>;
   FProgressListeners: THArrayG<IIndexingProgress>;
   FModified: Boolean;
+  FDateTimeIndexFile: TDateTime; // datetime when loaded index file was modified, valid only after loading index file.
 
   procedure Serialize(OStream: TStream);
-	procedure Deserialize(IStream: TStream);
-	procedure SaveTo(const fileName: string);
-	function AddLevel(level: Cardinal): TLevelType;
-	function AddRootItem(var fileData: TWin32FindData):TCacheItemRef;
-	function AddItem(parent: Cardinal; var fileData:TWin32FindData; itemLevel: Cardinal; doSearch: Boolean = False): TCacheItemRef;
-	function AddFullPath(const path: string): TCacheItemRef;
-	function GetItem(itemRef: TCacheItemRef): TCacheItem; overload;
-	procedure FillFileData(const filePath: string; var fileData: TWin32FindData);
-	function ReadDirectory(const currDir: TFileName; parent: TCacheItemRef; ShowProgress: Boolean): uint64;
+  procedure Deserialize(IStream: TStream);
+  procedure SaveTo(const fileName: string);
+  function AddLevel(level: Cardinal): TLevelType;
+  function AddRootItem(var fileData: TWin32FindData):TCacheItemRef;
+  function AddItem(parent: Cardinal; var fileData:TWin32FindData; itemLevel: Cardinal; doSearch: Boolean = False): TCacheItemRef;
+  function AddFullPath(const path: string): TCacheItemRef;
+  function GetItem(itemRef: TCacheItemRef): TCacheItem; overload;
+  procedure FillFileData(const filePath: string; var fileData: TWin32FindData);
+  function ReadDirectory(const currDir: TFileName; parent: TCacheItemRef; ShowProgress: Boolean): uint64;
   procedure NotifyStart;
   procedure NotifyFinish;
   function NotifyProgress(prog: Integer): Boolean;
@@ -444,6 +445,7 @@ begin
 	FCacheData.SetCapacity(MAX_DIR_LEVELS);
   FProgressListeners := THArrayG<IIndexingProgress>.Create;
   FModified := False;
+  FDateTimeIndexFile := 0; // default value, because index file is not loaded yet
 end;
 
 destructor TFileNamesCache.Destroy;
@@ -560,6 +562,7 @@ procedure TFileNamesCache.Serialize(OStream: TStream);
 var
   i, j: Cardinal;
 begin
+    OStream.WriteData<TDateTime>(Now()); // write datetime of latest index file update
     OStream.WriteData<Cardinal>(FCacheData.Count);
     for i := 0 to FCacheData.Count - 1 do begin
       var lv := FCacheData[i];
@@ -578,26 +581,27 @@ var
   level: TLevelType;
   item: TCacheItem;
 begin
-		Clear;
+    Clear;
 
-		IStream.ReadData<Cardinal>(cacheSize);
+    IStream.ReadData<TDateTime>(FDateTimeIndexFile);
+    IStream.ReadData<Cardinal>(cacheSize);
     if cacheSize = 0 then exit;
 
-		FCacheData.SetCapacity(cacheSize);
+    FCacheData.SetCapacity(cacheSize);
 
-		for i := 0 to cacheSize - 1 do begin
-    	level := TLevelType.Create;
-			FCacheData.AddValue(level);
+    for i := 0 to cacheSize - 1 do begin
+      level := TLevelType.Create;
+      FCacheData.AddValue(level);
 
-			IStream.ReadData<Cardinal>(levelSize);
-			level.SetCapacity(levelSize);
+      IStream.ReadData<Cardinal>(levelSize);
+      level.SetCapacity(levelSize);
       Assert(levelSize > 0);
 
-			for j := 0 to levelSize - 1 do begin
-				item := TCacheItem.Create;
-				item.Deserialize(IStream);
-				level.AddValue(item);
-			end;
+      for j := 0 to levelSize - 1 do begin
+        item := TCacheItem.Create;
+        item.Deserialize(IStream);
+        level.AddValue(item);
+      end;
     end;
 
     FModified := True;
@@ -721,7 +725,6 @@ end;
 
 procedure TFileNamesCache.SerializeTo(const FileName: string);
 var
-//  fout: TFileStream;
   mout: TMemoryStream;
 begin
   mout := TMemoryStream.Create;
@@ -804,7 +807,7 @@ begin
   Clear; // remove previous data
   var startItemRef := AddFullPath(startDir);
 
-	Result := ReadDirectory(startDir, startItemRef, True);
+  Result := ReadDirectory(startDir, startItemRef, True);
 
   FModified := True;
 end;

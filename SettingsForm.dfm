@@ -12,9 +12,6 @@ object SettingsForm1: TSettingsForm1
   Font.Name = 'Segoe UI'
   Font.Style = []
   Position = poMainFormCenter
-  OnClose = FormClose
-  OnCreate = FormCreate
-  OnDestroy = FormDestroy
   OnShow = FormShow
   TextHeight = 15
   object Label5: TLabel

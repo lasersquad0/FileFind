@@ -9,6 +9,7 @@ uses
 type
   TIndexingLogForm = class(TForm)
     LogMemo: TMemo;
+    procedure LogMemoChange(Sender: TObject);
   private
     { Private declarations }
   public
@@ -21,5 +22,10 @@ var
 implementation
 
 {$R *.dfm}
+
+procedure TIndexingLogForm.LogMemoChange(Sender: TObject);
+begin
+  Caption := 'Indexing Error Log - ' + IntToStr(LogMemo.Lines.Count);
+end;
 
 end.

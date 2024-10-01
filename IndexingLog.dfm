@@ -19,5 +19,6 @@ object IndexingLogForm: TIndexingLogForm
     Align = alClient
     ScrollBars = ssVertical
     TabOrder = 0
+    OnChange = LogMemoChange
   end
 end
