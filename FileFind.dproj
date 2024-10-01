@@ -4,8 +4,8 @@
         <ProjectVersion>20.1</ProjectVersion>
         <FrameworkType>VCL</FrameworkType>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
-        <Platform Condition="'$(Platform)'==''">Win32</Platform>
+        <Config Condition="'$(Config)'==''">Release</Config>
+        <Platform Condition="'$(Platform)'==''">Win64</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
         <MainSource>FileFind.dpr</MainSource>
@@ -83,7 +83,9 @@
         <DCC_IMPLICIT_CONVERSION_LOSS>true</DCC_IMPLICIT_CONVERSION_LOSS>
         <DCC_UNSAFE_TYPE>true</DCC_UNSAFE_TYPE>
         <DCC_UNSAFE_CAST>true</DCC_UNSAFE_CAST>
-        <DCC_UnitSearchPath>C:\Users\Andrey\Documents\Embarcadero\Studio\Projects\DA\dynamicarrays\src\Delphi;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>..\DA\dynamicarrays\src\Delphi;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_DcpOutput>.\$(Platform)\$(Config)</DCC_DcpOutput>
+        <DCC_BplOutput>.\$(Platform)\$(Config)</DCC_BplOutput>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <DCC_UsePackage>vclwinx;DataSnapServer;fmx;emshosting;vclie;DbxCommonDriver;bindengine;VCLRESTComponents;DBXMSSQLDriver;FireDACCommonODBC;emsclient;FireDACCommonDriver;appanalytics;vclx;dbxcds;vcledge;bindcompvclwinx;emsedge;bindcompfmx;DBXFirebirdDriver;inetdb;FireDACSqliteDriver;DbxClientDriver;FireDACASADriver;vclactnband;fmxFireDAC;dbexpress;FireDACInfxDriver;DBXMySQLDriver;VclSmp;inet;DataSnapCommon;fmxase;vcltouch;DBXOdbcDriver;dbrtl;FireDACDBXDriver;FireDACOracleDriver;fmxdae;FireDACMSAccDriver;CustomIPTransport;FireDACMSSQLDriver;DataSnapIndy10ServerTransport;DataSnapConnectors;vcldsnap;DBXInterBaseDriver;FireDACMongoDBDriver;FireDACTDataDriver;vcldb;vclFireDAC;bindcomp;FireDACCommon;DataSnapServerMidas;FireDACODBCDriver;emsserverresource;RESTBackendComponents;bindcompdbx;rtl;FireDACMySQLDriver;FireDACADSDriver;RESTComponents;DBXSqliteDriver;vcl;dsnapcon;DataSnapClient;adortl;DataSnapProviderClient;DBXSybaseASEDriver;DBXDb2Driver;vclimg;DataSnapFireDAC;emsclientfiredac;FireDACPgDriver;FireDAC;inetdbxpress;FireDACDSDriver;xmlrtl;tethering;bindcompvcl;dsnap;CloudService;DBXSybaseASADriver;DBXOracleDriver;FireDACDb2Driver;DBXInformixDriver;fmxobj;bindcompvclsmp;DataSnapNativeClient;DatasnapConnectorsFreePascal;soaprtl;FireDACIBDriver;$(DCC_UsePackage)</DCC_UsePackage>
@@ -93,6 +95,10 @@
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <VerInfo_Locale>1033</VerInfo_Locale>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+        <Icon_MainIcon>$(ProjectName).Artwork\Windows\AppIcon.ico</Icon_MainIcon>
+        <Icns_MainIcns>$(ProjectName).Artwork\Windows\AppIcon.icns</Icns_MainIcns>
+        <UWP_DelphiLogo44>$(ProjectName).Artwork\Windows\Uwp_44.png</UWP_DelphiLogo44>
+        <UWP_DelphiLogo150>$(ProjectName).Artwork\Windows\Uwp_150.png</UWP_DelphiLogo150>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
         <DCC_UsePackage>vclwinx;DataSnapServer;fmx;emshosting;vclie;DbxCommonDriver;bindengine;VCLRESTComponents;DBXMSSQLDriver;FireDACCommonODBC;emsclient;FireDACCommonDriver;appanalytics;vclx;dbxcds;vcledge;bindcompvclwinx;emsedge;bindcompfmx;DBXFirebirdDriver;inetdb;FireDACSqliteDriver;DbxClientDriver;FireDACASADriver;vclactnband;fmxFireDAC;dbexpress;FireDACInfxDriver;DBXMySQLDriver;VclSmp;inet;DataSnapCommon;fmxase;vcltouch;DBXOdbcDriver;dbrtl;FireDACDBXDriver;FireDACOracleDriver;fmxdae;FireDACMSAccDriver;CustomIPTransport;FireDACMSSQLDriver;DataSnapIndy10ServerTransport;DataSnapConnectors;vcldsnap;DBXInterBaseDriver;FireDACMongoDBDriver;FireDACTDataDriver;vcldb;vclFireDAC;bindcomp;FireDACCommon;DataSnapServerMidas;FireDACODBCDriver;emsserverresource;RESTBackendComponents;bindcompdbx;rtl;FireDACMySQLDriver;FireDACADSDriver;RESTComponents;DBXSqliteDriver;vcl;dsnapcon;DataSnapClient;adortl;DataSnapProviderClient;DBXSybaseASEDriver;DBXDb2Driver;vclimg;DataSnapFireDAC;emsclientfiredac;FireDACPgDriver;FireDAC;inetdbxpress;FireDACDSDriver;xmlrtl;tethering;bindcompvcl;dsnap;CloudService;DBXSybaseASADriver;DBXOracleDriver;FireDACDb2Driver;DBXInformixDriver;fmxobj;bindcompvclsmp;DataSnapNativeClient;DatasnapConnectorsFreePascal;soaprtl;FireDACIBDriver;$(DCC_UsePackage)</DCC_UsePackage>
@@ -100,6 +106,10 @@
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <Manifest_File>$(BDS)\bin\default_app.manifest</Manifest_File>
+        <Icon_MainIcon>$(ProjectName).Artwork\Windows\AppIcon.ico</Icon_MainIcon>
+        <Icns_MainIcns>$(ProjectName).Artwork\Windows\AppIcon.icns</Icns_MainIcns>
+        <UWP_DelphiLogo44>$(ProjectName).Artwork\Windows\Uwp_44.png</UWP_DelphiLogo44>
+        <UWP_DelphiLogo150>$(ProjectName).Artwork\Windows\Uwp_150.png</UWP_DelphiLogo150>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
@@ -116,7 +126,6 @@
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
         <DCC_Define>PROFILE;$(DCC_Define)</DCC_Define>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <Icon_MainIcon>FileFind_Icon1.ico</Icon_MainIcon>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
@@ -130,10 +139,14 @@
     <PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <Icon_MainIcon>FileFind_Icon1.ico</Icon_MainIcon>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <UsePackages>true</UsePackages>
+        <Icon_MainIcon>$(ProjectName).Artwork\Windows\AppIcon.ico</Icon_MainIcon>
+        <UWP_DelphiLogo44>Images\logo64x64.png</UWP_DelphiLogo44>
+        <UWP_DelphiLogo150>Images\logo64x64.png</UWP_DelphiLogo150>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
@@ -186,12 +199,14 @@
                     <Source Name="MainSource">FileFind.dpr</Source>
                 </Source>
                 <Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\DataExplorerFireDACPlugin290.bpl">FireDAC Data Explorer Integration</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclFireDAC290.bpl">Embarcadero FireDAC Components</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dclBindCompFireDAC290.bpl">LiveBinding Expression Components FireDac</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dclFMXFireDAC290.bpl">Embarcadero FMX FireDAC Components</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dclVclFireDAC290.bpl">Embarcadero VCL FireDAC Components</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dclFireDACEnt290.bpl">Embarcadero FireDAC C\S Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\DataExplorerFireDACPlugin290.bpl">FireDAC Data Explorer Integration</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\Skia.Package.FMX.Designtime290.bpl">Skia4Delphi FMX Designtime package</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclsoapmidas290.bpl">Embarcadero SOAP Midas Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclsoapserver290.bpl">Embarcadero SOAP Server Components</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\bcboffice2k290.bpl">Embarcadero C++Builder Office 2000 Servers Package</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\bcbofficexp290.bpl">Embarcadero C++Builder Office XP Servers Package</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dcloffice2k290.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
@@ -199,6 +214,13 @@
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="4">
+                <DeployFile LocalName="Images\logo64x64.png" Configuration="Release" Class="UWP_DelphiLogo44">
+                    <Platform Name="Win64">
+                        <RemoteDir>Assets\</RemoteDir>
+                        <RemoteName>Logo44x44.png</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployFile LocalName="Win32\Debug\FileFind.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>FileFind.exe</RemoteName>

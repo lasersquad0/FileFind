@@ -3,12 +3,12 @@ unit About;
 interface
 
 uses WinApi.Windows, System.SysUtils, System.Classes, Vcl.Graphics,
-  Vcl.Forms, Vcl.Controls, Vcl.StdCtrls, Vcl.Buttons, Vcl.ExtCtrls;
+  Vcl.Forms, Vcl.Controls, Vcl.StdCtrls, Vcl.Buttons, Vcl.ExtCtrls, Vcl.Imaging.pngimage;
 
 type
   TAboutBox = class(TForm)
     Panel1: TPanel;
-    ProgramIcon: TImage;
+    AboutIcon: TImage;
     ProductName: TLabel;
     Version: TLabel;
     Copyright: TLabel;
