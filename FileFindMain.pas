@@ -162,7 +162,7 @@ const INDEX_FILENAME = 'FileFindIndex.idx';
 function TMainForm.OnSearchFile(FullPath: string; Item: TCacheItem): Boolean;
 var
  // i: Cardinal;
-	ResultsItem: TSearchResultsItem;
+  ResultsItem: TSearchResultsItem;
 begin
    Result := False;
    if FSearchResults.Count >= AppSettings.MaxFoundItems then exit;  // limit number of found items by value from settings
@@ -235,6 +235,7 @@ end;
 
 procedure TMainForm.Timer1Timer(Sender: TObject);
 begin
+  Timer1.Enabled := False;
   MakeSearch;
 end;
 
@@ -242,12 +243,14 @@ procedure TMainForm.MakeSearch();
 var
   Filter: TSearchFilter;
 begin
-  Timer1.Enabled := False;
   Screen.Cursor := crHourGlass;
 
- 	try
+  try
+    ListView1.Items.BeginUpdate;
+
     var start := GetTickCount;
 
+    ListView1.Items.Count := 0;
     ClearSearchResults;
     //ClearSorting; //FSortColumnID := -1;  // reset sorting column
     //FInvertSort := False;
@@ -268,7 +271,6 @@ begin
     DoSort;
 
     ListView1.Items.Count := Integer(FSearchResults.Count);
-    ListView1.Repaint;
 
     var stop := GetTickCount;
 
@@ -276,6 +278,8 @@ begin
     StatusBar1.Panels[1].Text := Format('Search time: %s', [MillisecToStr(stop - start)]);
   finally
     Screen.Cursor := crDefault;
+    ListView1.Items.EndUpdate;
+    ListView1.Repaint;
   end;
 end;
 
@@ -388,30 +392,30 @@ begin
     else if AppSettings.FoldersOnTop AND NOT item1.IsDirectory() AND item2.IsDirectory() then Result := 1
     else begin
       if AppSettings.CaseSensitiveSort then begin // case sensitive comparison
-				case ColIndex of
-					0: Result := AnsiCompareStr(item1.Caption, item2.Caption);
-					1: if item1.Size > item2.Size then Result := 1
-						 else if item1.Size < item2.Size then Result := -1;
-					2: Result := AnsiCompareStr(item1.FileType, item2.FileType);
-					3: Result := CompareFileTime(item1.Modified, item2.Modified);
-					4: Result := CompareFileTime(item1.LastAccess, item2.LastAccess);
-					5: Result := AnsiCompareStr(item1.Path, item2.Path);
-					// else Result := 'UNKNOWN';
-				end;
-			end else begin // case INsensitive comparison
-				case ColIndex of
-					0: Result := AnsiCompareText(item1.Caption, item2.Caption);
-					1: if item1.Size > item2.Size then Result := 1
-						else if item1.Size < item2.Size then Result := -1;
-					2: Result := AnsiCompareText(item1.FileType, item2.FileType);
-					3: Result := CompareFileTime(item1.Modified, item2.Modified);
-					4: Result := CompareFileTime(item1.LastAccess, item2.LastAccess);
-					5: Result := AnsiCompareText(item1.Path, item2.Path);
-					// else Result := 'UNKNOWN';
-				end;
-			end;
-		end;
- //	end;
+        case ColIndex of
+          0: Result := AnsiCompareStr(item1.Caption, item2.Caption);
+          1: if item1.Size > item2.Size then Result := 1
+               else if item1.Size < item2.Size then Result := -1;
+          2: Result := AnsiCompareStr(item1.FileType, item2.FileType);
+          3: Result := CompareFileTime(item1.Modified, item2.Modified);
+          4: Result := CompareFileTime(item1.LastAccess, item2.LastAccess);
+          5: Result := AnsiCompareStr(item1.Path, item2.Path);
+          // else Result := 'UNKNOWN';
+        end;
+      end else begin // case INsensitive comparison
+        case ColIndex of
+          0: Result := AnsiCompareText(item1.Caption, item2.Caption);
+          1: if item1.Size > item2.Size then Result := 1
+             else if item1.Size < item2.Size then Result := -1;
+          2: Result := AnsiCompareText(item1.FileType, item2.FileType);
+          3: Result := CompareFileTime(item1.Modified, item2.Modified);
+          4: Result := CompareFileTime(item1.LastAccess, item2.LastAccess);
+          5: Result := AnsiCompareText(item1.Path, item2.Path);
+          // else Result := 'UNKNOWN';
+        end;
+      end;
+    end;
+ //end;
 
   // invert Sort if requested
   if FInvertSort then Result := -Result;
@@ -441,10 +445,10 @@ begin
 
   var item := FSearchResults[Cardinal(ListView1.Selected.Index)];
   if item.IsDirectory
-  	then path := item.Path // this is directory
-  	else path := ExtractFilePath(item.Path); // this is file, open its directory
+    then path := item.Path // this is directory
+    else path := ExtractFilePath(item.Path); // this is file, open its directory
 
-	res := ShellExecute(Handle, 'explore', PChar(path), nil, nil, SW_SHOWNORMAL);
+  res := ShellExecute(Handle, 'explore', PChar(path), nil, nil, SW_SHOWNORMAL);
   if res < 33 then MessageDlg('ShellExecute error: ' + IntToStr(res), TMsgDlgType.mtError, [mbOK], 0);
 end;
 
@@ -463,7 +467,7 @@ end;
 
 procedure TMainForm.ClearSearchResults;
 var
-  i:Cardinal;
+  i: Cardinal;
 begin
   // return SearchResultItems back to cache without freing.
   for i := 1 to FSearchResults.Count do FSearchResultsCache.PutItem(FSearchResults[i - 1]);
@@ -515,6 +519,7 @@ begin
   if SettingsForm1.ShowModal = mrOk then begin
     ListView1.Items.Count := 0; // reset search results to zero
     ClearSearchResults;
+    IndexingBitBtn.Hint := 'Folders to  index: ' + AppSettings.FolderToIndex;
   end;
 
   UpdateStatusBar(SettingsForm1.ExecData.ExecTime, TFSC.Instance.Count, SettingsForm1.ExecData.DirSize);
@@ -594,6 +599,7 @@ begin
     UpdateStatusBar(GetTickCount - start, TFSC.Instance.Count, TFSC.Instance.GetItem(0, 0).FFullFileSize);
 
   AppSettings.Load; // loading settings from registry
+  IndexingBitBtn.Hint := 'Folders to  index: ' + AppSettings.FolderToIndex;
 
   FSearchResults := THArrayG<TSearchResultsItem>.Create(AppSettings.MaxFoundItems + 1);  // default capacity (+1 just in case)
   FSearchResultsCache := TSearchResultsCache.Create(AppSettings.MaxFoundItems + 1);

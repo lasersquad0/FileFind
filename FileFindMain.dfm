@@ -312,6 +312,8 @@ object MainForm: TMainForm
       Width = 97
       Height = 28
       Caption = 'Refresh Index...'
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 17
       OnClick = IndexingBitBtnClick
     end
