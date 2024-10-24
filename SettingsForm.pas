@@ -39,6 +39,8 @@ type
     procedure SelectFolderButtonClick(Sender: TObject);
     procedure BuildIndexButtonClick(Sender: TObject);
     procedure Button1Click(Sender: TObject);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure CancelButtonClick(Sender: TObject);
   private
     { Private declarations }
     FIndexingThread: TLoadFSThread;
@@ -107,6 +109,18 @@ begin
   IndexingLogForm.ShowModal;
 end;
 
+procedure TSettingsForm1.CancelButtonClick(Sender: TObject);
+begin
+  MessageDlg('Indexing is in progress. Are you sure you want to cancel indexing?', TMsgDlgType.mtConfirmation, [mbYes, mbNo], 0, mbYes);
+end;
+
+procedure TSettingsForm1.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  if Assigned(FProgressListener) then MessageDlg('Cannot close form because indexing is in progress.', TMsgDlgType.mtInformation, [mbOK], 0);
+
+  CanClose := NOT Assigned(FProgressListener);
+end;
+
 procedure TSettingsForm1.FormShow(Sender: TObject);
 begin
   AppSettings.Load; // load settings from registry each time settings form is shown
@@ -121,7 +135,7 @@ begin
     IndexInfoLabel.Visible := True;
     IndexInfoLabel.Caption := 'Index is not created, press Build Index button';
   end else begin
-	  IndexInfoLabel.Visible := False;
+    IndexInfoLabel.Visible := False;
   end;
   MaxNumberInfoLabel.Caption := Format('Enter value between %u and %u', [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
 

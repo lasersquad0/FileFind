@@ -12,6 +12,7 @@ object SettingsForm1: TSettingsForm1
   Font.Name = 'Segoe UI'
   Font.Style = []
   Position = poMainFormCenter
+  OnCloseQuery = FormCloseQuery
   OnShow = FormShow
   TextHeight = 15
   object Label5: TLabel
@@ -77,7 +78,7 @@ object SettingsForm1: TSettingsForm1
   object Label3: TLabel
     Left = 13
     Top = 272
-    Width = 79
+    Width = 78
     Height = 15
     Caption = 'Folder to index'
   end
@@ -95,7 +96,7 @@ object SettingsForm1: TSettingsForm1
   object IndexingProgressLabel: TLabel
     Left = 107
     Top = 328
-    Width = 103
+    Width = 102
     Height = 15
     Caption = 'Indexing progress...'
     Visible = False
@@ -103,14 +104,14 @@ object SettingsForm1: TSettingsForm1
   object Label1: TLabel
     Left = 32
     Top = 85
-    Width = 149
+    Width = 148
     Height = 15
     Caption = 'Max number of found items'
   end
   object IndexInfoLabel: TLabel
     Left = 152
     Top = 307
-    Width = 237
+    Width = 235
     Height = 15
     Caption = 'Index is not created, press Build Index button'
   end
@@ -203,6 +204,7 @@ object SettingsForm1: TSettingsForm1
     Caption = 'Cancel'
     ModalResult = 2
     TabOrder = 8
+    OnClick = CancelButtonClick
   end
   object Button1: TButton
     Left = 486
