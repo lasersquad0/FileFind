@@ -7,7 +7,7 @@ uses
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Buttons, Vcl.ComCtrls, Vcl.ExtCtrls, Vcl.WinXCtrls,
   System.Generics.Collections,
   FileNamesCache, LoadFSThread, DynamicArray, Hash, Vcl.Menus, Vcl.NumberBox,
-  System.ImageList, Vcl.ImgList, Vcl.WinXPickers, Vcl.Mask;
+  System.ImageList, Vcl.ImgList, Vcl.WinXPickers, Vcl.Mask, Vcl.Imaging.pngimage;
 
 type
   TSearchResultsItem = class
@@ -40,11 +40,13 @@ type
  TMainFormIndexingProgress = class(IIndexingProgress)
  private
    FMaxValue: Integer;
+   FThread: TLoadFSThread;
  public
+   constructor Create(Thread: TLoadFSThread);
    procedure Start(P100: Integer); override; // define Max value for progress. -1 means that value for 100% progress is unknown
    procedure Finish; override;
-   function Progress(Prgress: Integer): Boolean; override; // allows to stop process if indexing takes too long time
-
+   function  Progress(Prgress: Integer): Boolean; override; // allows to stop process if indexing takes too long time
+   procedure ReportError(ErrorStr: string); override;
  end;
 
 
@@ -87,6 +89,11 @@ type
     ProgressBar1: TProgressBar;
     ProgressLabel: TLabel;
     IndexingBitBtn: TBitBtn;
+    AlertPanel1: TPanel;
+    Button1: TButton;
+    Timer2: TTimer;
+    Image1: TImage;
+    CancelBtn: TSpeedButton;
    // procedure BuildIndexBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -107,6 +114,10 @@ type
     procedure About1Click(Sender: TObject);
     procedure Statistics1Click(Sender: TObject);
     procedure IndexingBitBtnClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure Timer2Timer(Sender: TObject);
+    procedure CancelBtnClick(Sender: TObject);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
   private
     { Private declarations }
     //FIndexingThread: TLoadFSThread;
@@ -118,7 +129,9 @@ type
     FProgressBar: TProgressBar;
     FProgressLabel: TLabel;
     FIndexingThread: TLoadFSThread;
-    FProgressListener: TIndexingProgress;
+    FProgressListener: TMainFormIndexingProgress;
+    FCancel: Boolean;
+
     procedure OnThreadTerminate(Sender: TObject);
     //procedure ReCreateIndexingThread;
     class function GetFileShellInfo(FileName: TFileName; Item: TCacheItem): Boolean;
@@ -137,7 +150,7 @@ type
     procedure MakeSearch;
 
   public
-    { Public declarations }
+    property Cancel: Boolean read FCancel;
   end;
 
 var
@@ -146,7 +159,7 @@ var
 implementation
 
 uses
-  WinAPI.ShellAPI, WinAPI.CommCtrl, Math,
+  WinAPI.ShellAPI, WinAPI.CommCtrl, Math, DateUtils,
   Settings, SettingsForm, IndexingLog, About, Functions, StatisticForm;
 
 {$R *.dfm}
@@ -237,6 +250,12 @@ procedure TMainForm.Timer1Timer(Sender: TObject);
 begin
   Timer1.Enabled := False;
   MakeSearch;
+end;
+
+procedure TMainForm.Timer2Timer(Sender: TObject);
+begin
+  // after 14 days we ask to refresh index (if not done)
+  AlertPanel1.Visible := DaysBetween(Now(), TFSC.Instance.IndexFileDate) > 14;
 end;
 
 procedure TMainForm.MakeSearch();
@@ -461,8 +480,15 @@ begin
   ClearSearchResults;
 
   Settings1.Enabled := True; // main menu item
-
+  AlertPanel1.Visible := False; // hide alert panel if it was visible
   UpdateStatusBar(FIndexingThread.ExecData.ExecTime, TFSC.Instance.Count, FIndexingThread.ExecData.DirSize {TFSC.Instance.GetItem(0, 0).FFullFileSize});
+end;
+
+procedure TMainForm.CancelBtnClick(Sender: TObject);
+begin
+  FCancel := mrYes = MessageDlg('Are you sure you want to cancel indexing?', TMsgDlgType.mtConfirmation, [mbYes, mbNo], 0, mbYes);
+ // FCancel := True;
+// TInterlocked
 end;
 
 procedure TMainForm.ClearSearchResults;
@@ -505,7 +531,7 @@ begin
 
   if Length(SearchEdit.Text) < 3 then exit; // search only when 3 and more symbols entered
 
- 	Timer1.Enabled := True;  // restart timer
+  Timer1.Enabled := True;  // restart timer
 end;
 
 procedure TMainForm.SearchEditKeyPress(Sender: TObject; var Key: Char);
@@ -561,10 +587,16 @@ begin
   end;
 end;
 
+procedure TMainForm.Button1Click(Sender: TObject);
+begin
+  AlertPanel1.Visible := NOT AlertPanel1.Visible;
+end;
+
 procedure TMainForm.IndexingBitBtnClick(Sender: TObject);
 begin
+  FCancel := False;
   FIndexingThread := TLoadFSThread.Create(True); // create suspended
-  FProgressListener := TIndexingProgress.Create(FIndexingThread, IndexingLogForm.LogMemo.Lines);
+  FProgressListener := TMainFormIndexingProgress.Create(FIndexingThread); // TIndexingProgress.Create(FIndexingThread, IndexingLogForm.LogMemo.Lines);
   TFSC.Instance.AddProgressListener(FProgressListener);
 
   FIndexingThread.OnTerminate := OnThreadTerminate;
@@ -573,8 +605,15 @@ begin
   FIndexingThread.StartDir := AppSettings.FolderToIndex;
 
   Settings1.Enabled := False;  // main menu item
-  FIndexingThread.Start([StartSearchBtn, SearchEdit, IndexingBitBtn], [ProgressBar1, ProgressLabel], []);
+  FIndexingThread.Start([StartSearchBtn, SearchEdit, IndexingBitBtn], [CancelBtn, ProgressBar1, ProgressLabel], []);
 
+end;
+
+procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  if Assigned(FProgressListener) then MessageDlg('Cannot close form because indexing is in progress.', TMsgDlgType.mtInformation, [mbOK], 0);
+  
+  CanClose := NOT Assigned(FProgressListener);
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
@@ -582,8 +621,12 @@ begin
   ProgressBar1.Parent := StatusBar1;
   ProgressBar1.Width := 100;
   ProgressBar1.Height := 17;
-  ProgressBar1.Left := StatusBar1.Width - ProgressBar1.Width - 20;
+  ProgressBar1.Left := StatusBar1.Width - ProgressBar1.Width - 20 - 60; // 60 for cancel button
   ProgressBar1.Top := 4;
+
+  CancelBtn.Parent := StatusBar1;
+  CancelBtn.Left := StatusBar1.Width - CancelBtn.Width - 15;
+  CancelBtn.Top := 2;
 
   ProgressLabel.Parent := StatusBar1;
   ProgressLabel.Width := 110;
@@ -622,32 +665,28 @@ begin
   Col := ListView1.Columns.Add;
   FColumnMap.SetValue(Col.ID, 2);
   Col.Caption := 'Type';
-	Col.Width := 100;
+  Col.Width := 100;
   Col := ListView1.Columns.Add;
   FColumnMap.SetValue(Col.ID, 3);
   Col.Caption := 'Modified';
-	Col.Width := 150;
+  Col.Width := 150;
   Col := ListView1.Columns.Add;
   FColumnMap.SetValue(Col.ID, 4);
   Col.Caption := 'Last Access';
-	Col.Width := 150;
+  Col.Width := 150;
   Col := ListView1.Columns.Add;
   FColumnMap.SetValue(Col.ID, 5);
   Col.Caption := 'Path';
-	Col.Width := 450;
+  Col.Width := 450;
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
-  //FreeAndNil(FIndexingThread);
-  //FreeAndNil(FCache);
-
   // auto save index data only if data was modified (e.g. re-loaded from file system)
   if TFSC.Instance.Modified then
     TFSC.Instance.SerializeTo(INDEX_FILENAME);
 
   ClearSearchResults;
- // TFSC.Get.RemoveProgressListener(FProgressListener);
   FreeAndNil(FSearchResults);
   FreeAndNil(FSearchResultsCache);
   FreeAndNil(FColumnMap);
@@ -720,17 +759,35 @@ end;
 
 { TMainFormIndexingProgress }
 
+constructor TMainFormIndexingProgress.Create(Thread: TLoadFSThread);
+begin
+  inherited Create;
+  FThread := Thread;
+end;
+
 procedure TMainFormIndexingProgress.Finish;
 begin
-//  MainForm.StatusBar1.Panels[2].Text := Format('FS data load time: %s', [MillisecToStr(SettingsForm1.ExecData.ExecTime)]);
-//  MainForm.StatusBar1.Panels[3].Text := Format('Items loaded: %s', [ThousandSep(TFSC.Get.Count)]);
-//  MainForm.StatusBar1.Panels[4].Text := Format('Folder size: %s', [ThousandSep(SettingsForm1.ExecData.DirSize)]);
+
 end;
 
 function TMainFormIndexingProgress.Progress(Prgress: Integer): Boolean;
+var
+  b: Boolean;
 begin
-  // do nothing
-  Result := True;
+   TLoadFSThread.Synchronize(FThread,
+   procedure
+   begin
+     // logrithmic progress since we do not know total progress value
+      MainForm.ProgressBar1.Position := MainForm.ProgressBar1.Position + (MainForm.ProgressBar1.Max - MainForm.ProgressBar1.Position) div 20;
+      b := NOT MainForm.Cancel;
+   end
+   );
+  Result := b;
+end;
+
+procedure TMainFormIndexingProgress.ReportError(ErrorStr: string);
+begin
+
 end;
 
 procedure TMainFormIndexingProgress.Start(P100: Integer);
