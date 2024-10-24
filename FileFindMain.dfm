@@ -49,16 +49,248 @@ object MainForm: TMainForm
     000000000000000000000000000000000000000000000000000000000000}
   Menu = MainMenu1
   Position = poScreenCenter
+  OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   TextHeight = 15
   object ProgressLabel: TLabel
-    Left = 832
+    Left = 811
     Top = 480
     Width = 73
     Height = 15
     Caption = 'ProgressLabel'
     Visible = False
+  end
+  object CancelBtn: TSpeedButton
+    Left = 1040
+    Top = 480
+    Width = 60
+    Height = 19
+    Caption = 'Cancel'
+    Visible = False
+    OnClick = CancelBtnClick
+  end
+  object SearchPanel: TPanel
+    Left = 0
+    Top = 28
+    Width = 1117
+    Height = 45
+    Align = alTop
+    BevelOuter = bvNone
+    TabOrder = 2
+    DesignSize = (
+      1117
+      45)
+    object AdvancedSearchButton: TSpeedButton
+      Left = 991
+      Top = 8
+      Width = 121
+      Height = 27
+      AllowAllUp = True
+      Anchors = [akTop, akRight]
+      GroupIndex = 1
+      Caption = 'Advanced Search'
+      ImageIndex = 0
+      Images = ImageList1
+      Flat = True
+      Layout = blGlyphRight
+      OnClick = AdvancedSearchButtonClick
+    end
+    object LabelAnd: TLabel
+      Left = 270
+      Top = 81
+      Width = 20
+      Height = 15
+      Caption = 'and'
+    end
+    object SearchEdit: TLabeledEdit
+      Left = 80
+      Top = 12
+      Width = 389
+      Height = 23
+      Hint = 'Enter your search here'
+      EditLabel.Width = 64
+      EditLabel.Height = 23
+      EditLabel.Caption = 'Search here '
+      LabelPosition = lpLeft
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 0
+      Text = ''
+      OnChange = SearchEditChange
+      OnKeyPress = SearchEditKeyPress
+    end
+    object SearchByFileSize: TCheckBox
+      Left = 11
+      Top = 47
+      Width = 66
+      Height = 17
+      Caption = 'File Size'
+      TabOrder = 1
+      OnClick = SearchByFileSizeClick
+    end
+    object FileSizeOp: TComboBox
+      Left = 114
+      Top = 44
+      Width = 49
+      Height = 23
+      Style = csDropDownList
+      ItemIndex = 0
+      TabOrder = 2
+      Text = '='
+      Items.Strings = (
+        '='
+        '>'
+        '<')
+    end
+    object SearchFileSize: TNumberBox
+      Left = 169
+      Top = 44
+      Width = 82
+      Height = 23
+      TabOrder = 3
+    end
+    object FileSizeFactor: TComboBox
+      Left = 257
+      Top = 44
+      Width = 83
+      Height = 23
+      Style = csDropDownList
+      ItemIndex = 1
+      TabOrder = 4
+      Text = 'Kilobytes'
+      Items.Strings = (
+        'Bytes'
+        'Kilobytes'
+        'Megabytes'
+        'Gigabytes')
+    end
+    object SearchByModifiedDate: TCheckBox
+      Left = 11
+      Top = 80
+      Width = 97
+      Height = 17
+      Caption = 'Date between'
+      TabOrder = 5
+      OnClick = SearchByModifiedDateClick
+    end
+    object DateTimePickerFrom: TDateTimePicker
+      Left = 114
+      Top = 76
+      Width = 150
+      Height = 23
+      Date = 45491.000000000000000000
+      Time = 45491.000000000000000000
+      Checked = False
+      Kind = dtkDateTime
+      TabOrder = 6
+    end
+    object DateTimePickerTo: TDateTimePicker
+      Left = 296
+      Top = 76
+      Width = 150
+      Height = 23
+      Date = 45491.000000000000000000
+      Time = 45491.000000000000000000
+      Kind = dtkDateTime
+      TabOrder = 7
+    end
+    object SearchByAttributes: TCheckBox
+      Left = 11
+      Top = 112
+      Width = 78
+      Height = 17
+      Caption = 'Attributes'
+      TabOrder = 8
+      OnClick = SearchByAttributesClick
+    end
+    object AttrArchive: TCheckBox
+      Left = 624
+      Top = 112
+      Width = 65
+      Height = 17
+      Caption = 'Archive'
+      TabOrder = 9
+    end
+    object AttrHidden: TCheckBox
+      Left = 196
+      Top = 112
+      Width = 74
+      Height = 17
+      Caption = 'Hidden'
+      TabOrder = 10
+    end
+    object AttrDirectory: TCheckBox
+      Left = 114
+      Top = 112
+      Width = 81
+      Height = 17
+      Caption = 'Directory'
+      TabOrder = 11
+    end
+    object AttrEncrypted: TCheckBox
+      Left = 533
+      Top = 112
+      Width = 85
+      Height = 17
+      Caption = 'Encrypted'
+      TabOrder = 12
+    end
+    object AttrCompressed: TCheckBox
+      Left = 431
+      Top = 112
+      Width = 85
+      Height = 17
+      Caption = 'Compressed'
+      TabOrder = 13
+    end
+    object AttrReadonly: TCheckBox
+      Left = 347
+      Top = 112
+      Width = 80
+      Height = 17
+      Caption = 'Readonly'
+      TabOrder = 14
+    end
+    object AttrSystem: TCheckBox
+      Left = 273
+      Top = 112
+      Width = 59
+      Height = 17
+      Caption = 'System'
+      TabOrder = 15
+    end
+    object StartSearchBtn: TBitBtn
+      Left = 475
+      Top = 7
+      Width = 75
+      Height = 28
+      Caption = 'Search'
+      ImageIndex = 2
+      Images = ImageList1
+      TabOrder = 16
+      OnClick = StartSearchBtnClick
+    end
+    object IndexingBitBtn: TBitBtn
+      Left = 568
+      Top = 7
+      Width = 97
+      Height = 28
+      Caption = 'Refresh Index...'
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 17
+      OnClick = IndexingBitBtnClick
+    end
+    object Button1: TButton
+      Left = 792
+      Top = 8
+      Width = 75
+      Height = 25
+      Caption = 'Button1'
+      TabOrder = 18
+      OnClick = Button1Click
+    end
   end
   object StatusBar1: TStatusBar
     Left = 0
@@ -89,13 +321,14 @@ object MainForm: TMainForm
   end
   object ListView1: TListView
     Left = 0
-    Top = 41
+    Top = 73
     Width = 1117
-    Height = 431
+    Height = 399
     Align = alClient
     Columns = <>
     FullDrag = True
     OwnerData = True
+    ReadOnly = True
     RowSelect = True
     PopupMenu = PopupMenu1
     SortType = stBoth
@@ -105,226 +338,85 @@ object MainForm: TMainForm
     OnData = ListView1Data
     OnDblClick = ListView1DblClick
   end
-  object SearchPanel: TPanel
-    Left = 0
-    Top = 0
-    Width = 1117
-    Height = 41
-    Align = alTop
-    BevelOuter = bvNone
-    TabOrder = 2
-    DesignSize = (
-      1117
-      41)
-    object AdvancedSearchButton: TSpeedButton
-      Left = 991
-      Top = 8
-      Width = 121
-      Height = 27
-      AllowAllUp = True
-      Anchors = [akTop, akRight]
-      GroupIndex = 1
-      Caption = 'Advanced Search'
-      ImageIndex = 0
-      Images = ImageList1
-      Flat = True
-      Layout = blGlyphRight
-      OnClick = AdvancedSearchButtonClick
-    end
-    object LabelAnd: TLabel
-      Left = 270
-      Top = 78
-      Width = 20
-      Height = 15
-      Caption = 'and'
-    end
-    object SearchEdit: TLabeledEdit
-      Left = 80
-      Top = 10
-      Width = 389
-      Height = 23
-      Hint = 'Enter your search here'
-      EditLabel.Width = 64
-      EditLabel.Height = 23
-      EditLabel.Caption = 'Search here '
-      LabelPosition = lpLeft
-      ParentShowHint = False
-      ShowHint = True
-      TabOrder = 0
-      Text = ''
-      OnChange = SearchEditChange
-      OnKeyPress = SearchEditKeyPress
-    end
-    object SearchByFileSize: TCheckBox
-      Left = 11
-      Top = 45
-      Width = 66
-      Height = 17
-      Caption = 'File Size'
-      TabOrder = 1
-      OnClick = SearchByFileSizeClick
-    end
-    object FileSizeOp: TComboBox
-      Left = 114
-      Top = 42
-      Width = 49
-      Height = 23
-      Style = csDropDownList
-      ItemIndex = 0
-      TabOrder = 2
-      Text = '='
-      Items.Strings = (
-        '='
-        '>'
-        '<')
-    end
-    object SearchFileSize: TNumberBox
-      Left = 169
-      Top = 42
-      Width = 82
-      Height = 23
-      TabOrder = 3
-    end
-    object FileSizeFactor: TComboBox
-      Left = 257
-      Top = 42
-      Width = 83
-      Height = 23
-      Style = csDropDownList
-      ItemIndex = 1
-      TabOrder = 4
-      Text = 'Kilobytes'
-      Items.Strings = (
-        'Bytes'
-        'Kilobytes'
-        'Megabytes'
-        'Gigabytes')
-    end
-    object SearchByModifiedDate: TCheckBox
-      Left = 11
-      Top = 78
-      Width = 97
-      Height = 17
-      Caption = 'Date between'
-      TabOrder = 5
-      OnClick = SearchByModifiedDateClick
-    end
-    object DateTimePickerFrom: TDateTimePicker
-      Left = 114
-      Top = 74
-      Width = 150
-      Height = 23
-      Date = 45491.000000000000000000
-      Time = 45491.000000000000000000
-      Checked = False
-      Kind = dtkDateTime
-      TabOrder = 6
-    end
-    object DateTimePickerTo: TDateTimePicker
-      Left = 296
-      Top = 74
-      Width = 150
-      Height = 23
-      Date = 45491.000000000000000000
-      Time = 45491.000000000000000000
-      Kind = dtkDateTime
-      TabOrder = 7
-    end
-    object SearchByAttributes: TCheckBox
-      Left = 11
-      Top = 110
-      Width = 78
-      Height = 17
-      Caption = 'Attributes'
-      TabOrder = 8
-      OnClick = SearchByAttributesClick
-    end
-    object AttrArchive: TCheckBox
-      Left = 624
-      Top = 110
-      Width = 65
-      Height = 17
-      Caption = 'Archive'
-      TabOrder = 9
-    end
-    object AttrHidden: TCheckBox
-      Left = 196
-      Top = 110
-      Width = 74
-      Height = 17
-      Caption = 'Hidden'
-      TabOrder = 10
-    end
-    object AttrDirectory: TCheckBox
-      Left = 114
-      Top = 110
-      Width = 81
-      Height = 17
-      Caption = 'Directory'
-      TabOrder = 11
-    end
-    object AttrEncrypted: TCheckBox
-      Left = 533
-      Top = 110
-      Width = 85
-      Height = 17
-      Caption = 'Encrypted'
-      TabOrder = 12
-    end
-    object AttrCompressed: TCheckBox
-      Left = 431
-      Top = 110
-      Width = 85
-      Height = 17
-      Caption = 'Compressed'
-      TabOrder = 13
-    end
-    object AttrReadonly: TCheckBox
-      Left = 347
-      Top = 110
-      Width = 80
-      Height = 17
-      Caption = 'Readonly'
-      TabOrder = 14
-    end
-    object AttrSystem: TCheckBox
-      Left = 273
-      Top = 110
-      Width = 59
-      Height = 17
-      Caption = 'System'
-      TabOrder = 15
-    end
-    object StartSearchBtn: TBitBtn
-      Left = 475
-      Top = 8
-      Width = 75
-      Height = 28
-      Caption = 'Search'
-      ImageIndex = 2
-      Images = ImageList1
-      TabOrder = 16
-      OnClick = StartSearchBtnClick
-    end
-    object IndexingBitBtn: TBitBtn
-      Left = 568
-      Top = 8
-      Width = 97
-      Height = 28
-      Caption = 'Refresh Index...'
-      ParentShowHint = False
-      ShowHint = True
-      TabOrder = 17
-      OnClick = IndexingBitBtnClick
-    end
-  end
   object ProgressBar1: TProgressBar
-    Left = 948
-    Top = 477
+    Left = 890
+    Top = 478
     Width = 150
     Height = 17
     TabOrder = 3
     Visible = False
+  end
+  object AlertPanel1: TPanel
+    Left = 0
+    Top = 0
+    Width = 1117
+    Height = 28
+    Align = alTop
+    Alignment = taLeftJustify
+    BevelKind = bkSoft
+    BevelOuter = bvNone
+    Caption = 
+      '         Its time to refresh search index. Press '#39'Refresh Index'#39 +
+      ' button and wait to finish.'
+    Color = clInfoBk
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -12
+    Font.Name = 'Segoe UI'
+    Font.Style = [fsBold]
+    ParentBackground = False
+    ParentFont = False
+    TabOrder = 4
+    Visible = False
+    object Image1: TImage
+      Left = 5
+      Top = 3
+      Width = 18
+      Height = 18
+      Picture.Data = {
+        0954506E67496D61676589504E470D0A1A0A0000000D49484452000000100000
+        001008060000001FF3FF610000000373424954080808DBE14FE0000000017352
+        474200AECE1CE90000000467414D410000B18F0BFC6105000000097048597300
+        0018C5000018C5015BC99AC90000001974455874536F66747761726500777777
+        2E696E6B73636170652E6F72679BEE3C1A0000018769545874584D4C3A636F6D
+        2E61646F62652E786D7000000000003C3F787061636B657420626567696E3D27
+        EFBBBF272069643D2757354D304D7043656869487A7265537A4E54637A6B6339
+        64273F3E0D0A3C783A786D706D65746120786D6C6E733A783D2261646F62653A
+        6E733A6D6574612F223E3C7264663A52444620786D6C6E733A7264663D226874
+        74703A2F2F7777772E77332E6F72672F313939392F30322F32322D7264662D73
+        796E7461782D6E7323223E3C7264663A4465736372697074696F6E207264663A
+        61626F75743D22757569643A66616635626464352D626133642D313164612D61
+        6433312D6433336437353138326631622220786D6C6E733A746966663D226874
+        74703A2F2F6E732E61646F62652E636F6D2F746966662F312E302F223E3C7469
+        66663A4F7269656E746174696F6E3E313C2F746966663A4F7269656E74617469
+        6F6E3E3C2F7264663A4465736372697074696F6E3E3C2F7264663A5244463E3C
+        2F783A786D706D6574613E0D0A3C3F787061636B657420656E643D2777273F3E
+        2C94980B000002E64944415478DA6D534B4C1351147D6FA633EDD069C50AD400
+        A585227E131371EBC24FB4F60344DB290962FC810B4D400D3BDD98B8504230C8
+        4A254445535A1230B4A48926C6C4A5899228262A94168416D0B6B49DFEE7392D
+        B60EC6B77AB99F73CF3BEF1E08FE391EAB7E3705F1F30840AB94C06B00802096
+        C9F82042A31CCA0E578E4E7D11D6C3C2E57D632351B5A3F281B2447279359104
+        A92CE7E6109ACEE53008F71318A6ABA0C4C01F4F3C7A9799BDCA3866524500D4
+        D94904227EB7922E39E28FC6FA5904EE6A6D9301E1A4D956939286B0A7822EB9
+        B1128DBF59CD90BA7D0E472A0FE061F40F355BE41D9E50E45C9DC3F5A4D0B4D0
+        AA3F03000E54B6C991426CDEAC6F576F953F9D0F47866AEDAE4BD06B6DD1AAA4
+        C4776F941DE0035D452D9A9B4BC5141784108214CC2AD42F5CC1426ECEA2EFAF
+        95D1DD8BF15803F432865E2941748753D132ADE375B850B4D872741B474A7C39
+        097016AAAA9CCEB542EE6B9B4EAE40E2B558363B900358CA02305D67779D14BE
+        D9673EAE0018E9431061789250554F4CFC14E679162E1CC30EC0F5F65328944C
+        DEA9B1BB6E0A0B667806F41F062CCF60978041EE7819E36D8598BC05233C40F0
+        3F00415E830485780D0090F01A940A34D804E0B51A9711421F3476975E5880F8
+        2F5E608CCDB9BBCAEE7C09F321C1C231062706C041E86D35F5D238D68540B2AC
+        ECB97B7DF314C331C061503D36F94A185F6D6A926132B8164B6706A1CF6CAAAF
+        9653DF7C91E87D8D63EADA5F11CD94844CB3FC1682643823E57F812DEE0263E8
+        53D3D2EB3F62919DF9459A630C8F6BE5B28BDE50F4AC66CCF9ACC8C06AB4F21E
+        80BC3E3641739B5A2E1BF18423C3FCD25DC8037CB258C87251CA5D21A50EFB63
+        6C5F2C81DFAB1F1F5F11D25E32EBCA3111D1A3A4A53D01967DBBFE2B75A2C1ED
+        4E16CD64B7EC210F89B4834A8AEA08C41320CD71531C0736CC84819C99F4DB29
+        09586613431F43A92B7ABE79931B8BB44F9BF69224E4ED8C185A24526DD839BD
+        8001684F2034ACB64D7E16D6FF06E32540AD72C1D59A0000000049454E44AE42
+        6082}
+    end
   end
   object Timer1: TTimer
     Enabled = False
@@ -343,7 +435,7 @@ object MainForm: TMainForm
   end
   object MainMenu1: TMainMenu
     Left = 160
-    Top = 184
+    Top = 208
     object File1: TMenuItem
       Caption = 'File'
       object Statistics1: TMenuItem
@@ -372,8 +464,8 @@ object MainForm: TMainForm
   object ImageList1: TImageList
     BlendColor = clWindow
     BkColor = clWhite
-    Left = 360
-    Top = 168
+    Left = 376
+    Top = 208
     Bitmap = {
       494C01010A001800040010001000FFFFFF00FF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000003000000001002000000000000030
@@ -779,11 +871,17 @@ object MainForm: TMainForm
       000000000000}
   end
   object PopupMenu1: TPopupMenu
-    Left = 320
-    Top = 104
+    Left = 280
+    Top = 232
     object Openfilefolder1: TMenuItem
       Caption = 'Open file folder...'
       OnClick = Openfilefolder1Click
     end
+  end
+  object Timer2: TTimer
+    Interval = 60000
+    OnTimer = Timer2Timer
+    Left = 720
+    Top = 256
   end
 end
