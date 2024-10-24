@@ -45,6 +45,7 @@ type
 
 implementation
 
+uses SysUtils, Vcl.Dialogs;
 
 {
   Important: Methods and properties of objects in visual components can only be
@@ -101,10 +102,17 @@ end;
 procedure TLoadFSThread.Execute;
 begin
    var start := GetTickCount;
-   ExecData.DirSize := TFSC.Instance.ReadFileSystem(StartDir);
-   var stop := GetTickCount;
-   ExecData.ExecTime := stop - start;
-   ExecData.StartDir := StartDir;
+   try
+     ExecData.DirSize := TFSC.Instance.ReadFileSystem(StartDir);
+   except
+     on E: EOperationCancelled do begin
+       Synchronize(procedure  begin MessageDlg('User has cancelled file indexing operation.', mtInformation, [mbOK], 0) end);
+     end;
+  end;
+
+  var stop := GetTickCount;
+  ExecData.ExecTime := stop - start;
+  ExecData.StartDir := StartDir;
 end;
 
 procedure TLoadFSThread.Start(DisableCtrls, ShowCtrls, HideCtrls: TArray<TControl>);
