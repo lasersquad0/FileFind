@@ -6,7 +6,7 @@ type
 
   TSettings = class
   public
-		CaseSensitiveSearch: Boolean;
+    CaseSensitiveSearch: Boolean;
     CaseSensitiveSort: Boolean;
     FoldersOnTop: Boolean;
     MaxFoundItems: Cardinal;
@@ -34,7 +34,7 @@ begin
   inherited;
 
   // default settings values
-	CaseSensitiveSearch := False;
+  CaseSensitiveSearch := False;
   CaseSensitiveSort := False;
   FoldersOnTop := False;
   MaxFoundItems := 20000;
@@ -66,12 +66,12 @@ var
 begin
    reg := TRegistry.Create;
    try
-  	 reg.RootKey := HKEY_CURRENT_USER;
-   	 reg.OpenKey(APPKEY, True);
-   	 reg.WriteBool('CaseSensitiveSearch', CaseSensitiveSearch);
-   	 reg.WriteBool('CaseSensitiveSort', CaseSensitiveSort);
-   	 reg.WriteBool('FoldersOnTop', FoldersOnTop);
-   	 reg.WriteInteger('MaxFoundItems', Integer(MaxFoundItems));
+     reg.RootKey := HKEY_CURRENT_USER;
+     reg.OpenKey(APPKEY, True);
+     reg.WriteBool('CaseSensitiveSearch', CaseSensitiveSearch);
+     reg.WriteBool('CaseSensitiveSort', CaseSensitiveSort);
+     reg.WriteBool('FoldersOnTop', FoldersOnTop);
+     reg.WriteInteger('MaxFoundItems', Integer(MaxFoundItems));
      reg.WriteString('FolderToIndex', FolderToIndex);
    finally
      reg.Free;
