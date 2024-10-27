@@ -1,6 +1,6 @@
 
 FileFind application for fast and easy file system search 
-==========================================
+=========================================================
 
 CONTACTS
 ------------
@@ -13,7 +13,8 @@ Any questions or suggestions are welcome to this email:
 TO DO
 --------
 
-- Add reminder if Index is outdated
-- Add notification to select folder if user presses Build Index on main form during first run
+- Add possibility to select a subfolder to make search to. Subfolder inside of existing index top folder.
+- Add reminder if Index is outdated - DONE (14 days reminder)
+- Add notification to select folder if user presses Build Index on main form during first run - DONE 
 - Think of what additional columns it is useful to show in search results
 - Do we need possibility to select two and more folders for indexing? Now you can select only one folder on entire disk (C: and D:)

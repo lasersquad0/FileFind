@@ -1,6 +1,6 @@
 
 FileFind application for fast and easy file system search 
-==========================================
+=========================================================
 
 CONTACTS
 ------------
@@ -19,8 +19,8 @@ Just unpack it into any suitable folder and run FileFind.exe
 What to do on first use:
 - start FileFind.exe application
 - go to Options/Settings in main menu
-- in "Folder to Index" edit box select folder you want to search to. It can be either your folder or entire disk - C: or D: for instance
-- press "Build Index" button and wait several seconds
+- in "Folder to Index" edit box select top level folder you want to search to. It can be either your folder or entire disk - C: or D: for instance
+- press "Build Index" button and wait several seconds while indexing is done
 - you are all set and ready for fast search!
 
 
@@ -39,12 +39,12 @@ You don't need to re-build filesystem index every search, do it once a week or s
 FEATURES
 -----------
 
-- fast search less than a second
+- fast search, less than a second
 - when you are typing search is started in 0.5 sec after you stopped typing, you do no need to press Search button
 - you can do wildcards search. two wildcards are supported: * and ?.
 - in addition to by name you can do search by file/folder size, modified date, and file attributes. Press Advanced search button to see additional search options. 
 - you can make search case sensitive, configured in Options/Settings window
-- sort search results by Name, Size, File Type, Modified date, Last Access date, Path.
+- sort sort results by Name, Size, File Type, Modified date, Last Access date, Path.
 - you can make sort case sensitive, configured in Options/Settings window
 - you can collect all folders on top during sort (like it works in Windows File Explorer)
 - you can view Indexing log for the case when some folders are not indexes due to permission errors, can be found in Options/Settings window
