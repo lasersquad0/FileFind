@@ -163,7 +163,7 @@ object SettingsForm1: TSettingsForm1
     TabOrder = 4
     OnClick = BuildIndexButtonClick
   end
-  object ProgressBar2: TProgressBar
+  object ProgressBar1: TProgressBar
     Left = 219
     Top = 328
     Width = 198
@@ -204,7 +204,6 @@ object SettingsForm1: TSettingsForm1
     Caption = 'Cancel'
     ModalResult = 2
     TabOrder = 8
-    OnClick = CancelButtonClick
   end
   object Button1: TButton
     Left = 486

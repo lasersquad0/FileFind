@@ -74,13 +74,13 @@ object MainForm: TMainForm
     Left = 0
     Top = 28
     Width = 1117
-    Height = 45
+    Height = 67
     Align = alTop
     BevelOuter = bvNone
     TabOrder = 2
     DesignSize = (
       1117
-      45)
+      67)
     object AdvancedSearchButton: TSpeedButton
       Left = 991
       Top = 8
@@ -98,14 +98,25 @@ object MainForm: TMainForm
     end
     object LabelAnd: TLabel
       Left = 270
-      Top = 81
+      Top = 105
       Width = 20
       Height = 15
       Caption = 'and'
     end
+    object SelectFolderButton: TSpeedButton
+      Left = 515
+      Top = 6
+      Width = 24
+      Height = 25
+      Hint = 'Select folder to index and press  Index button'
+      Caption = '...'
+      ParentShowHint = False
+      ShowHint = True
+      OnClick = SelectFolderButtonClick
+    end
     object SearchEdit: TLabeledEdit
-      Left = 80
-      Top = 12
+      Left = 114
+      Top = 33
       Width = 389
       Height = 23
       Hint = 'Enter your search here'
@@ -122,7 +133,7 @@ object MainForm: TMainForm
     end
     object SearchByFileSize: TCheckBox
       Left = 11
-      Top = 47
+      Top = 71
       Width = 66
       Height = 17
       Caption = 'File Size'
@@ -131,7 +142,7 @@ object MainForm: TMainForm
     end
     object FileSizeOp: TComboBox
       Left = 114
-      Top = 44
+      Top = 68
       Width = 49
       Height = 23
       Style = csDropDownList
@@ -145,14 +156,14 @@ object MainForm: TMainForm
     end
     object SearchFileSize: TNumberBox
       Left = 169
-      Top = 44
+      Top = 68
       Width = 82
       Height = 23
       TabOrder = 3
     end
     object FileSizeFactor: TComboBox
       Left = 257
-      Top = 44
+      Top = 68
       Width = 83
       Height = 23
       Style = csDropDownList
@@ -167,7 +178,7 @@ object MainForm: TMainForm
     end
     object SearchByModifiedDate: TCheckBox
       Left = 11
-      Top = 80
+      Top = 104
       Width = 97
       Height = 17
       Caption = 'Date between'
@@ -176,7 +187,7 @@ object MainForm: TMainForm
     end
     object DateTimePickerFrom: TDateTimePicker
       Left = 114
-      Top = 76
+      Top = 100
       Width = 150
       Height = 23
       Date = 45491.000000000000000000
@@ -187,7 +198,7 @@ object MainForm: TMainForm
     end
     object DateTimePickerTo: TDateTimePicker
       Left = 296
-      Top = 76
+      Top = 100
       Width = 150
       Height = 23
       Date = 45491.000000000000000000
@@ -197,7 +208,7 @@ object MainForm: TMainForm
     end
     object SearchByAttributes: TCheckBox
       Left = 11
-      Top = 112
+      Top = 136
       Width = 78
       Height = 17
       Caption = 'Attributes'
@@ -206,7 +217,7 @@ object MainForm: TMainForm
     end
     object AttrArchive: TCheckBox
       Left = 624
-      Top = 112
+      Top = 136
       Width = 65
       Height = 17
       Caption = 'Archive'
@@ -214,7 +225,7 @@ object MainForm: TMainForm
     end
     object AttrHidden: TCheckBox
       Left = 196
-      Top = 112
+      Top = 136
       Width = 74
       Height = 17
       Caption = 'Hidden'
@@ -222,7 +233,7 @@ object MainForm: TMainForm
     end
     object AttrDirectory: TCheckBox
       Left = 114
-      Top = 112
+      Top = 136
       Width = 81
       Height = 17
       Caption = 'Directory'
@@ -230,7 +241,7 @@ object MainForm: TMainForm
     end
     object AttrEncrypted: TCheckBox
       Left = 533
-      Top = 112
+      Top = 136
       Width = 85
       Height = 17
       Caption = 'Encrypted'
@@ -238,7 +249,7 @@ object MainForm: TMainForm
     end
     object AttrCompressed: TCheckBox
       Left = 431
-      Top = 112
+      Top = 136
       Width = 85
       Height = 17
       Caption = 'Compressed'
@@ -246,7 +257,7 @@ object MainForm: TMainForm
     end
     object AttrReadonly: TCheckBox
       Left = 347
-      Top = 112
+      Top = 136
       Width = 80
       Height = 17
       Caption = 'Readonly'
@@ -254,15 +265,15 @@ object MainForm: TMainForm
     end
     object AttrSystem: TCheckBox
       Left = 273
-      Top = 112
+      Top = 136
       Width = 59
       Height = 17
       Caption = 'System'
       TabOrder = 15
     end
     object StartSearchBtn: TBitBtn
-      Left = 475
-      Top = 7
+      Left = 515
+      Top = 31
       Width = 75
       Height = 28
       Caption = 'Search'
@@ -272,8 +283,8 @@ object MainForm: TMainForm
       OnClick = StartSearchBtnClick
     end
     object IndexingBitBtn: TBitBtn
-      Left = 568
-      Top = 7
+      Left = 608
+      Top = 31
       Width = 97
       Height = 28
       Caption = 'Refresh Index...'
@@ -282,14 +293,22 @@ object MainForm: TMainForm
       TabOrder = 17
       OnClick = IndexingBitBtnClick
     end
-    object Button1: TButton
-      Left = 792
-      Top = 8
-      Width = 75
-      Height = 25
-      Caption = 'Button1'
+    object StartSearchFolder: TLabeledEdit
+      Left = 114
+      Top = 6
+      Width = 389
+      Height = 23
+      Hint = 'Enter your search here'
+      EditLabel.Width = 94
+      EditLabel.Height = 23
+      EditLabel.Caption = 'Search from path '
+      LabelPosition = lpLeft
+      ParentShowHint = False
+      ShowHint = True
       TabOrder = 18
-      OnClick = Button1Click
+      Text = ''
+      OnChange = SearchEditChange
+      OnKeyPress = SearchEditKeyPress
     end
   end
   object StatusBar1: TStatusBar
@@ -321,9 +340,9 @@ object MainForm: TMainForm
   end
   object ListView1: TListView
     Left = 0
-    Top = 73
+    Top = 95
     Width = 1117
-    Height = 399
+    Height = 377
     Align = alClient
     Columns = <>
     FullDrag = True
@@ -332,11 +351,13 @@ object MainForm: TMainForm
     RowSelect = True
     PopupMenu = PopupMenu1
     SortType = stBoth
-    TabOrder = 1
+    TabOrder = 0
     ViewStyle = vsReport
     OnColumnClick = ListView1ColumnClick
     OnData = ListView1Data
     OnDblClick = ListView1DblClick
+    ExplicitTop = 73
+    ExplicitHeight = 399
   end
   object ProgressBar1: TProgressBar
     Left = 890

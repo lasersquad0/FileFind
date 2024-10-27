@@ -50,23 +50,23 @@ var
   i, len: Cardinal;
   s: string;
 begin
-    i := 1;
-    len := Cardinal(Length(str));
-    //SetLength(s, len);
+  i := 1;
+  len := Cardinal(Length(str));
+  //SetLength(s, len);
 
+  while i <= len do begin
+    s := '';
     while i <= len do begin
-        s := '';
-        while i <= len do begin
-            if str[i] = Delim then begin
-                Inc(i);
-                break;
-            end;
-            s := s + str[i];
-        		Inc(i);
-        end;
-
-        if Length(s) > 0 then arr.AddValue(s);
+      if str[i] = Delim then begin
+        Inc(i);
+        break;
+      end;
+      s := s + str[i];
+      Inc(i);
     end;
+
+    if Length(s) > 0 then arr.AddValue(s);
+  end;
 end;
 
 // splits string to array of strings using Delim as delimiter
@@ -75,18 +75,18 @@ var
   i, len: Cardinal;
   s:string;
 begin
-    i := 1;
-    len := Cardinal(Length(str));
+  i := 1;
+  len := Cardinal(Length(str));
     //SetLength(s, len);
 
-    while i <= len do begin
-      if (str[i] = Delim) then
-    	  if Length(s) > 0 then arr.AddValue(s);
+  while i <= len do begin
+    if str[i] = Delim then
+      if Length(s) > 0 then arr.AddValue(s);
       s := s + str[i];
       Inc(i);
-    end;
+  end;
 
-    if Length(s) > 0 then arr.AddValue(s);
+  if Length(s) > 0 then arr.AddValue(s);
 end;
 
 
@@ -94,13 +94,13 @@ function GetErrorMessageText(lastError: Cardinal; const errorPlace: string): str
 var
   buf: string;
 begin
-	SetLength(buf, 1000);
+  SetLength(buf, 1000);
 
-	Winapi.Windows.FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM OR FORMAT_MESSAGE_IGNORE_INSERTS,
-					nil, lastError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), PChar(buf), 1000, nil);
+  Winapi.Windows.FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM OR FORMAT_MESSAGE_IGNORE_INSERTS,
+          nil, lastError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), PChar(buf), 1000, nil);
 
   Result := Format('%s failed with error code %d as follows:\n%s', [errorPlace, lastError, buf]);
-	//Windows.StringCchPrintf(PChar(buf2), Length(buf2), '%s failed with error code %d as follows:\n%s', PChar(errorPlace), lastError, pChar(buf));
+  //Windows.StringCchPrintf(PChar(buf2), Length(buf2), '%s failed with error code %d as follows:\n%s', PChar(errorPlace), lastError, pChar(buf));
 end;
 
 function FileTimeToDateTime(FileTime: TFileTime): TDateTime;

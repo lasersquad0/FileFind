@@ -90,10 +90,11 @@ type
     ProgressLabel: TLabel;
     IndexingBitBtn: TBitBtn;
     AlertPanel1: TPanel;
-    Button1: TButton;
     Timer2: TTimer;
     Image1: TImage;
     CancelBtn: TSpeedButton;
+    StartSearchFolder: TLabeledEdit;
+    SelectFolderButton: TSpeedButton;
    // procedure BuildIndexBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -118,6 +119,7 @@ type
     procedure Timer2Timer(Sender: TObject);
     procedure CancelBtnClick(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure SelectFolderButtonClick(Sender: TObject);
   private
     { Private declarations }
     //FIndexingThread: TLoadFSThread;
@@ -255,7 +257,7 @@ end;
 procedure TMainForm.Timer2Timer(Sender: TObject);
 begin
   // after 14 days we ask to refresh index (if not done)
-  AlertPanel1.Visible := DaysBetween(Now(), TFSC.Instance.IndexFileDate) > 14;
+  AlertPanel1.Visible := DaysBetween(Now(), TFSC.Instance.IndexFileDate) >= 1;
 end;
 
 procedure TMainForm.MakeSearch();
@@ -273,7 +275,7 @@ begin
     ClearSearchResults;
     //ClearSorting; //FSortColumnID := -1;  // reset sorting column
     //FInvertSort := False;
-
+    Filter.StartFrom := Trim(StartSearchFolder.Text);
     Filter.SearchStr := Trim(SearchEdit.Text);
     Filter.CaseSensitive := AppSettings.CaseSensitiveSearch;
     Filter.SearchByFileSize := SearchByFileSize.Checked;
@@ -324,8 +326,6 @@ begin
   if FSortColumnID = -1 then exit;
 
   //var start := GetTickCount;
-  //FSearchResults.Sort(CompareData);
-  //FSearchResults.InsertSort(CompareData2);
   FSearchResults.QuickSort(CompareData);
   //var stop := GetTickCount;
   //StatusBar1.Panels[1].Text := Format('Search time: %s', [MillisecToStr(stop - start)]);
@@ -398,43 +398,40 @@ begin
 end;
 
 function TMainForm.CompareData2(item1, item2: TSearchResultsItem): Integer;
-//var
-//  String1, String2: string;
 begin
-	Result := 0; // Defaults to equal
+  Result := 0; // Defaults to equal
 
   var ColIndex := FColumnMap[FSortColumnID];
 
-
- //	if AppSettings.FoldersOnTop then begin
-    if AppSettings.FoldersOnTop  AND item1.IsDirectory() AND NOT item2.IsDirectory() then Result := -1 // directory is always 'greater' than file
-    else if AppSettings.FoldersOnTop AND NOT item1.IsDirectory() AND item2.IsDirectory() then Result := 1
-    else begin
-      if AppSettings.CaseSensitiveSort then begin // case sensitive comparison
-        case ColIndex of
-          0: Result := AnsiCompareStr(item1.Caption, item2.Caption);
-          1: if item1.Size > item2.Size then Result := 1
-               else if item1.Size < item2.Size then Result := -1;
-          2: Result := AnsiCompareStr(item1.FileType, item2.FileType);
-          3: Result := CompareFileTime(item1.Modified, item2.Modified);
-          4: Result := CompareFileTime(item1.LastAccess, item2.LastAccess);
-          5: Result := AnsiCompareStr(item1.Path, item2.Path);
+   if AppSettings.FoldersOnTop AND item1.IsDirectory() AND NOT item2.IsDirectory()
+     then Result := -1 // directory is always 'greater' than file
+   else if AppSettings.FoldersOnTop AND NOT item1.IsDirectory() AND item2.IsDirectory()
+     then Result := 1
+   else begin
+     if AppSettings.CaseSensitiveSort then begin // case sensitive comparison
+       case ColIndex of
+         0: Result := CompareStr(item1.Caption, item2.Caption);
+         1: if item1.Size > item2.Size then Result := 1
+              else if item1.Size < item2.Size then Result := -1;
+         2: Result := CompareStr(item1.FileType, item2.FileType);
+         3: Result := CompareFileTime(item1.Modified, item2.Modified);
+         4: Result := CompareFileTime(item1.LastAccess, item2.LastAccess);
+         5: Result := CompareStr(item1.Path, item2.Path);
           // else Result := 'UNKNOWN';
         end;
       end else begin // case INsensitive comparison
         case ColIndex of
-          0: Result := AnsiCompareText(item1.Caption, item2.Caption);
+          0: Result := CompareText(item1.Caption, item2.Caption);
           1: if item1.Size > item2.Size then Result := 1
              else if item1.Size < item2.Size then Result := -1;
-          2: Result := AnsiCompareText(item1.FileType, item2.FileType);
+          2: Result := CompareText(item1.FileType, item2.FileType);
           3: Result := CompareFileTime(item1.Modified, item2.Modified);
           4: Result := CompareFileTime(item1.LastAccess, item2.LastAccess);
-          5: Result := AnsiCompareText(item1.Path, item2.Path);
+          5: Result := CompareText(item1.Path, item2.Path);
           // else Result := 'UNKNOWN';
         end;
       end;
     end;
- //end;
 
   // invert Sort if requested
   if FInvertSort then Result := -Result;
@@ -539,6 +536,12 @@ begin
   if Key = #13 then MakeSearch();
 end;
 
+procedure TMainForm.SelectFolderButtonClick(Sender: TObject);
+begin
+  FileOpenDialog1.DefaultFolder := StartSearchFolder.Text;
+  if FileOpenDialog1.Execute then StartSearchFolder.Text := FileOpenDialog1.FileName;
+end;
+
 procedure TMainForm.Settings1Click(Sender: TObject);
 begin
   //SettingsForm1.FCache := FCache;
@@ -577,10 +580,10 @@ procedure TMainForm.AdvancedSearchButtonClick(Sender: TObject);
 begin
   if AdvancedSearchButton.Down then begin  // open adv search panel
     AdvancedSearchButton.ImageIndex := 1;
-    SearchPanel.Height := SearchPanel.Height * 7 div 2
+    SearchPanel.Height := SearchPanel.Height * 5 div 2
   end else begin                          // close adv search panel
     AdvancedSearchButton.ImageIndex := 0;
-    SearchPanel.Height := SearchPanel.Height * 2 div 7;
+    SearchPanel.Height := SearchPanel.Height * 2 div 5;
     SearchByFileSize.Checked := False;  // uncheck (make inactive) all search critetias to avoid misunderstanding
     SearchByModifiedDate.Checked := False;
     SearchByAttributes.Checked := False;
@@ -642,7 +645,8 @@ begin
     UpdateStatusBar(GetTickCount - start, TFSC.Instance.Count, TFSC.Instance.GetItem(0, 0).FFullFileSize);
 
   AppSettings.Load; // loading settings from registry
-  IndexingBitBtn.Hint := 'Folders to  index: ' + AppSettings.FolderToIndex;
+  IndexingBitBtn.Hint := 'Folders to index: ' + AppSettings.FolderToIndex;
+  StartSearchFolder.Text := AppSettings.FolderToIndex;
 
   FSearchResults := THArrayG<TSearchResultsItem>.Create(AppSettings.MaxFoundItems + 1);  // default capacity (+1 just in case)
   FSearchResultsCache := TSearchResultsCache.Create(AppSettings.MaxFoundItems + 1);
@@ -684,7 +688,7 @@ procedure TMainForm.FormDestroy(Sender: TObject);
 begin
   // auto save index data only if data was modified (e.g. re-loaded from file system)
   if TFSC.Instance.Modified then
-    TFSC.Instance.SerializeTo(INDEX_FILENAME);
+    TFSC.Instance.SerializeTo(INDEX_FILENAME); //TODO: may be serialise data right after reading from file system?
 
   ClearSearchResults;
   FreeAndNil(FSearchResults);

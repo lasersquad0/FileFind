@@ -25,7 +25,7 @@ type
     SelectFolderButton: TSpeedButton;
     BuildIndexButton: TButton;
     IndexingProgressLabel: TLabel;
-    ProgressBar2: TProgressBar;
+    ProgressBar1: TProgressBar;
     Label1: TLabel;
     MaxNumFoundBox: TNumberBox;
     OKButton: TButton;
@@ -40,18 +40,29 @@ type
     procedure BuildIndexButtonClick(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
-    procedure CancelButtonClick(Sender: TObject);
   private
-    { Private declarations }
     FIndexingThread: TLoadFSThread;
-    FProgressListener: TIndexingProgress;
+    FProgressListener: IIndexingProgress;
+    FCancel: Boolean;
     procedure OnThreadTerminate(Sender: TObject);
-
   public
-    { Public declarations }
     ExecData: TExecutionData;
-
+    property Cancel: Boolean read FCancel;
   end;
+
+ TSettingsFormIndexingProgress = class(IIndexingProgress)
+ private
+   FMaxValue: Integer;
+   FThread: TLoadFSThread;
+   FErrors: TStrings;
+ public
+   constructor Create(Thread: TLoadFSThread; Output: TStrings);
+   procedure Start(P100: Integer); override; // define Max value for progress. -1 means that value for 100% progress is unknown
+   procedure Finish; override;
+   function  Progress(Prgress: Integer): Boolean; override; // allows to stop process if indexing takes too long time
+   procedure ReportError(ErrorStr: string); override;
+ end;
+
 
 var
   SettingsForm1: TSettingsForm1;
@@ -82,6 +93,7 @@ begin
   FreeAndNil(FProgressListener);
 
   ExecData := FIndexingThread.ExecData;
+  FCancel := False;
 end;
 
 procedure TSettingsForm1.SelectFolderButtonClick(Sender: TObject);
@@ -92,16 +104,17 @@ end;
 
 procedure TSettingsForm1.BuildIndexButtonClick(Sender: TObject);
 begin
+  FCancel := False;
   FIndexingThread := TLoadFSThread.Create(True); // create suspended
-  FProgressListener := TIndexingProgress.Create(FIndexingThread, IndexingLogForm.LogMemo.Lines);
+  FProgressListener := TSettingsFormIndexingProgress.Create(FIndexingThread, IndexingLogForm.LogMemo.Lines);
   TFSC.Instance.AddProgressListener(FProgressListener);
 
   FIndexingThread.OnTerminate := OnThreadTerminate;
   FIndexingThread.FreeOnTerminate := True;
-  FIndexingThread.ProgressBar := ProgressBar2;
+  FIndexingThread.ProgressBar := ProgressBar1;
   FIndexingThread.StartDir := FolderToIndexEditBox.Text;
 
-  FIndexingThread.Start([FolderToIndexEditBox, BuildIndexButton, SelectFolderButton], [ProgressBar2, IndexingProgressLabel], [IndexInfoLabel]);
+  FIndexingThread.Start([FolderToIndexEditBox, BuildIndexButton, SelectFolderButton], [ProgressBar1, IndexingProgressLabel], [IndexInfoLabel]);
 end;
 
 procedure TSettingsForm1.Button1Click(Sender: TObject);
@@ -109,14 +122,13 @@ begin
   IndexingLogForm.ShowModal;
 end;
 
-procedure TSettingsForm1.CancelButtonClick(Sender: TObject);
-begin
-  MessageDlg('Indexing is in progress. Are you sure you want to cancel indexing?', TMsgDlgType.mtConfirmation, [mbYes, mbNo], 0, mbYes);
-end;
-
 procedure TSettingsForm1.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
-  if Assigned(FProgressListener) then MessageDlg('Cannot close form because indexing is in progress.', TMsgDlgType.mtInformation, [mbOK], 0);
+  if Assigned(FProgressListener) then begin
+    FCancel := mrYes = MessageDlg('Indexing is in progress. Are you sure you want to cancel indexing and close Settings dialog?', TMsgDlgType.mtConfirmation, [mbYes, mbNo], 0, mbYes);
+  //MessageDlg('Cannot close form because indexing is in progress.', TMsgDlgType.mtInformation, [mbOK], 0);
+    while FCancel do begin TThread.Sleep(200); Application.ProcessMessages; end; //waiting till thread finishes
+  end;
 
   CanClose := NOT Assigned(FProgressListener);
 end;
@@ -139,6 +151,62 @@ begin
   end;
   MaxNumberInfoLabel.Caption := Format('Enter value between %u and %u', [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
 
+end;
+
+
+{ TSettingsFormIndexingProgress }
+
+constructor TSettingsFormIndexingProgress.Create(Thread: TLoadFSThread; Output: TStrings);
+begin
+  inherited Create;
+  FThread := Thread;
+  FErrors := Output;
+end;
+
+procedure TSettingsFormIndexingProgress.Finish;
+begin
+   TLoadFSThread.Synchronize(FThread,
+   procedure
+   begin
+      if Assigned(FErrors) then FERrors.Add('Finished Indexing');
+   end
+   );
+end;
+
+function TSettingsFormIndexingProgress.Progress(Prgress: Integer): Boolean;
+var
+  b: Boolean;
+begin
+   TLoadFSThread.Synchronize(FThread,
+   procedure
+   begin
+     // logrithmic progress since we do not know total progress value
+      SettingsForm1.ProgressBar1.Position := SettingsForm1.ProgressBar1.Position + (SettingsForm1.ProgressBar1.Max - SettingsForm1.ProgressBar1.Position) div 20;
+      b := NOT SettingsForm1.Cancel;
+   end
+   );
+  Result := b;
+end;
+
+procedure TSettingsFormIndexingProgress.ReportError(ErrorStr: string);
+begin
+   TLoadFSThread.Synchronize(FThread,
+   procedure
+   begin
+     if Assigned(FErrors) then FErrors.Add(ErrorStr);
+   end
+   );
+end;
+
+procedure TSettingsFormIndexingProgress.Start(P100: Integer);
+begin
+  FMaxValue := P100;
+    TLoadFSThread.Synchronize(FThread,
+    procedure
+    begin
+      if Assigned(FErrors) then FErrors.Add('Start Indexing');
+    end
+    );
 end;
 
 

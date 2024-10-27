@@ -73,6 +73,7 @@ type
   TFileSizeCompare = (fscEquals, fscMore, fscLess);
 
   TSearchFilter = record
+    StartFrom: string;
     SearchStr: string;
     SearchStrUpper: string; // optimization for case insensitive search
     CaseSensitive: Boolean;
@@ -94,7 +95,7 @@ type
    FCacheData: THArrayG<TLevelType>;
    FProgressListeners: THArrayG<IIndexingProgress>;
    FModified: Boolean;
-   FDateTimeIndexFile: TDateTime; // datetime when loaded index file was modified, valid only after loading index file.
+   FDateTimeIndexFile: TDateTime; // datetime when loaded index file was saved, valid only after loading index file.
 
    procedure Serialize(OStream: TStream);
    procedure Deserialize(IStream: TStream);
@@ -516,7 +517,7 @@ end;
 // if GrepList=nil use substr search otherwise use mask search functions
 function ApplyFilter(var Filter: TSearchFilter; GrepList: TStringList; Item: TCacheItem): Boolean;
 begin
-  Result := False; //Result=false by default means 'not found'
+  Result := False; //Result=False by default means 'not found'
   if Filter.SearchStr <> '' then
     if NOT CheckForFileName(Filter, GrepList, Item.FFileData.cFileName, item.FUpperCaseName) then exit;
   if Filter.SearchByFileSize then
@@ -531,33 +532,58 @@ end;
 
 procedure TFileNamesCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResult);
 var
-  //SearchStrUpper: string;
+  startArray: THArrayG<string>;
   GrepList: TStringList;
- // MaskSearch: Boolean;
+  i, j, beg: Cardinal;
+  Found: Boolean;
 begin
   if FCacheData.Count = 0 then exit;
   Filter.SearchStrUpper := AnsiUpperCase(Filter.SearchStr);
 
+  startArray := THArrayG<string>.Create;
   GrepList := nil; // substr search by default
+  try
 
-  //check if filter str has wildcards
-  if (Pos('*', Filter.SearchStr) > 0) OR (Pos('?', Filter.SearchStr) > 0 ) then begin
-    GrepList := TStringList.Create;
-    if Filter.CaseSensitive // compile filters into GrepList
-      then SetFilters(Filter.SearchStr, GrepList)
-      else SetFilters(Filter.SearchStrUpper, GrepList);
-  end;
-
-  for var i: Cardinal := 0 to FCacheData.Count - 1 do begin
-    var lv := FCacheData[i];
-    for var j: Cardinal := 0 to lv.Count - 1 do begin
-      var item := lv[j];
-      if ApplyFilter(Filter, GrepList, item) then
-        if NOT Callback(MakePathString(i, j), item) then exit;   //TODO: optimization: cache PathString in the item and use it during next searches
+    //check if filter str has wildcards
+    if (Pos('*', Filter.SearchStr) > 0) OR (Pos('?', Filter.SearchStr) > 0 ) then begin
+      GrepList := TStringList.Create;
+      if Filter.CaseSensitive // compile filters into GrepList
+        then SetFilters(Filter.SearchStr, GrepList)
+        else SetFilters(Filter.SearchStrUpper, GrepList);
     end;
+
+    StringToArray(Filter.StartFrom, startArray, '\');
+
+    if StartArray.Count > 0 then begin
+      for i := 0 to StartArray.Count - 1 do begin
+        var lev := FCacheData[i];
+        Found := False;
+        for j := 0 to lev.Count - 1 do begin
+          var ite := lev[j];
+          if CompareText(ite.FUpperCaseName, startArray[i]) = 0 then begin
+            Found := True;
+            break;
+          end;
+        end;
+        if NOT Found then break;  // found nothing
+      end;
+
+      if NOT Found then exit;  // if startDir not found in index DB then just exit
+    end;
+
+    for i := startArray.Count to FCacheData.Count - 1 do begin
+      var lv := FCacheData[i];
+      for j := 0 to lv.Count - 1 do begin
+        var item := lv[j];
+        if ApplyFilter(Filter, GrepList, item) then
+          if NOT Callback(MakePathString(i, j), item) then exit;   //TODO: optimization: cache PathString in the item and use it during next searches
+      end;
+    end;
+  finally
+    startArray.Free;
+    FreeAndNil(GrepList); // works even when GrepList=nil
   end;
 
-  FreeAndNil(GrepList);
 end;
 
 procedure TFileNamesCache.Serialize(OStream: TStream);
@@ -609,7 +635,7 @@ begin
       end;
     end;
 
-    FModified := True;
+    FModified := False; // loading index file does not mean "Modified". Modified=True after updating data from file system
 end;
 
 function TFileNamesCache.GetItem(Level, Index: Cardinal): TCacheItem;
@@ -698,8 +724,8 @@ begin
   pathArrayAccum := THArrayG<string>.Create;
 
   try
-    StringToArrayAccum(path, pathArrayAccum, '\');
     StringToArray(path, pathArray, '\');
+    StringToArrayAccum(path, pathArrayAccum, '\');
 
     ZeroMemory(@fileData, sizeof(fileData));
     lstrcpy(fileData.cFileName, PWideChar(pathArray[0]));
@@ -716,7 +742,7 @@ begin
       // _tcsncpy_s<MAX_PATH>(fileData.cFileName, pathArray[lv].c_str(), pathArray[lv].size());
       // fileData.cFileName[pathArray[lv].size()] = '\0';
       FillFileData(pathArrayAccum[lv], fileData);
-      parent := AddItem(parent.ItemIndex, fileData, lv, true);
+      parent := AddItem(parent.ItemIndex, fileData, lv, True);
     end;
 
   finally
