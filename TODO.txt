@@ -13,6 +13,7 @@ Any questions or suggestions are welcome to this email:
 TO DO
 --------
 
+- "Denied" folders mark with special icon in the list.
 - Add possibility to select a subfolder to make search to. Subfolder inside of existing index top folder.
 - Add reminder if Index is outdated - DONE (14 days reminder)
 - Add notification to select folder if user presses Build Index on main form during first run - DONE 

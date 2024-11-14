@@ -112,7 +112,7 @@ begin
   FIndexingThread.OnTerminate := OnThreadTerminate;
   FIndexingThread.FreeOnTerminate := True;
   FIndexingThread.ProgressBar := ProgressBar1;
-  FIndexingThread.StartDir := FolderToIndexEditBox.Text;
+  FIndexingThread.ExecData.StartDir := FolderToIndexEditBox.Text;
 
   FIndexingThread.Start([FolderToIndexEditBox, BuildIndexButton, SelectFolderButton], [ProgressBar1, IndexingProgressLabel], [IndexInfoLabel]);
 end;

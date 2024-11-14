@@ -3,7 +3,7 @@ unit LoadFSThread;
 interface
 
 uses
-  System.Classes, Vcl.Controls, Vcl.ComCtrls, FileNamesCache;
+  System.Classes, Vcl.Controls, Vcl.ComCtrls, FileNamesCache, DynamicArray;
 
 type
   TExecutionData = record
@@ -22,7 +22,6 @@ type
     procedure DoTerminate; override;
   public
     ProgressBar: TProgressBar;
-    StartDir: string;
     ExecData: TExecutionData;
     procedure Start(DisableCtrls, ShowCtrls, HideCtrls: TArray<TControl>); overload;
    // ProgressCallback: TFNCIndexingProgress;
@@ -42,10 +41,22 @@ type
     procedure ReportError(ErrorStr: string); override;
   end;
 
+  // separate thread for closing (freeing) windows find handles once indexing is finished.
+  // since closing handles (FindClose WINAPI call) takes too much time according to profiling tests
+  TFindCloseThread = class(TThread)
+  private
+    FFindHandles: THArrayG<THandle>;
+  protected
+    procedure Execute; override;
+  public
+    procedure Start(handles: THArrayG<THandle>); overload;
+  end;
+
+
 
 implementation
 
-uses SysUtils, Vcl.Dialogs;
+uses SysUtils, Vcl.Dialogs, Windows;
 
 {
   Important: Methods and properties of objects in visual components can only be
@@ -103,7 +114,7 @@ procedure TLoadFSThread.Execute;
 begin
    var start := GetTickCount;
    try
-     ExecData.DirSize := TFSC.Instance.ReadFileSystem(StartDir);
+     ExecData.DirSize := TFSC.Instance.ReadFileSystem(ExecData.StartDir);
    except
      on E: EOperationCancelled do begin
        Synchronize(procedure  begin MessageDlg('User has cancelled file indexing operation.', mtInformation, [mbOK], 0) end);
@@ -112,7 +123,10 @@ begin
 
   var stop := GetTickCount;
   ExecData.ExecTime := stop - start;
-  ExecData.StartDir := StartDir;
+
+  //var FindCloseThread := TFindCloseThread.Create(True); // thread to close all find handles
+  //FindCloseThread.FreeOnTerminate := True;
+  //FindCloseThread.Start(TFSC.Instance.FindHandles);
 end;
 
 procedure TLoadFSThread.Start(DisableCtrls, ShowCtrls, HideCtrls: TArray<TControl>);
@@ -151,7 +165,7 @@ begin
    TLoadFSThread.Synchronize(FThread,
    procedure
    begin
-      if Assigned(FErrors) then FERrors.Add('Finished Indexing');
+      if Assigned(FErrors) then FErrors.Add('Finished Indexing');
       //IndexingLogForm.Caption := 'Indexing Error Log - ' + IntToStr(IndexingLogForm.LogMemo.Lines.Count);
    end
    );
@@ -192,5 +206,21 @@ begin
     );
 end;
 
+
+{ TFindCloseThread }
+
+
+procedure TFindCloseThread.Execute;
+var i: Cardinal;
+begin
+  for i := 1 to FFindHandles.Count do Windows.FindClose(FFindHandles[i - 1]);
+  FFindHandles.Clear;
+end;
+
+procedure TFindCloseThread.Start(handles: THArrayG<THandle>);
+begin
+  FFindHandles := handles;
+  Start;
+end;
 
 end.

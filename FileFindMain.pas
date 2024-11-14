@@ -23,6 +23,7 @@ type
     LastAccessStr: string;
     Path: string;
     IIcon: Integer;
+    Denied: Boolean; // flag that entering to this directory is denied during searching
     function IsDirectory: Boolean;
  end;
 
@@ -95,6 +96,7 @@ type
     CancelBtn: TSpeedButton;
     StartSearchFolder: TLabeledEdit;
     SelectFolderButton: TSpeedButton;
+    StateImageList: TImageList;
    // procedure BuildIndexBtnClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -121,15 +123,12 @@ type
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure SelectFolderButtonClick(Sender: TObject);
   private
-    { Private declarations }
     //FIndexingThread: TLoadFSThread;
     FSortColumnID: Integer;
     FInvertSort: Boolean;
     FSearchResults: THArrayG<TSearchResultsItem>;
     FSearchResultsCache: TSearchResultsCache;
     FColumnMap: THash<Integer, Integer>;
-    FProgressBar: TProgressBar;
-    FProgressLabel: TLabel;
     FIndexingThread: TLoadFSThread;
     FProgressListener: TMainFormIndexingProgress;
     FCancel: Boolean;
@@ -184,7 +183,7 @@ begin
 
    ResultsItem := FSearchResultsCache.GetItem;
 
-   if item.FFileType = '' then  // for each Item GetFileShellInfo will be called only once. Results are cached.
+   if Item.FFileType = '' then  // for each Item GetFileShellInfo will be called only once. Results are cached.
      GetFileShellInfo(FullPath, Item);  // FullPath contains filename too
 
    // for directories FindNextFile returns various small values that does not reflect actual dir size
@@ -200,7 +199,7 @@ begin
    else
      ResultsItem.SizeStr := ThousandSep(ResultsItem.Size);
 
-   ResultsITem.FileAttr := Item.FFileData.dwFileAttributes;
+   ResultsItem.FileAttr := Item.FFileData.dwFileAttributes;
    ResultsItem.Modified := Item.FFileData.ftLastWriteTime;
    ResultsItem.ModifiedStr := GetLocalTime(Item.FFileData.ftLastWriteTime);
    ResultsItem.LastAccessStr := GetLocalTime(Item.FFileData.ftLastAccessTime);
@@ -209,6 +208,7 @@ begin
    ResultsItem.IIcon := Item.FIconIndex;
    ResultsItem.FileType := Item.FFileType;
    ResultsItem.Caption := Item.FDisplayName;
+   ResultsItem.Denied := Item.FDenied;
 
    FSearchResults.AddValue(ResultsItem);
 
@@ -445,6 +445,11 @@ begin
 
   item.Caption := origItem.Caption;
   item.ImageIndex := origItem.IIcon;
+
+ { if origItem.Denied
+    then item.StateIndex := 0 // mark denied items in the list
+    else item.StateIndex := -1;
+  }
   item.SubItems.Add(origItem.SizeStr);
   item.SubItems.Add(origItem.FileType);
   item.SubItems.Add(origItem.ModifiedStr);
@@ -455,7 +460,7 @@ end;
 procedure TMainForm.ListView1DblClick(Sender: TObject);
 var
   path: string;
-  res: Integer;
+  res: UInt64;
 begin
   if ListView1.Selected = nil then exit;
 
@@ -597,6 +602,9 @@ end;
 
 procedure TMainForm.IndexingBitBtnClick(Sender: TObject);
 begin
+{$IFDEF PROFILING}
+  TFSC.Instance.ReadFileSystem(AppSettings.FolderToIndex);
+{$ELSE}
   FCancel := False;
   FIndexingThread := TLoadFSThread.Create(True); // create suspended
   FProgressListener := TMainFormIndexingProgress.Create(FIndexingThread); // TIndexingProgress.Create(FIndexingThread, IndexingLogForm.LogMemo.Lines);
@@ -605,11 +613,11 @@ begin
   FIndexingThread.OnTerminate := OnThreadTerminate;
   FIndexingThread.FreeOnTerminate := True;
   FIndexingThread.ProgressBar := ProgressBar1;
-  FIndexingThread.StartDir := AppSettings.FolderToIndex;
+  FIndexingThread.ExecData.StartDir := AppSettings.FolderToIndex;
 
   Settings1.Enabled := False;  // main menu item
   FIndexingThread.Start([StartSearchBtn, SearchEdit, IndexingBitBtn], [CancelBtn, ProgressBar1, ProgressLabel], []);
-
+{$ENDIF}
 end;
 
 procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -639,7 +647,9 @@ begin
   ProgressLabel.Caption := 'Indexing progress...';
 
   var start := GetTickCount;
+{$IFNDEF PROFILING}
   TFSC.Instance.DeserializeFrom(INDEX_FILENAME);
+{$ENDIF}
   TFSC.Instance.Modified := False;
   if TFSC.Instance.Count > 0 then
     UpdateStatusBar(GetTickCount - start, TFSC.Instance.Count, TFSC.Instance.GetItem(0, 0).FFullFileSize);
@@ -686,11 +696,13 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
+{$IFNDEF PROFILING}
   // auto save index data only if data was modified (e.g. re-loaded from file system)
   if TFSC.Instance.Modified then
     TFSC.Instance.SerializeTo(INDEX_FILENAME); //TODO: may be serialise data right after reading from file system?
-
   ClearSearchResults;
+{$ENDIF}
+
   FreeAndNil(FSearchResults);
   FreeAndNil(FSearchResultsCache);
   FreeAndNil(FColumnMap);
@@ -729,7 +741,7 @@ var
 begin
   ListView1.LargeImages := TImageList.Create(self);
   FillChar(ShFileInfo, SizeOf(ShFileInfo), 0);
-  SysImageList := ShGetFileInfo(nil, 0, ShFileInfo, SizeOf(ShFileInfo), SHGFI_SYSICONINDEX or SHGFI_LARGEICON);
+  SysImageList := ShGetFileInfo('', 0, ShFileInfo, SizeOf(ShFileInfo), SHGFI_SYSICONINDEX or SHGFI_LARGEICON);
   if SysImageList <> 0 then
   begin
     ListView1.LargeImages.Handle := SysImageList;
@@ -802,8 +814,12 @@ end;
 { TSearchResultsCache }
 
 constructor TSearchResultsCache.Create(Capacity: Cardinal);
+var i: Cardinal;
 begin
   FData := THArrayG<TSearchResultsItem>.Create(Capacity);
+
+  // fill with cached values
+  for i := 0 to Capacity - 1 do FData.AddValue(TSearchResultsItem.Create);
 end;
 
 destructor TSearchResultsCache.Destroy;
@@ -828,6 +844,7 @@ begin
 end;
 
 procedure TSearchResultsCache.SetCapacity(Capacity: Cardinal);
+var i: Cardinal;
 begin
   FData.SetCapacity(Capacity);
 end;

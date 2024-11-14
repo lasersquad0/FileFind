@@ -24,7 +24,7 @@ type
    FIconIndex: Integer;
    FDenied: Boolean;
    constructor Create; overload;
-   constructor Create(Parent: Cardinal; var FileData: TWin32FindData; FullFileSize:uint64; Level: Cardinal); overload;
+   constructor Create(Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal); overload;
    procedure Serialize(OStream: TStream);
    procedure Deserialize(IStream: TStream);
  end;
@@ -94,6 +94,7 @@ type
  private // do not remove this 'private' keyword
    FCacheData: THArrayG<TLevelType>;
    FProgressListeners: THArrayG<IIndexingProgress>;
+   FFindHandles: THarrayG<THandle>;
    FModified: Boolean;
    FDateTimeIndexFile: TDateTime; // datetime when loaded index file was saved, valid only after loading index file.
 
@@ -111,7 +112,7 @@ type
    procedure NotifyFinish;
    function NotifyProgress(prog: Integer): Boolean;
    procedure NotifyError(ErrorStr: string);
-
+   procedure CloseFindHandles;
    constructor CreatePrivate;
    destructor Destroy; override;
    class procedure FreeInst;
@@ -140,6 +141,7 @@ type
 
    property  Modified: Boolean read FModified write FModified;
    property  IndexFileDate: TDateTime read FDateTimeIndexFile;
+   property  FindHandles: THArrayG<THandle> read FFindHandles;
  end;
 
 
@@ -160,8 +162,10 @@ type
    function GetItem(Index: Cardinal): TCacheItem;
  end;
 
-
   TFSC = TFileNamesCache;  // short alias for class name, just for convenience
+
+  function IsDirectory(Item: TCacheItem): Boolean; overload;
+  function IsDirectory(var FileData: TWin32FindData): Boolean; overload;
 
 var
   FileTypeNames: TFileTypeNames = ('File', 'Directory', 'Temporary', 'Archive', 'ReadOnly', 'Hidden', 'System', 'Device',
@@ -173,8 +177,8 @@ uses
   System.UITypes, System.Math, Dialogs, Functions, MaskSearch;
 
 const MAX_DIR_LEVELS = 100;
-const MAX_DIRS = 10000;
-
+const MAX_DIRS = 10_000;
+const MAX_FIND_HANDLES_CAPACITY = 30_000;
 
 ////////////////////////////////////
 // Common Functions
@@ -212,12 +216,12 @@ begin
     FUpperCaseName := '';
 end;
 
-constructor TCacheItem.Create(Parent: Cardinal; var FileData: TWin32FindData; FullFileSize: uint64; Level: Cardinal);
+constructor TCacheItem.Create(Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal);
 begin
     FParent := Parent;
     FLevel := Level;
-    FFileData := FileData;
-    FFullFileSize := FullFileSize;
+    FFileData := FileData; // because TWin32FindData is a record, data is copied here to FFileData
+    FFullFileSize := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
     FDenied := False;
     FUpperCaseName := AnsiUpperCase(FileData.cFileName);
 end;
@@ -233,9 +237,10 @@ begin
   OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwHighDateTime);
   OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
   OStream.WriteData<Cardinal>(FFileData.nFileSizeHigh);
-  OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);
-  OStream.WriteData<uint64>(FFullFileSize); // require to store FFullFileSize for directories
+  OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);  // TODO: do we need to save size twice?
+ // OStream.WriteData<uint64>(FFullFileSize); // require to store FFullFileSize for directories
   OStream.WriteData<Cardinal>(FLevel);
+  OStream.WriteData<Boolean>(FDenied);
  // var lenBytes := Length(FFileData.cFileName) * sizeof(FFileData.cFileName[0]); // this is unlikely that only file name will be longer than 259 symbols
   var lenBytes := StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
   Assert(lenBytes < MAX_PATH * sizeof(FFileData.cFileName[0]));
@@ -257,9 +262,10 @@ begin
   IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
   IStream.ReadData<Cardinal>(FFileData.nFileSizeHigh);
   IStream.ReadData<Cardinal>(FFileData.nFileSizeLow);
-  IStream.ReadData<uint64>(FFullFileSize);    // require to store FFullFileSize for directories
-  //FFullFileSize := MakeFileSize(FFileData.nFileSizeHigh, FFileData.nFileSizeLow);
+ // IStream.ReadData<uint64>(FFullFileSize);    // require to store FFullFileSize for directories
+  FFullFileSize := MakeFileSize(FFileData.nFileSizeHigh, FFileData.nFileSizeLow);
   IStream.ReadData<Cardinal>(FLevel);
+  IStream.ReadData<Boolean>(FDenied);
 
   IStream.ReadData<Cardinal>(lenBytes);
   Assert(lenBytes < MAX_PATH * sizeof(FFileData.cFileName[0]));
@@ -298,6 +304,7 @@ var
   ProgressCounter: Integer;  // TODO: think of moving it into inside ReadDirectory method
 
 function TFileNamesCache.ReadDirectory(const currDir: TFileName; parent: TCacheItemRef; ShowProgress: Boolean): uint64;
+const FIND_FIRST_EX_LARGE_FETCH = $00000002;
 var
   dirSize: uint64;
   searchDir: string;
@@ -318,8 +325,8 @@ begin
       NotifyStart;
     end;
 
-  // hFind := FindFirstFileEx(PChar(searchDir), FindExInfoBasic, @fileData, FindExSearchNameMatch, nil, FIND_FIRST_EX_LARGE_FETCH);
-    hFind := Windows.FindFirstFile(PChar(searchDir), fileData);
+    hFind := FindFirstFileEx(PChar(searchDir), FindExInfoBasic, @fileData, FindExSearchNameMatch, nil, FIND_FIRST_EX_LARGE_FETCH);
+    //hFind := Windows.FindFirstFile(PChar(searchDir), fileData);
 
     if (hFind = INVALID_HANDLE_VALUE) then begin
       var err := GetLastError();
@@ -329,7 +336,7 @@ begin
         item.FDenied := True; // set flag that we cannot enter into this folder because of permission denied or other reason.
       end
       else
-        MessageDlg('ERROR: ' + searchDir + ' GetLastError: ' + IntToStr(err), mtError, [mbOK], 0);
+        MessageDlg('ERROR: ' + searchDir + ' GetLastError: ' + IntToStr(err), mtError, [mbOK], 0); //TODO: shall we raise and exception here or call NotifyError()?
 
       Result := dirSize;
       exit;
@@ -339,11 +346,11 @@ begin
 
     // bypass dirs with names '.' and '..'
     if NOT IS_DOT_DIR(fileData.cFileName) then begin
-    var itemRef := AddItem(parent.ItemIndex, fileData, parent.ItemLevel + 1);
+      var itemRef := AddItem(parent.ItemIndex, fileData, parent.ItemLevel + 1);
 
-    if (fileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0
-      then dirSize := ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, false)
-      else dirSize := MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
+      if IsDirectory(fileData) //(fileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0
+        then dirSize := ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, False)
+        else dirSize := MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
     end;
 
     while (True) do begin
@@ -353,21 +360,21 @@ begin
         if NOT NotifyProgress(ProgressCounter) then raise EOperationCancelled.Create('User aborted.');
       end;
 
-      if Windows.FindNextFile(hFind, &fileData) then begin
+      if Windows.FindNextFile(hFind, fileData) then begin
         Assert(fileData.cFileName[0] <> #0);
 
         if IS_DOT_DIR(fileData.cFileName) then continue;
 
         var itemRef := AddItem(parent.ItemIndex, fileData, parent.ItemLevel + 1);
 
-        if (fileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0
+        if IsDirectory(fileData) //(fileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0
           then dirSize := dirSize + ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, false)
           else dirSize := dirSize + MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
       end
       else
       begin
         if (GetLastError() = ERROR_NO_MORE_FILES) then break;
-        MessageDlg('Error in FindNextFile().', TMsgDlgType.mtError, [mbOK], 0);
+        MessageDlg('Error in FindNextFile().', TMsgDlgType.mtError, [mbOK], 0);  //TODO: shall we raise and exception here or call NotifyError()?
         break;
       end
     end;
@@ -378,7 +385,8 @@ begin
     item.FFileData.nFileSizeLow := DWORD(tmp.LowPart);
     item.FFullFileSize := dirSize;
 
-    FindClose(hFind);
+  //  FFindHandles.AddValue(hFind);
+    Windows.FindClose(hFind);
 
     if ShowProgress then NotifyFinish;
 
@@ -428,6 +436,13 @@ begin
   FCacheData.Clear;
 end;
 
+procedure TFileNamesCache.CloseFindHandles;
+var i: Cardinal;
+begin
+  for i := 1 to FFindHandles.Count do Windows.FindClose(FFindHandles[i - 1]);
+  FFindHandles.Clear;
+end;
+
 function TFileNamesCache.Count: Cardinal;
 begin
   Result := 0;
@@ -447,6 +462,8 @@ begin
   FCacheData := THArrayG<TLevelType>.Create;
   FCacheData.SetCapacity(MAX_DIR_LEVELS);
   FProgressListeners := THArrayG<IIndexingProgress>.Create;
+  FFindHandles :=  THArrayG<THandle>.Create;
+  FFindHandles.SetCapacity(MAX_FIND_HANDLES_CAPACITY);
   FModified := False;
   FDateTimeIndexFile := 0; // default value, because index file is not loaded yet
 end;
@@ -456,6 +473,7 @@ begin
   Clear;
   FreeAndNil(FCacheData);
   FreeAndNil(FProgressListeners);
+  FreeAndNil(FFindHandles);
 end;
 
 /////////////////////////////////////
@@ -513,6 +531,12 @@ begin
   IsDirectory := Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY > 0;
 end;
 
+function IsDirectory(var FileData: TWin32FindData): Boolean;
+begin
+  IsDirectory := FileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY > 0;
+end;
+
+
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
 // if GrepList=nil use substr search otherwise use mask search functions
 function ApplyFilter(var Filter: TSearchFilter; GrepList: TStringList; Item: TCacheItem): Boolean;
@@ -534,11 +558,12 @@ procedure TFileNamesCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResu
 var
   startArray: THArrayG<string>;
   GrepList: TStringList;
-  i, j, beg: Cardinal;
+  i, j: Cardinal;
   Found: Boolean;
 begin
   if FCacheData.Count = 0 then exit;
   Filter.SearchStrUpper := AnsiUpperCase(Filter.SearchStr);
+  Found := False;
 
   startArray := THArrayG<string>.Create;
   GrepList := nil; // substr search by default
@@ -683,20 +708,20 @@ begin
     exit;
   end;
 
-  item := TCacheItem.Create(0, fileData, MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow), 0 );
+  item := TCacheItem.Create(0, fileData, 0);
   level.AddValue(item);
   ref.ItemLevel := 0;
   ref.ItemIndex := level.Count - 1;
   Result := ref;
 end;
 
-function TFileNamesCache.AddItem(parent: Cardinal; var fileData: TWin32FindData; itemLevel: Cardinal; doSearch: Boolean = false): TCacheItemRef;
+function TFileNamesCache.AddItem(parent: Cardinal; var fileData: TWin32FindData; itemLevel: Cardinal; doSearch: Boolean = False): TCacheItemRef;
 var
   item: TCacheItem;
 begin
   var level := AddLevel(itemLevel);
 
-  if (doSearch) then begin
+  //if (doSearch) then begin
     //	auto biter = level.begin();
     //	auto eiter = level.end();
     //	ci_string itemName = fileData.cFileName;
@@ -704,9 +729,9 @@ begin
 
     //	if (iter != eiter) // we've found an item
     //		return TCacheItemRef{ iter->FLevel, (size_t)std::distance(biter, iter) };
-    end;
+  //  end;
 
-    item := TCacheItem.Create(parent, fileData, MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow), itemLevel);
+    item := TCacheItem.Create(parent, fileData, itemLevel);
     level.AddValue(item);
     Result.ItemLevel := itemLevel;
     Result.ItemIndex := level.Count - 1;
@@ -854,8 +879,8 @@ begin
 end;
 
 var
-    GPath: THArrayG<PChar> = nil; // optimization, global array to hold path items before converting into full path string
-    //GStrBuilder: TStringBuilder = nil;
+  GPath: THArrayG<PChar> = nil; // optimization, global array to hold path items before converting into full path string
+  //GStrBuilder: TStringBuilder = nil;
 
 
 function TFileNamesCache.MakePathString(itemLevel, itemIndex: Cardinal): string;
@@ -941,7 +966,7 @@ begin
     for var j: Cardinal := 0 to level.Count - 1 do begin
       var sitem := level[j];
 
-      if (sitem.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0 then begin
+      if IsDirectory(sitem) {(sitem.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0} then begin
         pathStr := MakePathString(i, j);
 
         list.Add(Format('%s \t %u', [pathStr, sitem.FFullFileSize]));
@@ -1123,7 +1148,7 @@ begin
     Level := Cache.FCacheData[i];
     for j := 0 to Level.Count - 1 do begin
       Item := Level[j];
-      if (Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0 then AddValue(Item);
+      if IsDirectory(Item) {(Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0} then AddValue(Item);
     end;
   end;
 
@@ -1143,7 +1168,7 @@ begin
     Level := Cache.FCacheData[i];
     for j := 0 to Level.Count - 1 do begin
       Item := Level[j];
-      if NOT (((Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0)
+      if NOT (IsDirectory(Item) {(Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0)}
          OR ((Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE) > 0)) then AddValue(Item);
     end;
   end;
