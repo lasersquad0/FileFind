@@ -3,7 +3,6 @@ program FileFind;
 uses
   Vcl.Forms,
   FileFindMain in 'FileFindMain.pas' {MainForm},
-  FileNamesCache in 'FileNamesCache.pas',
   DynamicArray in '..\DA\dynamicarrays\src\Delphi\DynamicArray.pas',
   LoadFSThread in 'LoadFSThread.pas',
   SettingsForm in 'SettingsForm.pas' {SettingsForm1},
@@ -12,7 +11,10 @@ uses
   Functions in 'Functions.pas',
   About in 'About.pas' {AboutBox},
   StatisticForm in 'StatisticForm.pas' {StatisticForm1},
-  MaskSearch in 'MaskSearch.pas';
+  MaskSearch in 'MaskSearch.pas',
+  HistoryEdit in 'HistoryEdit.pas',
+  FileCache in 'FileCache.pas',
+  DynamicArrays in '..\DA\dynamicarrays\src\Delphi\DynamicArrays.pas';
 
 {$R *.res}
 
