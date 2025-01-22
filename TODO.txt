@@ -12,7 +12,14 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
-
+- looks like wildcards search with '?' wildcard does not work well
+- possibility to make search while FS is being indexed in background
+- Option to specify IndexDB location
+- Search history in edit box - DONE
+- GUI: show row mouse over - DONE
+- Match whole word option. When search term should have word separators in both sides 
+- Add possibility to search for composite folders e.g. 'source\repos'
+- Highlight search term in search results list - DONE
 - "Denied" folders mark with special icon in the list.
 - Add possibility to select a subfolder to make search to. Subfolder inside of existing index top folder.
 - Add reminder if Index is outdated - DONE (14 days reminder)
