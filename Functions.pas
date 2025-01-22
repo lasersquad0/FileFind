@@ -3,24 +3,35 @@ unit Functions;
 interface
 
 uses
-  Winapi.Windows, DynamicArray;
+  SysUtils, Winapi.Windows, DynamicArray, FileCache;
 
+type
+  SplitRec = record
+    str: string;
+    flag: Boolean;
+  end;
 
-  function MillisecToStr(ms: Cardinal): string;
-  function GetLocalTime(ftm: TFileTime): string;
+  function  MillisecToStr(ms: Cardinal): string;
+  function  GetLocalTime(ftm: TFileTime): string;
   // split string to array of strings using Delim as delimiter
   procedure StringToArray(const str: string; var arr:THArrayG<string>; const Delim:Char {= '\n'});
   // splits string to array of strings using Delim as delimiter
   procedure StringToArrayAccum(const str:string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
-  function GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
-  function FileTimeToDateTime(FileTime: TFileTime): TDateTime;
-  function DateTimeToFileTime(FileTime: TDateTime): TFileTime;
-  function ThousandSep(Num: UInt64): string;
+  function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
+  function  FileTimeToDateTime(FileTime: TFileTime): TDateTime;
+  function  DateTimeToFileTime(FileTime: TDateTime): TFileTime;
+  function  ThousandSep(Num: UInt64): string;
+  // the same as Pos() but does case INsensitive search
+  function XPos(const cSubStr, cString: string; Offset: Integer = 1): Integer;
+  procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
+  function GetFileShellInfo(FileName: TFileName; Item: TCacheItem): Boolean;
+
+  {$IFDEF FFDEBUG} procedure LogMessage(Msg: string);{$ENDIF}
 
 implementation
 
 uses
-  SysUtils, Math;
+  WinAPI.ShellAPI, Math;
 
 function MillisecToStr(ms: Cardinal): string;
 var
@@ -158,7 +169,7 @@ begin
     end;
   end;
   if WritePtr^ = FormatSettings.ThousandSeparator {'.'} then Inc(WritePtr);
-  Count := MaxChar - ((NativeInt(WritePtr) - NativeInt(@Res)) shr 1);
+  Count := MaxChar - Integer((NativeInt(WritePtr) - NativeInt(@Res)) shr 1);
 
   if Count = 0 then begin
     Result := '0';
@@ -192,5 +203,137 @@ begin
   SetLength(ts, GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, @mtm, NIL, @ts[1], MAX_DATETIME_STR) - 1);
   Result := ds + '  ' + ts;
 end;
+
+function XPos(const cSubStr, cString: string; Offset: Integer = 1): Integer;
+var
+  nLen0, nLen1, nCnt, nCnt2: Integer;
+  cFirst: Char;
+begin
+  nLen0 := Length(cSubStr);
+  nLen1 := Length(cString);
+
+  if nLen0 > nLen1 then Result := 0 // the substr is longer than the cString
+  else
+  if nLen0 = 0 then Result := 0 // null substr not allowed
+  else begin
+    // the outer loop finds the first matching character....
+    cFirst := UpCase( cSubStr[1] );
+    Result := 0;
+
+    for nCnt := Offset to nLen1 - nLen0 + 1 do begin
+      if UpCase( cString[nCnt] ) = cFirst then begin
+        // this might be the start of the substring...at least the first character matches....
+        Result := nCnt;
+        for nCnt2 := 2 to nLen0 do begin
+          if UpCase( cString[nCnt + nCnt2 - 1] ) <> UpCase( cSubStr[nCnt2] ) then begin
+            // failed
+            Result := 0;
+            break;
+          end;
+        end;
+      end;
+
+      if Result > 0 then break;
+
+    end;
+  end;
+end;
+
+procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
+var
+  p1, p2: Integer;
+  len: Integer;
+  val: SplitRec;
+begin
+  p1 := 1;
+  len := length(DelimString);
+  arr.Clear;
+  while True do begin
+    p2 := XPos(DelimString, InputString, p1);
+
+    if p2 = 0 then begin
+      val.str := Copy(InputString, p1);
+      val.flag := False;
+      arr.AddValue(val);
+      break;  // nothing more found
+    end else begin
+      val.str := Copy(InputString, p1, p2 - p1);
+      val.flag := False;
+      arr.AddValue(val); // adding part of string
+
+      val.str := Copy(InputString, p2, len);
+      val.flag := True;
+      arr.AddValue(val);  // adding split string itself
+    end;
+    p1 := p2 + len;
+  end;
+end;
+
+function GetFileShellInfo(FileName: TFileName; Item: TCacheItem): Boolean;
+var
+  ShFileInfo: TShFileInfo;
+begin
+  ZeroMemory(@ShFileInfo, SizeOf(ShFileInfo));
+  var Res := ShGetFileInfo(PChar(FileName), Item.FFileData.dwFileAttributes, ShFileInfo, SizeOf(ShFileInfo), // Get Windows file name, system file type and icon
+  SHGFI_USEFILEATTRIBUTES OR SHGFI_TYPENAME OR SHGFI_DISPLAYNAME OR SHGFI_SYSICONINDEX OR SHGFI_SMALLICON { OR SHGFI_ICON } );
+
+  if Res = 0 then begin // looks like file not found or some other error occurred
+    Item.FDisplayName := ExtractFileName(FileName);
+    Item.FIconIndex := 0; //ShFileInfo.IIcon;
+    Item.FFileType := 'Unknown file type';
+  end
+  else
+  begin
+    Item.FDisplayName := ShFileInfo.szDisplayName; // Set the item caption
+    Item.FIconIndex := ShFileInfo.IIcon;      // Set file icon index
+    Item.FFileType := ShFileInfo.szTypeName;
+  end;
+
+  //if Item.FDenied then Item.FIconIndex := 0;
+
+  Result := Res <> 0;
+end;
+
+{$IFDEF FFDEBUG}
+const LogFileName = 'FileFind_debug.log';
+var FileH: THandle = 0;
+
+procedure LogMessage(Msg: string);
+//var
+  //AlreadyExists: Boolean;
+
+  {procedure WriteTo(const Msg: AnsiString);
+  var tmpI: DWORD;
+  begin
+    if FileH <> INVALID_HANDLE_VALUE then
+      //try
+        WriteFile(FileH, PAnsiChar(Msg)^, DWORD(Length(Msg)), tmpI, nil);
+      //except
+      //  on E:Exception do
+      //    MessageDlg(Format('Error writing to log file : %s', [E.Message]), mtError, [mbOk], 0);
+      //end;
+  end; }
+var
+  MsgA: AnsiString;
+  bytesWritten: DWORD;
+begin
+  if FileH = 0
+    then FileH := CreateFile(PChar(LogFileName), GENERIC_WRITE or GENERIC_READ, FILE_SHARE_READ, nil, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+
+ // AlreadyExists := GetLastError = ERROR_ALREADY_EXISTS;
+
+  if FileH = INVALID_HANDLE_VALUE then raise Exception.CreateFmt('Cannot open/create file : %s', [LogFileName]);
+
+   SetFilePointer(FileH, 0, nil, FILE_END);
+   MsgA := AnsiString(Msg) + sLineBreak;
+   WriteFile(FileH, PAnsiChar(MsgA)^, DWORD(Length(MsgA)), bytesWritten, nil);
+  // WriteTo(Msg + sLineBreak {#13#10});
+end;
+
+initialization
+   FileH := 0;
+finalization
+   CloseHandle(FileH);
+{$ENDIF}
 
 end.
