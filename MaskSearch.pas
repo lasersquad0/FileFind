@@ -106,11 +106,11 @@ var sr             : string;
     tmp_list       : TStrings;
 begin
      Result := True;
-     if b = '*' then exit; // fits always
-     if b = '*.*' then if Pos('.', a) > 0 then exit; // fits, too
+     if b = '*' then Exit; // fits always
+     if b = '*.*' then if Pos('.', a) > 0 then Exit; // fits, too
      if (Pos('*', b) = 0) and (Pos('?', b) = 0) then
        // if not FindFile then begin
-           if Pos(b, a) > 0 then exit;
+           if Pos(b, a) > 0 then Exit;
            // searched text was found (searchstring IN text)
        // end else
        //    if a = b then exit;
@@ -118,14 +118,14 @@ begin
 
 
      Result := False;
-     if b = '' then exit;
+     if b = '' then Exit;
 
      try
         tmp_list := TStringList.create;
         // divide partial strings ('?','*' or text) to tmp_list
         repeat
               onechar := b[1];
-              if (onechar='*') or (onechar='?') then begin
+              if (onechar = '*') or (onechar = '?') then begin
                  tmp_list.Add(onechar);
                  Delete(b, 1, 1);
               end else begin
@@ -145,24 +145,24 @@ begin
            sr := tmp_list[ps1];
            if sr = '?' then begin
               Inc(ps2, 1);
-              if ps2 > Length(a) then exit;
+              if ps2 > Length(a) then Exit;
            end else
            if sr = '*' then
               dontcare := True
            else begin
                 if not dontcare then begin
-                   if Copy(a, ps2, Length(sr)) <> sr then exit;
+                   if Copy(a, ps2, Length(sr)) <> sr then Exit;
                    dontcare := False;
                    ps2 := ps2 + Length(sr);
                 end else begin
                    ps3:= Pos(sr, Copy(a, ps2, MaxInt));
-                   if ps3 = 0 then exit;
+                   if ps3 = 0 then Exit;
                    ps2 := ps3 + length(sr);
                    dontcare := False;
                 end;
            end;
         end;
-        if not dontcare then if ps2 <> Length(a) + 1 then exit;
+        if not dontcare then if ps2 <> Length(a) + 1 then Exit;
         Result := True;
      finally
         tmp_list.Free;
@@ -177,11 +177,10 @@ begin
      if a = '' then exit; // if no search string, the always return TRUE
      //a := CaseAware(a, MatchCase);
      Result := False;
-     if (GrepList = nil) or (GrepList.Count < 1) then exit;
+     if (GrepList = nil) or (GrepList.Count < 1) then Exit;
      Result := True;
      for ct := 0 to Pred(GrepList.Count) do
-         if cmpmask1(a, GrepList[ct]{, FindFile}) then exit; // compare with the whole
-                                                          // grep_list until one fits
+         if cmpmask1(a, GrepList[ct]{, FindFile}) then Exit; // compare with the whole grep_list until one fits
      Result := False;
 end;
 
