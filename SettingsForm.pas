@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Buttons, Vcl.ExtCtrls, Vcl.NumberBox,
-  LoadFSThread, FileNamesCache;
+  LoadFSThread, System.ImageList, Vcl.ImgList, {FileNamesCache,} FileCache;
 
 type
 
@@ -34,6 +34,9 @@ type
     IndexInfoLabel: TLabel;
     MaxNumberInfoLabel: TLabel;
     Button1: TButton;
+    ImageList1: TImageList;
+    HideFoldersSizeCheckbox: TCheckBox;
+    EnableSearchHistoryCheckBox: TCheckBox;
     procedure OKButtonClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure SelectFolderButtonClick(Sender: TObject);
@@ -67,18 +70,23 @@ type
 var
   SettingsForm1: TSettingsForm1;
 
+const
+  INDEX_FILENAME = 'FileFindIndexDB.idx';
+
 implementation
 
 {$R *.dfm}
 
 uses
-  Registry, Settings, IndexingLog, Functions;
+  System.UITypes, Registry, Settings, IndexingLog, Functions;
 
 
 procedure TSettingsForm1.OKButtonClick(Sender: TObject);
 begin
    AppSettings.CaseSensitiveSearch := CaseSearchCheckBox.Checked;
    AppSettings.CaseSensitiveSort := CaseSortCheckBox.Checked;
+   AppSettings.HideFoldersSize := HideFoldersSizeCheckbox.Checked;
+   AppSettings.EnableSearchHistory := EnableSearchHistoryCheckBox.Checked;
    AppSettings.FoldersOnTop := FoldersOnTopCheckBox.Checked;
    AppSettings.MaxFoundItems := Cardinal(MaxNumFoundBox.ValueInt);
    AppSettings.FolderToIndex := FolderToIndexEditBox.Text;
@@ -93,6 +101,7 @@ begin
   FreeAndNil(FProgressListener);
 
   ExecData := FIndexingThread.ExecData;
+  TFSC.Instance.SerializeTo(INDEX_FILENAME); // saving data into .idx file
   FCancel := False;
 end;
 
@@ -139,6 +148,8 @@ begin
 
   CaseSearchCheckBox.Checked :=  AppSettings.CaseSensitiveSearch;
   CaseSortCheckBox.Checked   := AppSettings.CaseSensitiveSort;
+  HideFoldersSizeCheckbox.Checked   := AppSettings.HideFoldersSize;
+  EnableSearchHistoryCheckBox.Checked :=  AppSettings.EnableSearchHistory;
   FoldersOnTopCheckBox.Checked := AppSettings.FoldersOnTop;
   MaxNumFoundBox.ValueInt    := Integer(AppSettings.MaxFoundItems);
   FolderToIndexEditBox.Text  := AppSettings.FolderToIndex;
