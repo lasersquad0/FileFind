@@ -60,8 +60,6 @@ type
    Sparse:    Cardinal;
  end;
 
- TFNCSearchResult = function(FullPath: string; FileData: TCacheItem): Boolean of object;
-// TFNCIndexingProgress = procedure(Progress: Integer) of object;
 
  IIndexingProgress = class
    procedure Start(P100: Integer); virtual; abstract; // define Max value for progress. -1 means that value for 100% progress is unknown
@@ -70,6 +68,10 @@ type
    procedure ReportError(ErrorStr: string); virtual; abstract;
  end;
 
+  // if True is returned as a result of this function that means 'stop searching'
+ TFNCSearchResult = function(FullPath: string; FileData: TCacheItem): Boolean of object;
+
+  TSearchResult = (srOK, srWrongPath, srNoIndexData, srCancelled);
   TFileSizeCompare = (fscEquals, fscMore, fscLess);
 
   TSearchFilter = record
@@ -132,7 +134,7 @@ type
    function  MakePathString(itemLevel, itemIndex: Cardinal): string; overload;
    procedure AddProgressListener(listener: IIndexingProgress);
    procedure RemoveProgressListener(listener: IIndexingProgress);
-   procedure Search(Filter: TSearchFilter; Callback: TFNCSearchResult);
+   function  Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
 
    procedure PrintLevelsStat(list: TStrings);
    procedure PrintAllItems(list: TStrings);
@@ -237,11 +239,9 @@ begin
   OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwHighDateTime);
   OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
   OStream.WriteData<Cardinal>(FFileData.nFileSizeHigh);
-  OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);  // TODO: do we need to save size twice?
- // OStream.WriteData<uint64>(FFullFileSize); // require to store FFullFileSize for directories
+  OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);
   OStream.WriteData<Cardinal>(FLevel);
   OStream.WriteData<Boolean>(FDenied);
- // var lenBytes := Length(FFileData.cFileName) * sizeof(FFileData.cFileName[0]); // this is unlikely that only file name will be longer than 259 symbols
   var lenBytes := StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
   Assert(lenBytes < MAX_PATH * sizeof(FFileData.cFileName[0]));
   OStream.WriteData<Cardinal>(lenBytes);
@@ -262,7 +262,6 @@ begin
   IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
   IStream.ReadData<Cardinal>(FFileData.nFileSizeHigh);
   IStream.ReadData<Cardinal>(FFileData.nFileSizeLow);
- // IStream.ReadData<uint64>(FFullFileSize);    // require to store FFullFileSize for directories
   FFullFileSize := MakeFileSize(FFileData.nFileSizeHigh, FFileData.nFileSizeLow);
   IStream.ReadData<Cardinal>(FLevel);
   IStream.ReadData<Boolean>(FDenied);
@@ -300,17 +299,19 @@ begin
   if FProgressListeners.IndexOf(listener) = -1 then FProgressListeners.AddValue(listener);
 end;
 
-var
-  ProgressCounter: Integer;  // TODO: think of moving it into inside ReadDirectory method
-
+{$WRITEABLECONST ON}   // needed for ProgressCounter static variable
 function TFileNamesCache.ReadDirectory(const currDir: TFileName; parent: TCacheItemRef; ShowProgress: Boolean): uint64;
-const FIND_FIRST_EX_LARGE_FETCH = $00000002;
+const
+  FIND_FIRST_EX_LARGE_FETCH = $00000002;
+  ProgressCounter: Integer = 0;  // this works as static variable inside a procedure
 var
   dirSize: uint64;
   searchDir: string;
   fileData: TWin32FindData;
   hFind: THandle;
   tmp: LARGE_INTEGER;
+  errCode: Cardinal;
+  errMess: string;
 begin
     Assert(sizeof(uint64) = 8);
 
@@ -329,14 +330,18 @@ begin
     //hFind := Windows.FindFirstFile(PChar(searchDir), fileData);
 
     if (hFind = INVALID_HANDLE_VALUE) then begin
-      var err := GetLastError();
-      if err = ERROR_ACCESS_DENIED then begin // print error message only if other than ERROR_ACCESS_DENIED error occurred
+      errCode := GetLastError();
+      if errCode = ERROR_ACCESS_DENIED then begin // print error message only if other than ERROR_ACCESS_DENIED error occurred
         NotifyError('Access denied: ' + currDir);
         var item := GetItem(parent);
         item.FDenied := True; // set flag that we cannot enter into this folder because of permission denied or other reason.
       end
-      else
-        MessageDlg('ERROR: ' + searchDir + ' GetLastError: ' + IntToStr(err), mtError, [mbOK], 0); //TODO: shall we raise and exception here or call NotifyError()?
+      else // other than ERROR_ACCESS_DENIED error encountered
+      begin
+        errMess := 'ERROR in FindFirstFileEx: ' + currDir + ' GetLastError: ' + IntToStr(errCode);
+        NotifyError(errMess);
+        MessageDlg(errMess, mtError, [mbOK], 0); //TODO: shall we raise and exception here or call NotifyError()?
+      end;
 
       Result := dirSize;
       exit;
@@ -373,8 +378,11 @@ begin
       end
       else
       begin
-        if (GetLastError() = ERROR_NO_MORE_FILES) then break;
-        MessageDlg('Error in FindNextFile().', TMsgDlgType.mtError, [mbOK], 0);  //TODO: shall we raise and exception here or call NotifyError()?
+        errCode := GetLastError();
+        if (errCode = ERROR_NO_MORE_FILES) then break;
+        errMess := 'ERROR in FindNexFile: ' + currDir + ' GetLastError: ' + IntToStr(errCode);
+        NotifyError(errMess);
+        MessageDlg(errMess, mtError, [mbOK], 0); //TODO: shall we raise and exception here or call NotifyError()?
         break;
       end
     end;
@@ -386,12 +394,13 @@ begin
     item.FFullFileSize := dirSize;
 
   //  FFindHandles.AddValue(hFind);
-    Windows.FindClose(hFind);
+    Windows.FindClose(hFind); // weird, this call takes too much time for some reason. It is called for each scanned directory.
 
     if ShowProgress then NotifyFinish;
 
     Result := dirSize;
 end;
+{$WRITEABLECONST OFF}
 
 procedure TFileNamesCache.FillFileData(const filePath: string; var fileData: TWin32FindData);
 var
@@ -482,13 +491,7 @@ end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
 function CheckForFileSize(var Filter: TSearchFilter; FileSize: uint64{; IsDir: Boolean}): Boolean;
-//var
-//  FilterFileSize: uint64;
 begin
-  //if IsDir
-  //  then FilterFileSize := 0 // for directories assume that FileSize=0
-  //  else FilterFileSize := Filter.FileSize;
-
   Result := False;
   case Filter.FileSizeCmpType of
     fscEquals: Result := FileSize = Filter.FileSize;
@@ -498,7 +501,7 @@ begin
 end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
-// True if SearchStr is a substring of FileName
+// True if Filter.SearchStr is a substring of FileName
 function CheckForFileName(var Filter: TSearchFilter; GrepList: TStringList; FileName, FileNameUpper: string): Boolean;
 begin
   if GrepList = nil then begin
@@ -543,25 +546,26 @@ function ApplyFilter(var Filter: TSearchFilter; GrepList: TStringList; Item: TCa
 begin
   Result := False; //Result=False by default means 'not found'
   if Filter.SearchStr <> '' then
-    if NOT CheckForFileName(Filter, GrepList, Item.FFileData.cFileName, item.FUpperCaseName) then exit;
+    if NOT CheckForFileName(Filter, GrepList, Item.FFileData.cFileName, Item.FUpperCaseName) then Exit;
   if Filter.SearchByFileSize then
-    if NOT CheckForFileSize(Filter, Item.FFullFileSize{, IsDirectory(Item)}) then exit;
+    if NOT CheckForFileSize(Filter, Item.FFullFileSize{, IsDirectory(Item)}) then Exit;
   if Filter.SearchByModifiedDate then
-    if NOT CheckForModifiedDate(Filter, item.FFileData.ftLastWriteTime) then exit;
+    if NOT CheckForModifiedDate(Filter, item.FFileData.ftLastWriteTime) then Exit;
   if Filter.SearchByAttributes then
-    if NOT CheckForAttributes(Filter, item.FFileData.dwFileAttributes) then exit;
+    if NOT CheckForAttributes(Filter, item.FFileData.dwFileAttributes) then Exit;
 
   Result := True;
 end;
 
-procedure TFileNamesCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResult);
+function TFileNamesCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
 var
   startArray: THArrayG<string>;
   GrepList: TStringList;
   i, j: Cardinal;
   Found: Boolean;
 begin
-  if FCacheData.Count = 0 then exit;
+  if FCacheData.Count = 0 then Exit(srNoIndexData);
+
   Filter.SearchStrUpper := AnsiUpperCase(Filter.SearchStr);
   Found := False;
 
@@ -579,7 +583,7 @@ begin
 
     StringToArray(Filter.StartFrom, startArray, '\');
 
-    if StartArray.Count > 0 then begin
+    if StartArray.Count > 0 then begin      // verify that index DB contains all folders in Filter.StartFrom path
       for i := 0 to StartArray.Count - 1 do begin
         var lev := FCacheData[i];
         Found := False;
@@ -590,20 +594,21 @@ begin
             break;
           end;
         end;
-        if NOT Found then break;  // found nothing
+        if NOT Found then break; //looks like StartFrom is not found in index DB.
       end;
 
-      if NOT Found then exit;  // if startDir not found in index DB then just exit
+      if NOT Found then Exit(srWrongPath);
     end;
 
-    for i := startArray.Count to FCacheData.Count - 1 do begin
+    for i := startArray.Count to FCacheData.Count - 1 do begin // bypass Filter.StartFrom folders because each level contain only one folder from StartFrom path
       var lv := FCacheData[i];
       for j := 0 to lv.Count - 1 do begin
         var item := lv[j];
         if ApplyFilter(Filter, GrepList, item) then
-          if NOT Callback(MakePathString(i, j), item) then exit;   //TODO: optimization: cache PathString in the item and use it during next searches
+          if NOT Callback(MakePathString(i, j), item) then Exit(srCancelled); //TODO: optimization: cache PathString in the item and use it during next searches
       end;
     end;
+    Result := srOK;
   finally
     startArray.Free;
     FreeAndNil(GrepList); // works even when GrepList=nil
@@ -616,18 +621,19 @@ var
   i, j: Cardinal;
   tmpDate: TDateTime;
 begin
-    tmpDate := Now();
-    OStream.WriteData<TDateTime>(tmpDate); // write datetime of latest index file update
-    OStream.WriteData<Cardinal>(FCacheData.Count);
-    for i := 0 to FCacheData.Count - 1 do begin
-      var lv := FCacheData[i];
-      OStream.WriteData<Cardinal>(lv.Count);
-      for j := 0 to lv.Count - 1 do begin
-        var item := lv[j];
-        item.Serialize(OStream);
-      end;
+  tmpDate := Now();
+  OStream.WriteData<TDateTime>(tmpDate); // write datetime of latest index file update
+  OStream.WriteData<Cardinal>(FCacheData.Count);
+  for i := 0 to FCacheData.Count - 1 do begin
+    var lv := FCacheData[i];
+    OStream.WriteData<Cardinal>(lv.Count);
+    for j := 0 to lv.Count - 1 do begin
+      var item := lv[j];
+      item.Serialize(OStream);
     end;
-    FDateTimeIndexFile := tmpDate; // update index file date field after successfull saving
+  end;
+  FDateTimeIndexFile := tmpDate; // update index file date field after successfull saving
+  FModified := False;
 end;
 
 procedure TFileNamesCache.Deserialize(IStream: TStream);
@@ -637,35 +643,35 @@ var
   level: TLevelType;
   item: TCacheItem;
 begin
-    Clear;
+  Clear;
 
-    IStream.ReadData<TDateTime>(FDateTimeIndexFile);
-    IStream.ReadData<Cardinal>(cacheSize);
-    if cacheSize = 0 then exit;
+  IStream.ReadData<TDateTime>(FDateTimeIndexFile);
+  IStream.ReadData<Cardinal>(cacheSize);
+  if cacheSize = 0 then Exit;
 
-    FCacheData.SetCapacity(cacheSize);
+  FCacheData.SetCapacity(cacheSize);
 
-    for i := 0 to cacheSize - 1 do begin
-      level := TLevelType.Create;
-      FCacheData.AddValue(level);
+  for i := 0 to cacheSize - 1 do begin
+    level := TLevelType.Create;
+    FCacheData.AddValue(level);
 
-      IStream.ReadData<Cardinal>(levelSize);
-      level.SetCapacity(levelSize);
-      Assert(levelSize > 0);
+    IStream.ReadData<Cardinal>(levelSize);
+    level.SetCapacity(levelSize);
+    Assert(levelSize > 0);
 
-      for j := 0 to levelSize - 1 do begin
-        item := TCacheItem.Create;
-        item.Deserialize(IStream);
-        level.AddValue(item);
-      end;
+    for j := 0 to levelSize - 1 do begin
+      item := TCacheItem.Create;
+      item.Deserialize(IStream);
+      level.AddValue(item);
     end;
+  end;
 
-    FModified := False; // loading index file does not mean "Modified". Modified=True after updating data from file system
+  FModified := False; // loading index file does not mean "Modified". Modified=True after updating data from file system
 end;
 
 function TFileNamesCache.GetItem(Level, Index: Cardinal): TCacheItem;
 begin
-	Result := FCacheData[Level].GetValue(Index);
+  Result := FCacheData[Level].GetValue(Index);
 end;
 
 function TFileNamesCache.GetLevelCount(Level: Cardinal): Cardinal;
@@ -859,7 +865,7 @@ end;
 
 function TFileNamesCache.ReadFileSystem(const startDir: string): uint64;
 begin
-  Clear; // remove previous data
+  Clear; // remove previous cache data
   var startItemRef := AddFullPath(startDir);
 
   Result := ReadDirectory(startDir, startItemRef, True);
