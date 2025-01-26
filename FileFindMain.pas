@@ -503,33 +503,11 @@ begin
 end;
 
 function TMainForm.CompareData(arr: THArrayG<TSearchResultsItem>; i, j: Cardinal): Integer;
-//var
- // String1, String2: string;
 begin
- //	Result := 0; // Defaults to equal
   var item1 := arr[i];
   var item2 := arr[j];
 
   Result := CompareData2(item1, item2);
-
-  {
-  String1 := AnsiUpperCase(GetValue(item1, FSortColumnID));
-  String2 := AnsiUpperCase(GetValue(item2, FSortColumnID));
-
-  // compare the selected values
-  if String1 > String2 then Result := 1
-  else if String1 < String2 then Result := -1
-  else begin
-	// if String1 = String2 then  // stings are equal, try to sort on Caption
-  // Converts NAME to uppercase to ignore case
-      String1 := AnsiUpperCase(item1.Caption);
-      String2 := AnsiUpperCase(item2.Caption);
-      if String1 > String2 then Result := 1
-      else if String1 < String2 then Result := -1
-    end;
-
-  // invert Sort if requested
-  if FInvertSort then Result := -Result;}
 end;
 
 function TMainForm.CompareData2(item1, item2: TSearchResultsItem): Integer;
@@ -810,13 +788,10 @@ begin
   ProgressLabel.Left := ProgressBar1.Left - ProgressLabel.Width;
   ProgressLabel.Caption := 'Indexing progress...';
 
-//  var start := GetTickCount;
 {$IFNDEF PROFILING}
   TFSC.Instance.DeserializeFrom(INDEX_FILENAME);
 {$ENDIF}
   TFSC.Instance.Modified := False;
-  if TFSC.Instance.Count > 0 then
-    UpdateStatusBar(GetTickCount - start, TFSC.Instance.Count, TFSC.Instance.GetItem(0, 0).FFullFileSize);
 
   AppSettings.Load; // loading settings from registry
   IndexingBitBtn.Hint := BuildIndexingBtnHint;
@@ -836,6 +811,9 @@ begin
   var FileShellInfoThread := TFileShellInfoThread.Create(True);
   FileShellInfoThread.FreeOnTerminate := True;
   FileShellInfoThread.Start(0, TFSC.Instance.Levels - 1);
+
+  if TFSC.Instance.Count > 0 then // measure time of all app loading steps here
+    UpdateStatusBar(GetTickCount - start, TFSC.Instance.Count, TFSC.Instance.GetItem(0, 0).FFullFileSize);
 
   //ListView_SetTextBkColor(ListView1.Handle, CLR_NONE); // I donot know how it works but it needed to properly repaint listview rows when active row is changes
   //temporarily - remove it.
@@ -1064,7 +1042,7 @@ begin
     end;
   end;
 
-  LogMessage('[TFileShellInfoThread]['+ IntToStr(ThreadID) +'] FINISHED time spent: '+ MillisecToStr(GetTickCount - start));
+  //LogMessage('[TFileShellInfoThread]['+ IntToStr(ThreadID) +'] FINISHED time spent: '+ MillisecToStr(GetTickCount - start));
 end;
 
 procedure TFileShellInfoThread.Start(beg, fin: Cardinal);

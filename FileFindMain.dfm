@@ -468,7 +468,7 @@ object MainForm: TMainForm
         Width = 170
       end
       item
-        Text = 'FS data load time: 0'
+        Text = 'Data load time: 0'
         Width = 200
       end
       item
