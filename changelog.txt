@@ -1,0 +1,24 @@
+
+
+FileFind version 1.1.0
+
+Improvements:
+
+- you can build/refresh index DB from both main window and from settings dialog.
+- added possibility to cancel indexing process if needed (button Cancel).
+- cannot close main window if indexing is in progress, you can stop indexing though.
+- added yellow reminder on the top of main form when index DB becomes outdated and needs to be refreshed.
+- path longer than 260 symbols are now fully supported.
+- many small changes in the code.
+
+---------------------------------------------------
+
+FileFind version 1.0.0
+
+Features:
+
+- search starts automatically after entering 3 symbols
+- Settings dialog with several useful options
+- switch between case sensitive and case insensitive searches
+- switch between case sensitive and case insensitive sorting
+- possibility to refresh index database from Settings screen.
