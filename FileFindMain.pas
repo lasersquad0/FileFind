@@ -808,12 +808,14 @@ begin
   InitSearchEdit; // should be called after AppSettings.Load;
   InitColumns;
 
-  var FileShellInfoThread := TFileShellInfoThread.Create(True);
-  FileShellInfoThread.FreeOnTerminate := True;
-  FileShellInfoThread.Start(0, TFSC.Instance.Levels - 1);
+  if TFSC.Instance.Count > 0 then begin
+    var FileShellInfoThread := TFileShellInfoThread.Create(True);
+    FileShellInfoThread.FreeOnTerminate := True;
+    FileShellInfoThread.Start(0, TFSC.Instance.Levels - 1);
 
-  if TFSC.Instance.Count > 0 then // measure time of all app loading steps here
+    // measure time of all app loading steps here
     UpdateStatusBar(GetTickCount - start, TFSC.Instance.Count, TFSC.Instance.GetItem(0, 0).FFullFileSize);
+  end;
 
   //ListView_SetTextBkColor(ListView1.Handle, CLR_NONE); // I donot know how it works but it needed to properly repaint listview rows when active row is changes
   //temporarily - remove it.
