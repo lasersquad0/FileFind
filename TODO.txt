@@ -12,6 +12,9 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
+- THINK OF: possibility to open several search windows (related to minimize to system tray feature)
+- minimize to system tray
+- search as you type option in settings (ON by default)
 - looks like wildcards search with '?' wildcard does not work well
 - possibility to make search while FS is being indexed in background
 - Option to specify IndexDB location
@@ -20,7 +23,7 @@ TO DO
 - Match whole word option. When search term should have word separators in both sides 
 - Add possibility to search for composite folders e.g. 'source\repos'
 - Highlight search term in search results list - DONE
-- "Denied" folders mark with special icon in the list.
+- "Denied" folders mark with special icon in the list - DONE
 - Add possibility to select a subfolder to make search to. Subfolder inside of existing index top folder.
 - Add reminder if Index is outdated - DONE (14 days reminder)
 - Add notification to select folder if user presses Build Index on main form during first run - DONE 
