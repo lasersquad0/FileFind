@@ -178,7 +178,7 @@ var
 implementation
 
 uses
-  System.UITypes, System.Math, Dialogs, Functions, MaskSearch;
+  System.UITypes, System.Math, Dialogs, Functions, MaskSearch, ObjectsCache;
 
 const MAX_DIR_LEVELS = 100;
 const MAX_DIRS = 10_000;
@@ -931,47 +931,51 @@ begin
   Result := MakePathString(ref.ItemLevel, ref.ItemIndex);
 end;
 
-var
-  GPath: THArrayG<PChar> = nil; // optimization, global array to hold path items before converting into full path string
-  //GStrBuilder: TStringBuilder = nil;
 
+type
+  TGPath = THArrayG<PChar>;
+var
+  GPathCache: TObjectsCache<TGPath> = nil; // optimization, global array to hold path items before converting into full path string
 
 function TFileCache.MakePathString(itemLevel, itemIndex: Cardinal): string;
 var
   k, ii: Integer;
+  GPath: TGPath;
 begin
-  GPath.Clear;
-  //GStrBuilder.Clear;
-  //GStrBuilder.Capacity := MAX_PATH;
+  GPath := GPathCache.GetItem;
+  //GPath.SetCapacity(MAX_DIR_LEVELS); // because of cache memory for capacity will be allocated only once during first call
+  //GPath.Clear;
 
-  var item := GetItem(ItemLevel, ItemIndex);
+  try
+    var item := GetItem(ItemLevel, ItemIndex);
 
-  if itemLevel = 0 then begin  // we asked for root level item, return it and exit
-    Result := item.FFileData.cFileName;
-    exit;
-  end;
+    if itemLevel = 0 then begin  // we asked for root level item, return it and exit
+      Result := item.FFileData.cFileName;
+      Exit;
+    end;
 
-  GPath.AddValue(item.FFileData.cFileName);
-
-  var index := item.FParent;
-  ii := Integer(ItemLevel - 1); // ii variable needs to be signed Integer
-
-  while ii >= 0 do begin
-    item := GetItem(Cardinal(ii), index);
     GPath.AddValue(item.FFileData.cFileName);
-    index := item.FParent;
-    Dec(ii);
+
+    var index := item.FParent;
+    ii := Integer(ItemLevel - 1); // ii variable needs to be signed Integer
+
+    while ii >= 0 do begin
+      item := GetItem(Cardinal(ii), index);
+      GPath.AddValue(item.FFileData.cFileName);
+      index := item.FParent;
+      Dec(ii);
+    end;
+
+    Result := GPath[GPath.Count - 1];
+    for k := Integer(GPath.Count) - 2 downto 0 do begin
+      Result := Result + '\' + GPath[k];
+    end;
+
+  finally
+    GPath.Clear; // memory is not de-allocated, only reset Count to zero.
+    GPathCache.PutItem(GPath); // return object back to cache
   end;
 
-  Result := GPath[GPath.Count - 1];
-  //GStrBuilder.Append(GPath[GPath.Count - 1]);
-  for k := Integer(GPath.Count) - 2 downto 0 do begin
-    Result := Result + '\' + GPath[k];
-    //GStrBuilder.Append('\');
-    //GStrBuilder.Append(GPath[k]);
-  end;
-
-  //Result := GStrBuilder.ToString;
 end;
 
 procedure TFileCache.NotifyFinish;
@@ -1234,11 +1238,11 @@ end;
 
 
 initialization
-  GPath := THArrayG<PChar>.Create;
-  GPath.SetCapacity(MAX_DIR_LEVELS);
+  GPathCache := TObjectsCache<TGPath>.Create(3, True); //we have two threads that will work with this global objects, so 3 items should be enough
+  //GPath.SetCapacity(MAX_DIR_LEVELS);
 
 finalization
-  if GPath <> nil then FreeAndNil(GPath);
+  if GPathCache <> nil then FreeAndNil(GPathCache);
   TFSC.FreeInst; // free cache singlton
 end.
 

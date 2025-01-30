@@ -6,7 +6,7 @@ uses
   WinAPI.Windows, System.SysUtils, System.Classes, System.Messaging, WinAPI.Messages,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Buttons, Vcl.ComCtrls, Vcl.ExtCtrls,
   System.Generics.Collections, Vcl.Menus, Vcl.NumberBox, System.ImageList, Vcl.ImgList, Vcl.Imaging.pngimage, Vcl.Mask,
- { FileNamesCache,} FileCache, LoadFSThread, DynamicArray, Hash, HistoryEdit, Vcl.AppEvnts;
+  FileCache, LoadFSThread, DynamicArray, Hash, HistoryEdit, ObjectsCache, Functions, Vcl.AppEvnts;
 
 type
   TSearchResultsItem = class
@@ -26,7 +26,7 @@ type
     function IsDirectory: Boolean;
  end;
 
- TSearchResultsCache = class
+ {TSearchResultsCache = class
    private
      FData: THArrayG<TSearchResultsItem>;
    public
@@ -35,7 +35,7 @@ type
      procedure SetCapacity(Capacity: Cardinal);
      constructor Create(Capacity: Cardinal);
      destructor Destroy; override;
- end;
+ end; }
 
  TMainFormIndexingProgress = class(IIndexingProgress)
  private
@@ -48,8 +48,6 @@ type
    function  Progress(Prgress: Integer): Boolean; override; // allows to stop process if indexing takes too long time
    procedure ReportError(ErrorStr: string); override;
  end;
-
- const WM_FileShellInfo_MSG = WM_APP + 1;
 
  type
   TMainForm = class(TForm)
@@ -128,15 +126,17 @@ type
     FSortColumnID: Integer;
     FInvertSort: Boolean;
     FSearchResults: THArrayG<TSearchResultsItem>;
-    FSearchResultsCache: TSearchResultsCache;
+    FSearchResultsCache: TObjectsCache<TSearchResultsItem>;
     FColumnMap: THash<Integer, Integer>;
     FIndexingThread: TLoadFSThread;
     FProgressListener: TMainFormIndexingProgress;
-    FCancel: Boolean;
+    FCancelIndexing: Boolean;
+    FCancelGetFileInfo: Boolean;
+    FFileInfoMessagesCount: Cardinal;
 
     procedure InitColumns;
     procedure InitSearchEdit;
-    procedure OnThreadTerminate(Sender: TObject);
+    procedure OnIndexingThreadTerminate(Sender: TObject);
     procedure SearchEditChange(Sender: TObject);
     procedure SearchEditKeyPress(Sender: TObject; var Key: Char);
     //procedure ReCreateIndexingThread;
@@ -156,21 +156,10 @@ type
     function BuildIndexingBtnHint: string;
     procedure OnFileShellInfo(var Msg: TMessage); message WM_FileShellInfo_MSG;
   public
-    property Cancel: Boolean read FCancel;
+   // property Cancel: Boolean read FCancel;
   end;
 
-  // thread for background filling IconIndex, FileType string, and DisplayName fields in TCacheItem(s)
-  // for each item we need make a call to ShGetFileInfo API function. It takes too much time and slows down search process.
-  // it is possible to make searches during this bg process, but they will work a bit slowly because ShGetFileInfo will be called for search result item
-  TFileShellInfoThread = class(TThread)
-  private
-    FBegin: Cardinal;
-    FFinish: Cardinal;
-  protected
-    procedure Execute; override;
-  public
-    procedure Start(beg, fin: Cardinal); overload;
-  end;
+
 
 var
   MainForm: TMainForm;
@@ -180,7 +169,7 @@ implementation
 
 uses
   System.TypInfo, WinAPI.ShellAPI, WinAPI.CommCtrl, System.UITypes, Vcl.Graphics, Math, DateUtils, ClipBrd,
-  Settings, SettingsForm, IndexingLog, About, Functions, StatisticForm;
+  SyncObjs, Settings, SettingsForm, IndexingLog, About, StatisticForm;
 
 {$R *.dfm}
 
@@ -241,7 +230,7 @@ end;
 procedure TMainForm.OnFileShellInfo(var Msg: TMessage);
 var
   item, TmpItem: TCacheItem;
-
+  cnt: Cardinal;
 begin
   TmpItem := TCacheItem(Msg.WParam);
  // LogMessage('[OnFileShellInfo] GetItem('+ IntToStr(TmpItem.FLevel) + ', '+ IntToStr(Msg.LParam) + ')');
@@ -251,6 +240,10 @@ begin
   item.FFileType := TmpItem.FFileType;
   item.FIconIndex := TmpITem.FIconIndex;
   TmpItem.Free;
+
+  cnt := TFSC.Instance.Count;
+  Inc(FFileInfoMessagesCount);
+  StatusBar1.Panels[3].Text := Format('Items loaded: %s (%d%%)', [ThousandSep(cnt), FFileInfoMessagesCount*100 div cnt]);
 end;
 
 procedure TMainForm.Openfilefolder1Click(Sender: TObject);
@@ -397,7 +390,7 @@ begin
   Result := Format('(l=%d, t=%d, r=%d, b=%d, w=%d, h=%d)', [rect.Left, rect.Top, rect.Right, rect.Bottom, rect.Width, rect.Height]);
 end;
  }
-var SplitArray: THArrayG<SplitRec>;
+var SplitArray: THArrayG<SplitRec>; // optimization for marking bold search term during drawing ListView
 
 procedure TMainForm.ListView1AdvancedCustomDrawItem(Sender: TCustomListView; Item: TListItem; State: TCustomDrawState;
   Stage: TCustomDrawStage; var DefaultDraw: Boolean);
@@ -419,8 +412,6 @@ begin
    srchStr := SearchEdit.Text;
    SplitByString(Item.Caption, srchStr, SplitArray);
    if SplitArray.Count = 0 then Exit;  // SplitArray.Count can be =0 when we doing search with wildcards.
-
-    //LogMessage('ItemState = ' + DrawStateToString(State));
 
     retOldBrush := False;
 
@@ -597,7 +588,7 @@ begin
   if res < 33 then MessageDlg('ShellExecute error: ' + res.ToString, TMsgDlgType.mtError, [mbOK], 0);
 end;
 
-procedure TMainForm.OnThreadTerminate(Sender: TObject);
+procedure TMainForm.OnIndexingThreadTerminate(Sender: TObject);
 begin
   TFSC.Instance.RemoveProgressListener(FProgressListener);
   FreeAndNil(FProgressListener);
@@ -611,12 +602,16 @@ begin
   TFSC.Instance.SerializeTo(INDEX_FILENAME); // save loaded data into .idx file
 
   UpdateStatusBar(FIndexingThread.ExecData.ExecTime, TFSC.Instance.Count, FIndexingThread.ExecData.DirSize {TFSC.Instance.GetItem(0, 0).FFullFileSize});
+
+  FFileInfoMessagesCount := 0;
+  TInterlocked.Exchange(FCancelGetFileInfo, False); // reset stop flag
+  TFileShellInfoThread.RunGetShellInfoBgThread(self.Handle, @FCancelGetFileInfo); // start getting File infos after IndexDB refresh
 end;
 
 procedure TMainForm.CancelBtnClick(Sender: TObject);
 begin
-  FCancel := mrYes = MessageDlg('Are you sure you want to cancel indexing?', TMsgDlgType.mtConfirmation, [mbYes, mbNo], 0, mbYes);
-// TInterlocked
+  // because other threads read this variable as a signal to stop execution
+  TInterlocked.Exchange(FCancelIndexing, mrYes = MessageDlg('Are you sure you want to cancel indexing?', TMsgDlgType.mtConfirmation, [mbYes, mbNo], 0, mbYes));
 end;
 
 procedure TMainForm.ClearSearchResults;
@@ -739,12 +734,15 @@ begin
 {$IFDEF PROFILING}
   TFSC.Instance.ReadFileSystem(AppSettings.FolderToIndex);
 {$ELSE}
-  FCancel := False;
+  TInterlocked.Exchange(FCancelGetFileInfo, True); // stop GetFileInfo thread if it is running
+  Sleep(200);
+
+  TInterlocked.Exchange(FCancelIndexing, False); // because other threads read this variable as a signal to stop execution
   FIndexingThread := TLoadFSThread.Create(True); // create suspended
-  FProgressListener := TMainFormIndexingProgress.Create(FIndexingThread); // TIndexingProgress.Create(FIndexingThread, IndexingLogForm.LogMemo.Lines);
+  FProgressListener := TMainFormIndexingProgress.Create(FIndexingThread);
   TFSC.Instance.AddProgressListener(FProgressListener);
 
-  FIndexingThread.OnTerminate := OnThreadTerminate;
+  FIndexingThread.OnTerminate := OnIndexingThreadTerminate;
   FIndexingThread.FreeOnTerminate := True;
   FIndexingThread.ProgressBar := ProgressBar1;
   FIndexingThread.ExecData.StartDir := AppSettings.FolderToIndex;
@@ -762,7 +760,7 @@ begin
   CanClose := NOT Assigned(FProgressListener);
 
   if CanClose then begin
-    FCancel := True;
+    TInterlocked.Exchange(FCancelGetFileInfo, True); // because other threads read this variable as a signal to stop execution
     Sleep(200); // give other threads chance to stop executing
   end;
 end;
@@ -798,7 +796,7 @@ begin
   StartSearchFolder.Text := AppSettings.FolderToIndex;
 
   FSearchResults := THArrayG<TSearchResultsItem>.Create(AppSettings.MaxFoundItems + 1);  // default capacity (+1 just in case)
-  FSearchResultsCache := TSearchResultsCache.Create(AppSettings.MaxFoundItems + 1);
+  FSearchResultsCache := TObjectsCache<TSearchResultsItem>.Create(AppSettings.MaxFoundItems + 1, False);
   FColumnMap := THash<Integer, Integer>.Create; // maps column IDs into default column indexes
 
   SearchByFileSizeClick(SearchByFileSize); // disable search controls by default
@@ -809,9 +807,9 @@ begin
   InitColumns;
 
   if TFSC.Instance.Count > 0 then begin
-    var FileShellInfoThread := TFileShellInfoThread.Create(True);
-    FileShellInfoThread.FreeOnTerminate := True;
-    FileShellInfoThread.Start(0, TFSC.Instance.Levels - 1);
+    FFileInfoMessagesCount := 0;
+    TInterlocked.Exchange(FCancelGetFileInfo, False); // reset flag begore starting bg thread
+    TFileShellInfoThread.RunGetShellInfoBgThread(self.Handle, @FCancelGetFileInfo);
 
     // measure time of all app loading steps here
     UpdateStatusBar(GetTickCount - start, TFSC.Instance.Count, TFSC.Instance.GetItem(0, 0).FFullFileSize);
@@ -899,15 +897,14 @@ begin
   ListView1.LargeImages := TImageList.Create(self);
   FillChar(ShFileInfo, SizeOf(ShFileInfo), 0);
   SysImageList := ShGetFileInfo('', 0, ShFileInfo, SizeOf(ShFileInfo), SHGFI_SYSICONINDEX or SHGFI_LARGEICON);
-  if SysImageList <> 0 then
-  begin
+  if SysImageList <> 0 then begin
     ListView1.LargeImages.Handle := SysImageList;
     ListView1.LargeImages.ShareImages := True; // Avoid freeing of System Image List !
   end;
+
   ListView1.SmallImages := TImageList.Create(self);
   SysImageList := ShGetFileInfo('', 0, ShFileInfo, SizeOf(ShFileInfo), SHGFI_SYSICONINDEX or SHGFI_SMALLICON);
-  if SysImageList <> 0 then
-  begin
+  if SysImageList <> 0 then begin
     ListView1.SmallImages.Handle := SysImageList;
     ListView1.SmallImages.ShareImages := True; // Avoid freeing of System Image List !
   end;
@@ -923,7 +920,7 @@ end;
 
 procedure TMainFormIndexingProgress.Finish;
 begin
-
+   // nothing to do here
 end;
 
 function TMainFormIndexingProgress.Progress(Prgress: Integer): Boolean;
@@ -935,7 +932,7 @@ begin
    begin
      // logrithmic progress since we do not know total progress value
       MainForm.ProgressBar1.Position := MainForm.ProgressBar1.Position + (MainForm.ProgressBar1.Max - MainForm.ProgressBar1.Position) div 20;
-      b := NOT MainForm.Cancel;
+      b := NOT MainForm.FCancelIndexing;
    end
    );
   Result := b;
@@ -953,7 +950,7 @@ end;
 
 { TSearchResultsCache }
 
-constructor TSearchResultsCache.Create(Capacity: Cardinal);
+{constructor TSearchResultsCache.Create(Capacity: Cardinal);
 var i: Cardinal;
 begin
   FData := THArrayG<TSearchResultsItem>.Create(Capacity);
@@ -988,76 +985,11 @@ procedure TSearchResultsCache.SetCapacity(Capacity: Cardinal);
 begin
   FData.SetCapacity(Capacity);
 end;
+ }
 
-{ TFileShellInfoThread }
- {
-var TmpItem: TCacheItem;
-
-procedure TFileShellInfoThread.Execute;
-var
-  i, j: Cardinal;
-  levels, lvlCount: Cardinal;
-  start: Cardinal;
-begin
-  start := GetTickCount;
-  levels := TFSC.Instance.Levels;
-  if levels = 0 then Exit;
-
-  for i := 0 to levels - 1 do begin
-    lvlCount := TFSC.Instance.LevelCount(i);
-    for j := 1 to lvlCount do begin
-      var item := TFSC.Instance.GetItem(i, j - 1);
-      TmpItem.Assign(item);
-      GetFileShellInfo(item.FFileData.cFileName, TmpItem);
-
-      //LogMessage('[TFileShellInfoThread] GetItem('+ IntToStr(TmpItem.FLevel) + ', '+ IntToStr(j-1) + ')');
-
-      SendMessage(MainForm.Handle, WM_FileShellInfo_MSG, WPARAM(TmpItem), LPARAM(j - 1));
-    end;
-  end;
-
-  LogMessage('[TFileShellInfoThread] FINISHED time: '+ MillisecToStr(GetTickCount - start));
-end;   }
-
-procedure TFileShellInfoThread.Execute;
-var
-  i, j: Cardinal;
-  levels, lvlCount: Cardinal;
-  start: Cardinal;
-  tmpI: TCacheItem;
-begin
-  start := GetTickCount;
-
-  for i := FBegin to FFinish do begin
-    lvlCount := TFSC.Instance.LevelCount(i);
-    for j := 1 to lvlCount do begin
-      if ((j mod 100) = 0) AND MainForm.Cancel then Exit;  // check for cancel every 100th item
-
-      var item := TFSC.Instance.GetItem(i, j - 1);
-      if item.FFileType = '' then begin
-        TmpI := TCacheItem.Create;
-        TmpI.Assign(item);
-        GetFileShellInfo(item.FFileData.cFileName, TmpI);
-        //LogMessage('[TFileShellInfoThread] GetItem('+ IntToStr(TmpI.FLevel) + ', '+ IntToStr(j-1) + ')');
-        PostMessage(MainForm.Handle, WM_FileShellInfo_MSG, WPARAM(TmpI), LPARAM(j - 1));
-      end;
-    end;
-  end;
-
-  //LogMessage('[TFileShellInfoThread]['+ IntToStr(ThreadID) +'] FINISHED time spent: '+ MillisecToStr(GetTickCount - start));
-end;
-
-procedure TFileShellInfoThread.Start(beg, fin: Cardinal);
-begin
-  FBegin := beg;
-  FFinish := fin;
-  Start();
-end;
 
 initialization
   SplitArray := THArrayG<SplitRec>.Create();
-  //TmpItem := TCacheItem.Create;
 finalization
   FreeAndNil(SplitArray);
-  //FreeAndNil(TmpItem);
 end.
