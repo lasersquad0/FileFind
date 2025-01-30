@@ -3,12 +3,31 @@ unit Functions;
 interface
 
 uses
-  SysUtils, Winapi.Windows, DynamicArray, FileCache;
+  SysUtils, Winapi.Windows, WinAPI.Messages, Classes, DynamicArray, FileCache;
 
 type
   SplitRec = record
     str: string;
     flag: Boolean;
+  end;
+
+   // thread for background filling IconIndex, FileType string, and DisplayName fields in TCacheItem(s)
+   // for each item we need make a call to ShGetFileInfo API function. It takes too much time and slows down search process.
+   // it is possible to make searches during this bg process, but they will work a bit slowly because ShGetFileInfo will be called for search result item
+const WM_FileShellInfo_MSG = WM_APP + 1;
+
+type
+  TFileShellInfoThread = class(TThread)
+  private
+    FBegin: Cardinal;
+    FFinish: Cardinal;
+    FCancelFlag: PBoolean;
+    FWinHandle: THandle;
+  protected
+    procedure Execute; override;
+  public
+    procedure Start(WinHandle: THandle; CancelFlag: PBoolean; lvStart: Cardinal = 0; lvEnd: Cardinal = 0); overload;
+    class procedure RunGetShellInfoBgThread(WinHandle: THandle; CancelFlag: PBoolean);
   end;
 
   function  MillisecToStr(ms: Cardinal): string;
@@ -28,10 +47,11 @@ type
 
   {$IFDEF FFDEBUG} procedure LogMessage(Msg: string);{$ENDIF}
 
+
 implementation
 
 uses
-  WinAPI.ShellAPI, Math;
+  WinAPI.ShellAPI, StrUtils, SyncObjs, Math;
 
 function MillisecToStr(ms: Cardinal): string;
 var
@@ -269,65 +289,114 @@ begin
   end;
 end;
 
+// FileName - must be full path to existing file or folder
+// or relative path to existing file/folder
+
+{$WRITEABLECONST ON}   // needed for CallsCount static variable
 function GetFileShellInfo(FileName: TFileName; Item: TCacheItem): Boolean;
+const
+  CallsCount: Cardinal = 0;
 var
   ShFileInfo: TShFileInfo;
 begin
+  Inc(CallsCount);
+
   ZeroMemory(@ShFileInfo, SizeOf(ShFileInfo));
-  var Res := ShGetFileInfo(PChar(FileName), Item.FFileData.dwFileAttributes, ShFileInfo, SizeOf(ShFileInfo), // Get Windows file name, system file type and icon
-  SHGFI_USEFILEATTRIBUTES OR SHGFI_TYPENAME OR SHGFI_DISPLAYNAME OR SHGFI_SYSICONINDEX OR SHGFI_SMALLICON { OR SHGFI_ICON } );
+
+  // Get Windows file name, system file type string and icon index
+  var Res := ShGetFileInfo(PChar(FileName), 0 {Item.FFileData.dwFileAttributes}, ShFileInfo, SizeOf(ShFileInfo),
+  {SHGFI_USEFILEATTRIBUTES OR} SHGFI_TYPENAME OR SHGFI_DISPLAYNAME OR SHGFI_SYSICONINDEX OR SHGFI_SMALLICON { OR SHGFI_ICON } );
 
   if Res = 0 then begin // looks like file not found or some other error occurred
     Item.FDisplayName := ExtractFileName(FileName);
-    Item.FIconIndex := 0; //ShFileInfo.IIcon;
-    Item.FFileType := 'Unknown file type';
+    Item.FIconIndex := 0; // ShFileInfo.IIcon;
+    Item.FDenied := True; // mark such items with red icon too
+
+    var err := GetLastError();
+    if err = ERROR_FILE_NOT_FOUND then begin // file not found error
+      Item.FFileType := 'File not found (probably deleted)';
+    end else begin
+      Item.FFileType := 'Unknown file type';
+    end;
+    LogMessage(Format('Error %d returned by ShGetFileInfo("%s")', [err, FileName]));
   end
   else
   begin
-    Item.FDisplayName := ShFileInfo.szDisplayName; // Set the item caption
-    Item.FIconIndex := ShFileInfo.IIcon;      // Set file icon index
+    //Item.FDenied := False;
+    Item.FDisplayName := IfThen(ShFileInfo.szDisplayName[0] = #0, ExtractFileName(FileName), ShFileInfo.szDisplayName); // Set the item caption
+    Item.FIconIndex := ShFileInfo.IIcon;  // Set file icon index from system image list
     Item.FFileType := ShFileInfo.szTypeName;
   end;
 
-  //if Item.FDenied then Item.FIconIndex := 0;
-
   Result := Res <> 0;
 end;
+{$WRITEABLECONST OFF}
+
+{ TFileShellInfoThread }
+
+procedure TFileShellInfoThread.Execute;
+var
+  i, j: Cardinal;
+  levels, lvlCount: Cardinal;
+  start: Cardinal;
+  tmpI: TCacheItem;
+begin
+  start := GetTickCount;
+
+  for i := FBegin to FFinish do begin
+    lvlCount := TFSC.Instance.LevelCount(i);
+    for j := 1 to lvlCount do begin
+      if ((j mod 100) = 0) AND FCancelFlag^ then Exit;  // check for cancel every 100th item
+
+      var item := TFSC.Instance.GetItem(i, j - 1);
+      if item.FFileType = '' then begin
+        TmpI := TCacheItem.Create;
+        TmpI.Assign(item);
+        GetFileShellInfo(TFSC.Instance.MakePathString(i, j - 1), TmpI);
+        PostMessage(FwinHandle, WM_FileShellInfo_MSG, WPARAM(TmpI), LPARAM(j - 1));
+      end;
+    end;
+  end;
+
+  LogMessage('[TFileShellInfoThread]['+ IntToStr(ThreadID) +'] FINISHED. Time spent: '+ MillisecToStr(GetTickCount - start));
+end;
+
+procedure TFileShellInfoThread.Start(WinHandle: THandle; CancelFlag: PBoolean; lvStart: Cardinal = 0; lvEnd: Cardinal = 0);
+begin
+  FBegin := lvStart;
+  FFinish := lvEnd;
+  FCancelFlag := CancelFlag;
+  FWinHandle := WinHandle;
+
+  Start();
+end;
+
+class procedure TFileShellInfoThread.RunGetShellInfoBgThread(WinHandle: THandle; CancelFlag: PBoolean);
+begin
+  LogMessage('[TFileShellInfoThread] STARTING');
+  var FileShellInfoThread := TFileShellInfoThread.Create(True);
+  FileShellInfoThread.FreeOnTerminate := True;
+  FileShellInfoThread.Start(WinHandle, CancelFlag, 0, TFSC.Instance.Levels - 1);
+end;
+
 
 {$IFDEF FFDEBUG}
 const LogFileName = 'FileFind_debug.log';
 var FileH: THandle = 0;
 
 procedure LogMessage(Msg: string);
-//var
-  //AlreadyExists: Boolean;
-
-  {procedure WriteTo(const Msg: AnsiString);
-  var tmpI: DWORD;
-  begin
-    if FileH <> INVALID_HANDLE_VALUE then
-      //try
-        WriteFile(FileH, PAnsiChar(Msg)^, DWORD(Length(Msg)), tmpI, nil);
-      //except
-      //  on E:Exception do
-      //    MessageDlg(Format('Error writing to log file : %s', [E.Message]), mtError, [mbOk], 0);
-      //end;
-  end; }
 var
   MsgA: AnsiString;
   bytesWritten: DWORD;
 begin
   if FileH = 0
-    then FileH := CreateFile(PChar(LogFileName), GENERIC_WRITE or GENERIC_READ, FILE_SHARE_READ, nil, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
-
- // AlreadyExists := GetLastError = ERROR_ALREADY_EXISTS;
+    then FileH := CreateFile(PChar(LogFileName), GENERIC_WRITE OR GENERIC_READ, FILE_SHARE_READ, nil, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
 
   if FileH = INVALID_HANDLE_VALUE then raise Exception.CreateFmt('Cannot open/create file : %s', [LogFileName]);
 
    SetFilePointer(FileH, 0, nil, FILE_END);
-   MsgA := AnsiString(Msg) + sLineBreak;
+   MsgA := AnsiString(Msg) + sLineBreak; // use AnsiString here to be able to easily view log file in any file viewer.
    WriteFile(FileH, PAnsiChar(MsgA)^, DWORD(Length(MsgA)), bytesWritten, nil);
-  // WriteTo(Msg + sLineBreak {#13#10});
 end;
 
 initialization

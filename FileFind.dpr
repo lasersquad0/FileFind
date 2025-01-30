@@ -14,7 +14,8 @@ uses
   MaskSearch in 'MaskSearch.pas',
   HistoryEdit in 'HistoryEdit.pas',
   FileCache in 'FileCache.pas',
-  DynamicArrays in '..\DA\dynamicarrays\src\Delphi\DynamicArrays.pas';
+  DynamicArrays in '..\DA\dynamicarrays\src\Delphi\DynamicArrays.pas',
+  ObjectsCache in 'ObjectsCache.pas';
 
 {$R *.res}
 
