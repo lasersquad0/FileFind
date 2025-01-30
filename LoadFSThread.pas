@@ -43,7 +43,7 @@ type
 
   // separate thread for closing (freeing) windows find handles once indexing is finished.
   // since closing handles (FindClose WINAPI call) takes too much time according to profiling tests
-  TFindCloseThread = class(TThread)
+ { TFindCloseThread = class(TThread)
   private
     FFindHandles: THArrayG<THandle>;
   protected
@@ -52,11 +52,11 @@ type
     procedure Start(handles: THArrayG<THandle>); overload;
   end;
 
-
+  }
 
 implementation
 
-uses SysUtils, System.UITypes, Vcl.Dialogs, Windows;
+uses SysUtils, System.UITypes, Vcl.Dialogs, Windows, Functions;
 
 
 
@@ -95,6 +95,8 @@ begin
   var stop := GetTickCount;
   ExecData.ExecTime := stop - start;
 
+  LogMessage('[IndexingThread]['+ IntToStr(ThreadID) +'] FINISHED. Time spent: '+ MillisecToStr(ExecData.ExecTime));
+
   //var FindCloseThread := TFindCloseThread.Create(True); // thread to close all find handles
   //FindCloseThread.FreeOnTerminate := True;
   //FindCloseThread.Start(TFSC.Instance.FindHandles);
@@ -114,6 +116,7 @@ begin
 
   ProgressBar.Position := 0;
 
+  LogMessage('[IndexingThread] STARTING');
   Start;
 end;
 
@@ -205,7 +208,7 @@ end;
 
 { TFindCloseThread }
 
-
+   {
 procedure TFindCloseThread.Execute;
 var i: Cardinal;
 begin
@@ -217,6 +220,6 @@ procedure TFindCloseThread.Start(handles: THArrayG<THandle>);
 begin
   FFindHandles := handles;
   Start;
-end;
+end; }
 
 end.
