@@ -14,7 +14,9 @@ type
    // thread for background filling IconIndex, FileType string, and DisplayName fields in TCacheItem(s)
    // for each item we need make a call to ShGetFileInfo API function. It takes too much time and slows down search process.
    // it is possible to make searches during this bg process, but they will work a bit slowly because ShGetFileInfo will be called for search result item
-const WM_FileShellInfo_MSG = WM_APP + 1;
+const
+  WM_FileShellInfo_MSG = WM_APP + 1;
+  WM_SearchResultsShellInfo_MSG = WM_APP + 2;
 
 type
   TFileShellInfoThread = class(TThread)
@@ -32,6 +34,8 @@ type
 
   function  MillisecToStr(ms: Cardinal): string;
   function  GetLocalTime(ftm: TFileTime): string;
+  function  StringListToArray(Strings: TStrings): TArray<string>;
+  procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
   // split string to array of strings using Delim as delimiter
   procedure StringToArray(const str: string; var arr:THArrayG<string>; const Delim:Char {= '\n'});
   // splits string to array of strings using Delim as delimiter
@@ -41,9 +45,13 @@ type
   function  DateTimeToFileTime(FileTime: TDateTime): TFileTime;
   function  ThousandSep(Num: UInt64): string;
   // the same as Pos() but does case INsensitive search
-  function XPos(const cSubStr, cString: string; Offset: Integer = 1): Integer;
+  function  XPos(const cSubStr, cString: string; Offset: Integer = 1): Integer;
   procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
-  function GetFileShellInfo(FileName: TFileName; Item: TCacheItem): Boolean;
+  function  AttrStr(Attr: Integer): string;
+  function  AttrStr2(Attr: Integer): string;
+  function  GetLogicalDrives: TArray<string>;
+  function  IsDriveRemovable(drive: string): Boolean;
+  function  GetFileShellInfo(FullFileName: TFileName; Item: TCacheItem): Boolean;
 
   {$IFDEF FFDEBUG} procedure LogMessage(Msg: string);{$ENDIF}
 
@@ -74,6 +82,21 @@ begin
     Result := Format('%u sec %u ms', [seconds, milliseconds]);
 end;
 
+procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
+var
+  i, sz: Integer;
+begin
+  sz := Length(Arr);
+  for i := 0 to sz - 1 do Strings.Add(Arr[i]);
+end;
+
+function StringListToArray(Strings: TStrings): TArray<string>;
+var
+  i: Integer;
+begin
+  SetLength(Result, Strings.Count);
+  for i := 0 to Strings.Count - 1 do Result[i] := Strings[i];
+end;
 
 // split string to array of strings using Delim as delimiter
 procedure StringToArray(const str: string; var arr:THArrayG<string>; const Delim:Char {= '\n'});
@@ -289,11 +312,70 @@ begin
   end;
 end;
 
+// returns a string with file attributes (DRSH)
+function AttrStr(Attr: Integer): string;
+begin
+  Result := '';
+  if (Attr AND FILE_ATTRIBUTE_ARCHIVE)    > 0 then Result := Result + 'A';
+  if (Attr AND FILE_ATTRIBUTE_DIRECTORY)  > 0 then Result := Result + 'D';
+  if (Attr AND FILE_ATTRIBUTE_READONLY)   > 0 then Result := Result + 'R';
+  if (Attr AND FILE_ATTRIBUTE_SYSTEM)     > 0 then Result := Result + 'S';
+  if (Attr AND FILE_ATTRIBUTE_HIDDEN)     > 0 then Result := Result + 'H';
+  if (Attr AND FILE_ATTRIBUTE_COMPRESSED) > 0 then Result := Result + 'C';
+  if (Attr AND FILE_ATTRIBUTE_TEMPORARY)  > 0 then Result := Result + 'T';
+  if (Attr AND FILE_ATTRIBUTE_ENCRYPTED)  > 0 then Result := Result + 'E';
+end;
+
+
+// returns a string with file attributes in fixed format
+function AttrStr2(Attr: Integer): string;
+begin
+  Result := '--------';
+  if (Attr AND FILE_ATTRIBUTE_ARCHIVE)    > 0 then Result[2] := 'A';
+  if (Attr AND FILE_ATTRIBUTE_DIRECTORY)  > 0 then Result[1] := 'D';
+  if (Attr AND FILE_ATTRIBUTE_READONLY)   > 0 then Result[3] := 'R';
+  if (Attr AND FILE_ATTRIBUTE_SYSTEM)     > 0 then Result[4] := 'S';
+  if (Attr AND FILE_ATTRIBUTE_HIDDEN)     > 0 then Result[5] := 'H';
+  if (Attr AND FILE_ATTRIBUTE_COMPRESSED) > 0 then Result[6] := 'C';
+  if (Attr AND FILE_ATTRIBUTE_TEMPORARY)  > 0 then Result[7] := 'T';
+  if (Attr AND FILE_ATTRIBUTE_ENCRYPTED)  > 0 then Result[8] := 'E';
+end;
+
+function ZStrArrayToDelphiArray(ZStrings: PChar): TArray<string>;
+begin
+  SetLength(Result, 0);
+  while (True) do begin
+    if ZStrings[0] = #0 then break;
+    Insert(ZStrings, Result, Length(Result));
+    ZStrings := ZStrings + Strlen(ZStrings) + 1;
+  end;
+end;
+
+function GetLogicalDrives: TArray<string>;
+var
+  Names: string;
+  Len: Cardinal;
+begin
+  Len := MAX_PATH * 3; // allocate enough storage for list of drives
+  SetLength(Names, Len);
+  Len := GetLogicalDriveStrings(Len, PChar(Names));
+
+  Result := ZStrArrayToDelphiArray(PChar(Names));
+end;
+
+function  IsDriveRemovable(drive: string): Boolean;
+var
+  dt: Cardinal;
+begin
+  dt := GetDriveType(PChar(drive));
+  Result := (dt = DRIVE_REMOVABLE) OR (dt = DRIVE_CDROM);
+end;
+
 // FileName - must be full path to existing file or folder
 // or relative path to existing file/folder
 
 {$WRITEABLECONST ON}   // needed for CallsCount static variable
-function GetFileShellInfo(FileName: TFileName; Item: TCacheItem): Boolean;
+function GetFileShellInfo(FullFileName: TFileName; Item: TCacheItem): Boolean;
 const
   CallsCount: Cardinal = 0;
 var
@@ -304,26 +386,26 @@ begin
   ZeroMemory(@ShFileInfo, SizeOf(ShFileInfo));
 
   // Get Windows file name, system file type string and icon index
-  var Res := ShGetFileInfo(PChar(FileName), 0 {Item.FFileData.dwFileAttributes}, ShFileInfo, SizeOf(ShFileInfo),
+  var Res := ShGetFileInfo(PChar(FullFileName), 0 {Item.FFileData.dwFileAttributes}, ShFileInfo, SizeOf(ShFileInfo),
   {SHGFI_USEFILEATTRIBUTES OR} SHGFI_TYPENAME OR SHGFI_DISPLAYNAME OR SHGFI_SYSICONINDEX OR SHGFI_SMALLICON { OR SHGFI_ICON } );
 
   if Res = 0 then begin // looks like file not found or some other error occurred
-    Item.FDisplayName := ExtractFileName(FileName);
+    Item.FDisplayName := ExtractFileName(FullFileName);
     Item.FIconIndex := 0; // ShFileInfo.IIcon;
     Item.FDenied := True; // mark such items with red icon too
 
     var err := GetLastError();
-    if err = ERROR_FILE_NOT_FOUND then begin // file not found error
+    if (err = ERROR_FILE_NOT_FOUND) OR (err = ERROR_PATH_NOT_FOUND)  then begin // file not found error
       Item.FFileType := 'File not found (probably deleted)';
     end else begin
       Item.FFileType := 'Unknown file type';
     end;
-    LogMessage(Format('Error %d returned by ShGetFileInfo("%s")', [err, FileName]));
+    LogMessage(Format('Error %d returned by ShGetFileInfo("%s")', [err, FullFileName]));
   end
   else
   begin
     //Item.FDenied := False;
-    Item.FDisplayName := IfThen(ShFileInfo.szDisplayName[0] = #0, ExtractFileName(FileName), ShFileInfo.szDisplayName); // Set the item caption
+    Item.FDisplayName := IfThen(ShFileInfo.szDisplayName[0] = #0, ExtractFileName(FullFileName), ShFileInfo.szDisplayName); // Set the item caption
     Item.FIconIndex := ShFileInfo.IIcon;  // Set file icon index from system image list
     Item.FFileType := ShFileInfo.szTypeName;
   end;
@@ -394,8 +476,9 @@ begin
 
   if FileH = INVALID_HANDLE_VALUE then raise Exception.CreateFmt('Cannot open/create file : %s', [LogFileName]);
 
+
    SetFilePointer(FileH, 0, nil, FILE_END);
-   MsgA := AnsiString(Msg) + sLineBreak; // use AnsiString here to be able to easily view log file in any file viewer.
+   MsgA := AnsiString(DateTimeToStr(Now) + ' ' + Msg) + sLineBreak; // use AnsiString here to be able to easily view log file in any file viewer.
    WriteFile(FileH, PAnsiChar(MsgA)^, DWORD(Length(MsgA)), bytesWritten, nil);
 end;
 
