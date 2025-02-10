@@ -7,7 +7,7 @@ uses
 
 type
   TExecutionData = record
-    StartDir: string;
+    VolumesToIndex: TArray<string>;
     ExecTime: Cardinal;
     DirSize: uint64;
   end;
@@ -85,7 +85,7 @@ procedure TLoadFSThread.Execute;
 begin
    var start := GetTickCount;
    try
-     ExecData.DirSize := TFSC.Instance.ReadFileSystem(ExecData.StartDir);
+     ExecData.DirSize := TFSC.Instance.ReadFileSystem(ExecData.VolumesToIndex[0]);
    except
      on E: EOperationCancelled do begin
        Synchronize(procedure  begin MessageDlg('User has cancelled file indexing operation.', mtInformation, [mbOK], 0) end);
