@@ -3,8 +3,8 @@ object SettingsForm1: TSettingsForm1
   Top = 0
   BorderStyle = bsDialog
   Caption = 'FindFile - Options'
-  ClientHeight = 405
-  ClientWidth = 601
+  ClientHeight = 363
+  ClientWidth = 456
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -13,237 +13,434 @@ object SettingsForm1: TSettingsForm1
   Font.Style = []
   Position = poMainFormCenter
   OnCloseQuery = FormCloseQuery
+  OnCreate = FormCreate
   OnShow = FormShow
+  DesignSize = (
+    456
+    363)
   TextHeight = 15
-  object Label5: TLabel
-    Left = 13
-    Top = 16
-    Width = 38
-    Height = 15
-    Caption = 'Search'
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clWindowText
-    Font.Height = -12
-    Font.Name = 'Segoe UI'
-    Font.Style = [fsBold]
-    ParentFont = False
-  end
-  object Bevel2: TBevel
-    Left = 66
-    Top = 23
-    Width = 517
-    Height = 10
-    Shape = bsTopLine
-  end
-  object Label6: TLabel
-    Left = 13
-    Top = 120
-    Width = 81
-    Height = 15
-    Caption = 'Search Results'
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clWindowText
-    Font.Height = -12
-    Font.Name = 'Segoe UI'
-    Font.Style = [fsBold]
-    ParentFont = False
-  end
-  object Bevel1: TBevel
-    Left = 107
-    Top = 127
-    Width = 476
-    Height = 10
-    Shape = bsTopLine
-  end
-  object Label2: TLabel
-    Left = 13
-    Top = 237
-    Width = 49
-    Height = 15
-    Caption = 'Indexing'
-    Font.Charset = DEFAULT_CHARSET
-    Font.Color = clWindowText
-    Font.Height = -12
-    Font.Name = 'Segoe UI'
-    Font.Style = [fsBold]
-    ParentFont = False
-  end
-  object Bevel3: TBevel
-    Left = 72
-    Top = 244
-    Width = 511
-    Height = 10
-    Shape = bsTopLine
-  end
-  object Label3: TLabel
-    Left = 13
-    Top = 272
-    Width = 78
-    Height = 15
-    Caption = 'Folder to index'
-  end
-  object SelectFolderButton: TSpeedButton
-    Left = 443
-    Top = 266
-    Width = 24
-    Height = 25
-    Hint = 'Select folder to index and press  Index button'
-    Caption = '...'
-    ParentShowHint = False
-    ShowHint = True
-    OnClick = SelectFolderButtonClick
-  end
-  object IndexingProgressLabel: TLabel
-    Left = 107
-    Top = 328
-    Width = 102
-    Height = 15
-    Caption = 'Indexing progress...'
-    Visible = False
-  end
-  object Label1: TLabel
-    Left = 32
-    Top = 93
-    Width = 148
-    Height = 15
-    Caption = 'Max number of found items'
-  end
-  object IndexInfoLabel: TLabel
-    Left = 152
-    Top = 307
-    Width = 235
-    Height = 15
-    Caption = 'Index is not created, press Build Index button'
-  end
-  object MaxNumberInfoLabel: TLabel
-    Left = 284
-    Top = 93
-    Width = 192
-    Height = 15
-    Caption = 'Enter value between  1000 and 20000'
-  end
-  object CaseSearchCheckBox: TCheckBox
-    Left = 32
-    Top = 62
-    Width = 153
-    Height = 25
-    Caption = 'Case sensitive search'
-    TabOrder = 0
-  end
-  object CaseSortCheckBox: TCheckBox
-    Left = 32
-    Top = 206
-    Width = 129
-    Height = 21
-    Caption = 'Case sensitive sort'
-    TabOrder = 1
-  end
-  object FoldersOnTopCheckBox: TCheckBox
-    Left = 32
-    Top = 171
-    Width = 185
-    Height = 29
-    Caption = 'Folders on top during sorting'
-    TabOrder = 2
-  end
-  object FolderToIndexEditBox: TEdit
-    Left = 98
-    Top = 268
-    Width = 345
-    Height = 23
-    TabOrder = 3
-    Text = 'C:\'
-  end
-  object BuildIndexButton: TButton
-    Left = 473
-    Top = 266
-    Width = 110
-    Height = 27
-    Caption = 'Build Index...'
-    ImageIndex = 0
-    ImageMargins.Left = 3
-    Images = ImageList1
-    TabOrder = 4
-    OnClick = BuildIndexButtonClick
-  end
-  object ProgressBar1: TProgressBar
-    Left = 219
-    Top = 328
-    Width = 198
-    Height = 17
-    TabOrder = 5
-    Visible = False
-  end
-  object MaxNumFoundBox: TNumberBox
-    Left = 195
-    Top = 90
-    Width = 78
-    Height = 23
-    Decimal = 0
-    MinValue = 1000.000000000000000000
-    MaxValue = 999999.000000000000000000
-    MaxLength = 6
-    TabOrder = 6
-    Value = 20000.000000000000000000
-    UseMouseWheel = True
-  end
   object OKButton: TButton
-    Left = 378
-    Top = 368
+    Left = 242
+    Top = 330
     Width = 98
     Height = 25
+    Anchors = [akRight, akBottom]
     Caption = 'OK'
     Default = True
     ModalResult = 1
-    TabOrder = 7
+    TabOrder = 0
     OnClick = OKButtonClick
   end
   object CancelButton: TButton
-    Left = 490
-    Top = 368
+    Left = 354
+    Top = 330
     Width = 93
     Height = 25
+    Anchors = [akRight, akBottom]
     Cancel = True
     Caption = 'Cancel'
     ModalResult = 2
-    TabOrder = 8
+    TabOrder = 1
   end
-  object Button1: TButton
-    Left = 473
-    Top = 298
-    Width = 110
-    Height = 27
-    Caption = 'Indexing log...'
-    TabOrder = 9
-    OnClick = Button1Click
+  object Sections: TListBox
+    Left = 8
+    Top = 10
+    Width = 97
+    Height = 297
+    ExtendedSelect = False
+    ItemHeight = 15
+    Items.Strings = (
+      'General'
+      'Search'
+      'Search Results'
+      'Indexing'
+      'Excludes')
+    TabOrder = 2
+    OnClick = SectionsClick
   end
-  object HideFoldersSizeCheckbox: TCheckBox
-    Left = 32
-    Top = 144
-    Width = 177
-    Height = 21
-    Caption = 'Do not show folders size'
-    TabOrder = 10
-  end
-  object EnableSearchHistoryCheckBox: TCheckBox
-    Left = 32
-    Top = 31
-    Width = 153
-    Height = 25
-    Caption = 'Enable search history'
-    TabOrder = 11
+  object SettingsPanels: TCardPanel
+    Left = 110
+    Top = 10
+    Width = 339
+    Height = 297
+    ActiveCard = Card3
+    BevelInner = bvRaised
+    BevelOuter = bvLowered
+    Caption = 'SettingsPanels'
+    TabOrder = 3
+    object Card1: TCard
+      Left = 2
+      Top = 2
+      Width = 335
+      Height = 293
+      Caption = 'General'
+      CardIndex = 0
+      ShowCaption = True
+      TabOrder = 0
+      VerticalAlignment = taAlignTop
+      object MinimizeToTrayCheckBox: TCheckBox
+        Left = 28
+        Top = 55
+        Width = 153
+        Height = 21
+        Caption = 'Minimize to tray'
+        TabOrder = 0
+      end
+      object ShowTrayIconCheckBox: TCheckBox
+        Left = 9
+        Top = 28
+        Width = 153
+        Height = 21
+        Caption = 'Show tray icon'
+        TabOrder = 1
+        OnClick = ShowTrayIconCheckBoxClick
+      end
+      object RunAsAdminCheckBox: TCheckBox
+        Left = 8
+        Top = 80
+        Width = 153
+        Height = 21
+        Caption = 'Run as administrator'
+        TabOrder = 2
+        OnClick = ShowTrayIconCheckBoxClick
+      end
+      object StartWithWindowsCheckBox: TCheckBox
+        Left = 8
+        Top = 106
+        Width = 208
+        Height = 21
+        Caption = 'Start FileFind on system startup'
+        TabOrder = 3
+        OnClick = ShowTrayIconCheckBoxClick
+      end
+    end
+    object Card2: TCard
+      Left = 2
+      Top = 2
+      Width = 335
+      Height = 293
+      Caption = 'Search'
+      CardIndex = 1
+      ShowCaption = True
+      TabOrder = 1
+      VerticalAlignment = taAlignTop
+      object SearchAsYouTypeLabel2: TLabel
+        Left = 177
+        Top = 55
+        Width = 77
+        Height = 15
+        Caption = 'symbols typed'
+      end
+      object SearchAsYouTypeLabel1: TLabel
+        Left = 30
+        Top = 55
+        Width = 91
+        Height = 15
+        Caption = 'Start search after '
+      end
+      object CaseSearchCheckBox: TCheckBox
+        Left = 9
+        Top = 105
+        Width = 153
+        Height = 21
+        Caption = 'Case sensitive search'
+        TabOrder = 0
+      end
+      object EnableSearchHistoryCheckBox: TCheckBox
+        Left = 9
+        Top = 79
+        Width = 153
+        Height = 21
+        Caption = 'Enable search history'
+        TabOrder = 1
+      end
+      object SearchAfterNumberBox: TNumberBox
+        Left = 131
+        Top = 51
+        Width = 35
+        Height = 23
+        Decimal = 0
+        MinValue = 1.000000000000000000
+        MaxValue = 100.000000000000000000
+        MaxLength = 6
+        TabOrder = 2
+        Value = 3.000000000000000000
+        UseMouseWheel = True
+      end
+      object SearchAsYouTypeCheckBox: TCheckBox
+        Left = 9
+        Top = 28
+        Width = 153
+        Height = 21
+        Caption = 'Search as you type'
+        TabOrder = 3
+        OnClick = SearchAsYouTypeCheckBoxClick
+      end
+    end
+    object Card3: TCard
+      Left = 2
+      Top = 2
+      Width = 335
+      Height = 293
+      Caption = 'Search Results'
+      CardIndex = 2
+      ShowCaption = True
+      TabOrder = 2
+      VerticalAlignment = taAlignTop
+      object Label1: TLabel
+        Left = 8
+        Top = 106
+        Width = 158
+        Height = 15
+        Caption = 'Max number of items to show'
+      end
+      object SizeFormatLabel: TLabel
+        Left = 8
+        Top = 184
+        Width = 59
+        Height = 15
+        Caption = 'Size format'
+      end
+      object FoldersOnTopCheckBox: TCheckBox
+        Left = 8
+        Top = 54
+        Width = 209
+        Height = 21
+        Caption = 'Put folders on top during sorting'
+        TabOrder = 0
+      end
+      object MaxNumFoundBox: TNumberBox
+        Left = 171
+        Top = 103
+        Width = 45
+        Height = 23
+        Decimal = 0
+        MinValue = 1000.000000000000000000
+        MaxValue = 999999.000000000000000000
+        MaxLength = 6
+        ParentShowHint = False
+        ShowHint = True
+        TabOrder = 1
+        Value = 20000.000000000000000000
+        UseMouseWheel = True
+      end
+      object CaseSortCheckBox: TCheckBox
+        Left = 8
+        Top = 80
+        Width = 129
+        Height = 21
+        Caption = 'Case sensitive sort'
+        TabOrder = 2
+      end
+      object HideFoldersSizeCheckbox: TCheckBox
+        Left = 8
+        Top = 28
+        Width = 177
+        Height = 21
+        Caption = 'Do not show folders size'
+        TabOrder = 3
+      end
+      object SizeFormatComboBox: TComboBox
+        Left = 72
+        Top = 181
+        Width = 64
+        Height = 23
+        Style = csDropDownList
+        TabOrder = 4
+        Items.Strings = (
+          'auto'
+          'Bytes'
+          'KB'
+          'MB')
+      end
+      object ShowRowOnMouseOverCheckBox: TCheckBox
+        Left = 8
+        Top = 158
+        Width = 208
+        Height = 21
+        Caption = 'Show row mouseover'
+        TabOrder = 5
+        OnClick = ShowTrayIconCheckBoxClick
+      end
+      object HighlightSearchTermsCheckBox: TCheckBox
+        Left = 8
+        Top = 132
+        Width = 208
+        Height = 21
+        Caption = 'Highlight search terms'
+        TabOrder = 6
+        OnClick = ShowTrayIconCheckBoxClick
+      end
+    end
+    object Card4: TCard
+      Left = 2
+      Top = 2
+      Width = 335
+      Height = 293
+      Caption = 'Indexing'
+      CardIndex = 3
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -12
+      Font.Name = 'Segoe UI'
+      Font.Style = []
+      ParentFont = False
+      ShowCaption = True
+      TabOrder = 3
+      VerticalAlignment = taAlignTop
+      object IndexingProgressLabel: TLabel
+        Left = 8
+        Top = 253
+        Width = 102
+        Height = 15
+        Caption = 'Indexing progress...'
+        Visible = False
+      end
+      object IndexInfoLabel: TLabel
+        Left = 8
+        Top = 232
+        Width = 235
+        Height = 15
+        Caption = 'Index is not created, press Build Index button'
+      end
+      object ProgressBar1: TProgressBar
+        Left = 116
+        Top = 253
+        Width = 161
+        Height = 17
+        TabOrder = 0
+        Visible = False
+      end
+      object Button1: TButton
+        Left = 141
+        Top = 184
+        Width = 108
+        Height = 27
+        Caption = 'Indexing log...'
+        TabOrder = 1
+        OnClick = Button1Click
+      end
+      object BuildIndexButton: TButton
+        Left = 8
+        Top = 184
+        Width = 108
+        Height = 27
+        Caption = 'Build Index...'
+        ImageIndex = 0
+        ImageMargins.Left = 3
+        Images = ImageList1
+        TabOrder = 2
+        OnClick = BuildIndexButtonClick
+      end
+      object IncludeNewFixedDrivesCheckBox: TCheckBox
+        Left = 8
+        Top = 28
+        Width = 249
+        Height = 17
+        Caption = 'Automatically include new fixed volumes'
+        TabOrder = 3
+      end
+      object IncludeNewRemovableDrivesCheckBox: TCheckBox
+        Left = 8
+        Top = 54
+        Width = 278
+        Height = 17
+        Caption = 'Automatically include new removable volumes'
+        TabOrder = 4
+      end
+      object RemoveOfflineDrivesCheckBox: TCheckBox
+        Left = 8
+        Top = 80
+        Width = 249
+        Height = 17
+        Caption = 'Automatically remove offline volumnes'
+        TabOrder = 5
+      end
+      object VolumesListBox: TListBox
+        Left = 8
+        Top = 106
+        Width = 241
+        Height = 57
+        ItemHeight = 15
+        TabOrder = 6
+        TabWidth = 40
+      end
+      object RemoveDriveButton: TButton
+        Left = 254
+        Top = 106
+        Width = 75
+        Height = 23
+        Caption = 'Remove'
+        TabOrder = 7
+        OnClick = RemoveDriveButtonClick
+      end
+    end
+    object Card5: TCard
+      Left = 2
+      Top = 2
+      Width = 335
+      Height = 293
+      Caption = 'Excludes'
+      CardIndex = 4
+      ShowCaption = True
+      TabOrder = 4
+      VerticalAlignment = taAlignTop
+      object ExcludeFoldersCheckBox: TCheckBox
+        Left = 8
+        Top = 28
+        Width = 209
+        Height = 17
+        Caption = 'Exclude folders from list below'
+        TabOrder = 0
+      end
+      object ExcludeFoldersListBox: TListBox
+        Left = 8
+        Top = 54
+        Width = 236
+        Height = 193
+        ItemHeight = 15
+        TabOrder = 1
+      end
+      object AddFolderButton: TButton
+        Left = 250
+        Top = 54
+        Width = 77
+        Height = 23
+        Caption = 'Add Folder...'
+        TabOrder = 2
+        OnClick = AddFolderButtonClick
+      end
+      object EditFolderButton: TButton
+        Left = 250
+        Top = 81
+        Width = 77
+        Height = 23
+        Caption = 'Edit Folder...'
+        TabOrder = 3
+        OnClick = EditFolderButtonClick
+      end
+      object RemoveFolderButton: TButton
+        Left = 250
+        Top = 108
+        Width = 77
+        Height = 23
+        Caption = 'Remove'
+        TabOrder = 4
+        OnClick = RemoveFolderButtonClick
+      end
+    end
   end
   object FileOpenDialog1: TFileOpenDialog
     FavoriteLinks = <>
     FileTypes = <>
-    Options = [fdoPickFolders, fdoPathMustExist]
+    Options = [fdoPickFolders]
     Title = 'Select indexing folder'
-    Left = 336
-    Top = 176
+    Left = 40
+    Top = 157
   end
   object ImageList1: TImageList
-    Left = 464
-    Top = 176
+    Left = 32
+    Top = 205
     Bitmap = {
       494C010101000800040010001000FFFFFFFFFF10FFFFFFFFFFFFFFFF424D3600
       0000000000003600000028000000400000001000000001002000000000000010

@@ -5,44 +5,71 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Buttons, Vcl.ExtCtrls, Vcl.NumberBox,
-  LoadFSThread, System.ImageList, Vcl.ImgList, {FileNamesCache,} FileCache;
+  LoadFSThread, System.ImageList, Vcl.ImgList, {FileNamesCache,} FileCache, Vcl.WinXPanels;
 
 type
 
 
   TSettingsForm1 = class(TForm)
-    Label5: TLabel;
-    Bevel2: TBevel;
-    CaseSearchCheckBox: TCheckBox;
-    Label6: TLabel;
-    CaseSortCheckBox: TCheckBox;
-    FoldersOnTopCheckBox: TCheckBox;
-    Bevel1: TBevel;
-    Label2: TLabel;
-    Bevel3: TBevel;
-    Label3: TLabel;
-    FolderToIndexEditBox: TEdit;
-    SelectFolderButton: TSpeedButton;
-    BuildIndexButton: TButton;
-    IndexingProgressLabel: TLabel;
-    ProgressBar1: TProgressBar;
-    Label1: TLabel;
-    MaxNumFoundBox: TNumberBox;
     OKButton: TButton;
     CancelButton: TButton;
     FileOpenDialog1: TFileOpenDialog;
-    IndexInfoLabel: TLabel;
-    MaxNumberInfoLabel: TLabel;
-    Button1: TButton;
-    ImageList1: TImageList;
-    HideFoldersSizeCheckbox: TCheckBox;
+    Sections: TListBox;
+    SettingsPanels: TCardPanel;
+    Card1: TCard;
+    MinimizeToTrayCheckBox: TCheckBox;
+    ShowTrayIconCheckBox: TCheckBox;
+    Card2: TCard;
+    CaseSearchCheckBox: TCheckBox;
     EnableSearchHistoryCheckBox: TCheckBox;
+    SearchAsYouTypeLabel2: TLabel;
+    SearchAfterNumberBox: TNumberBox;
+    SearchAsYouTypeCheckBox: TCheckBox;
+    SearchAsYouTypeLabel1: TLabel;
+    Card3: TCard;
+    FoldersOnTopCheckBox: TCheckBox;
+    MaxNumFoundBox: TNumberBox;
+    Label1: TLabel;
+    CaseSortCheckBox: TCheckBox;
+    HideFoldersSizeCheckbox: TCheckBox;
+    Card4: TCard;
+    IndexingProgressLabel: TLabel;
+    ProgressBar1: TProgressBar;
+    IndexInfoLabel: TLabel;
+    Button1: TButton;
+    BuildIndexButton: TButton;
+    IncludeNewFixedDrivesCheckBox: TCheckBox;
+    IncludeNewRemovableDrivesCheckBox: TCheckBox;
+    RemoveOfflineDrivesCheckBox: TCheckBox;
+    VolumesListBox: TListBox;
+    RemoveDriveButton: TButton;
+    RunAsAdminCheckBox: TCheckBox;
+    StartWithWindowsCheckBox: TCheckBox;
+    Card5: TCard;
+    ExcludeFoldersCheckBox: TCheckBox;
+    ExcludeFoldersListBox: TListBox;
+    AddFolderButton: TButton;
+    EditFolderButton: TButton;
+    RemoveFolderButton: TButton;
+    SizeFormatComboBox: TComboBox;
+    SizeFormatLabel: TLabel;
+    ShowRowOnMouseOverCheckBox: TCheckBox;
+    HighlightSearchTermsCheckBox: TCheckBox;
+    ImageList1: TImageList;
     procedure OKButtonClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
-    procedure SelectFolderButtonClick(Sender: TObject);
     procedure BuildIndexButtonClick(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure SearchAsYouTypeCheckBoxClick(Sender: TObject);
+    procedure ShowTrayIconCheckBoxClick(Sender: TObject);
+    procedure ListBox1Click(Sender: TObject);
+    procedure SectionsClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure RemoveDriveButtonClick(Sender: TObject);
+    procedure AddFolderButtonClick(Sender: TObject);
+    procedure RemoveFolderButtonClick(Sender: TObject);
+    procedure EditFolderButtonClick(Sender: TObject);
   private
     FIndexingThread: TLoadFSThread;
     FProgressListener: IIndexingProgress;
@@ -78,8 +105,21 @@ implementation
 {$R *.dfm}
 
 uses
-  System.UITypes, Registry, Settings, IndexingLog, Functions;
+  System.UITypes, System.StrUtils, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, Registry, Settings, IndexingLog, Functions;
 
+function  StringListToArrayTab(Strings: TStrings): TArray<string>;
+var
+  i, p1, p2: Integer;
+  str: string;
+begin
+  SetLength(Result, Strings.Count);
+  for i := 0 to Strings.Count - 1 do begin
+    str := Strings[i];
+    p1 := Pos(#9, str);
+    p2 := Pos(#9, str, p1 + 1);
+    Result[i] := Copy(str, p1 + 1, p2 - p1 - 1);
+  end;
+end;
 
 procedure TSettingsForm1.OKButtonClick(Sender: TObject);
 begin
@@ -89,7 +129,22 @@ begin
    AppSettings.EnableSearchHistory := EnableSearchHistoryCheckBox.Checked;
    AppSettings.FoldersOnTop := FoldersOnTopCheckBox.Checked;
    AppSettings.MaxFoundItems := Cardinal(MaxNumFoundBox.ValueInt);
-   AppSettings.FolderToIndex := FolderToIndexEditBox.Text;
+   AppSettings.VolumesToIndex := StringListToArrayTab(VolumesListBox.Items); //FolderToIndexEditBox.Text;
+   AppSettings.SearchAsYouType := SearchAsYouTypeCheckBox.Checked;
+   AppSettings.SearchAfterSymbols := SearchAfterNumberBox.ValueInt;
+   AppSettings.ShowTrayIcon := ShowTrayIconCheckBox.Checked;
+   AppSettings.MinimizeToTray := MinimizeToTrayCheckBox.Checked;
+   AppSettings.RunAsAdmin := RunAsAdminCheckBox.Checked;
+   AppSettings.HighlightSearchTerms := HighlightSearchTermsCheckBox.Checked;
+   AppSettings.ShowRowMouseover := ShowRowOnMouseOverCheckBox.Checked;
+   AppSettings.StartAppWithSystem := StartWithWindowsCheckBox.Checked;
+   AppSettings.IncludeNewFixedVolumes := IncludeNewFixedDrivesCheckBox.Checked;
+   AppSettings.IncludeNewRemovableVolumes := IncludeNewRemovableDrivesCheckBox.Checked;
+   AppSettings.RemoveOfflineVolumes := RemoveOfflineDrivesCheckBox.Checked;
+   AppSettings.ExcludeFolders := ExcludeFoldersCheckBox.Checked;
+   AppSettings.ExcludeFoldersList := StringListToArray(ExcludeFoldersListBox.Items);
+   AppSettings.SizeFormat := SizeFormatComboBox.Text;
+
    AppSettings.Save;
 end;
 
@@ -105,10 +160,49 @@ begin
   FCancel := False;
 end;
 
-procedure TSettingsForm1.SelectFolderButtonClick(Sender: TObject);
+procedure TSettingsForm1.RemoveDriveButtonClick(Sender: TObject);
 begin
-  FileOpenDialog1.DefaultFolder := FolderToIndexEditBox.Text;
-  if FileOpenDialog1.Execute then FolderToIndexEditBox.Text := FileOpenDialog1.FileName;
+  if VolumesListBox.Count > 1 then VolumesListBox.DeleteSelected;
+end;
+
+procedure TSettingsForm1.SearchAsYouTypeCheckBoxClick(Sender: TObject);
+begin
+  SearchAfterNumberBox.Enabled  := SearchAsYouTypeCheckBox.Checked;
+  SearchAsYouTypeLabel1.Enabled := SearchAsYouTypeCheckBox.Checked;
+  SearchAsYouTypeLabel2.Enabled := SearchAsYouTypeCheckBox.Checked;
+end;
+
+procedure TSettingsForm1.SectionsClick(Sender: TObject);
+begin
+  SettingsPanels.ActiveCardIndex := Sections.ItemIndex;
+end;
+
+procedure TSettingsForm1.ShowTrayIconCheckBoxClick(Sender: TObject);
+begin
+  MinimizeToTrayCheckBox.Enabled := ShowTrayIconCheckBox.Checked;
+end;
+
+procedure TSettingsForm1.RemoveFolderButtonClick(Sender: TObject);
+begin
+  ExcludeFoldersListBox.DeleteSelected;
+end;
+
+procedure TSettingsForm1.AddFolderButtonClick(Sender: TObject);
+begin
+  FileOpenDialog1.DefaultFolder := ''; // use recently opened folder
+  if FileOpenDialog1.Execute then begin
+    ExcludeFoldersListBox.Items.Add(FileOpenDialog1.FileName);
+  end;
+end;
+
+procedure TSettingsForm1.EditFolderButtonClick(Sender: TObject);
+begin
+  if ExcludeFoldersListBox.ItemIndex = -1 then Exit;
+
+  FileOpenDialog1.DefaultFolder := ExcludeFoldersListBox.Items[ExcludeFoldersListBox.ItemIndex];
+  if FileOpenDialog1.Execute then begin
+    ExcludeFoldersListBox.Items.Add(FileOpenDialog1.FileName);
+  end;
 end;
 
 procedure TSettingsForm1.BuildIndexButtonClick(Sender: TObject);
@@ -121,9 +215,9 @@ begin
   FIndexingThread.OnTerminate := OnThreadTerminate;
   FIndexingThread.FreeOnTerminate := True;
   FIndexingThread.ProgressBar := ProgressBar1;
-  FIndexingThread.ExecData.StartDir := FolderToIndexEditBox.Text;
+  FIndexingThread.ExecData.VolumesToIndex := StringListToArray(VolumesListBox.Items); //FolderToIndexEditBox.Text;
 
-  FIndexingThread.Start([FolderToIndexEditBox, BuildIndexButton, SelectFolderButton], [ProgressBar1, IndexingProgressLabel], [IndexInfoLabel]);
+  FIndexingThread.Start([{FolderToIndexEditBox,} BuildIndexButton{, SelectFolderButton}], [ProgressBar1, IndexingProgressLabel], [IndexInfoLabel]);
 end;
 
 procedure TSettingsForm1.Button1Click(Sender: TObject);
@@ -142,17 +236,63 @@ begin
   CanClose := NOT Assigned(FProgressListener);
 end;
 
+procedure TSettingsForm1.FormCreate(Sender: TObject);
+begin
+  Sections.ItemIndex := 0;
+  SectionsClick(Sections);
+end;
+
+function GetDriveTypeString(drive: string): string;
+var
+  dt: Cardinal;
+begin
+  dt := GetDriveType(PChar(drive));
+  case dt of
+    DRIVE_REMOVABLE: Result := 'removable';
+    DRIVE_CDROM: Result := 'removable';
+    DRIVE_UNKNOWN:Result := 'unknown';
+    DRIVE_FIXED: Result := 'fixed';
+    DRIVE_RAMDISK: Result := 'fixed';
+    else
+      Result := 'unknown2';
+  end;
+end;
+
+
 procedure TSettingsForm1.FormShow(Sender: TObject);
+var
+  i, j: Cardinal;
+  VolName, VolName2, str: string;
+  MaxComponentLen, SystemFlags: DWORD;
+  res: LongBool;
+  TmpFolder: PChar;
+  Found: Boolean;
 begin
   AppSettings.Load; // load settings from registry each time settings form is shown
 
-  CaseSearchCheckBox.Checked :=  AppSettings.CaseSensitiveSearch;
-  CaseSortCheckBox.Checked   := AppSettings.CaseSensitiveSort;
-  HideFoldersSizeCheckbox.Checked   := AppSettings.HideFoldersSize;
-  EnableSearchHistoryCheckBox.Checked :=  AppSettings.EnableSearchHistory;
-  FoldersOnTopCheckBox.Checked := AppSettings.FoldersOnTop;
-  MaxNumFoundBox.ValueInt    := Integer(AppSettings.MaxFoundItems);
-  FolderToIndexEditBox.Text  := AppSettings.FolderToIndex;
+  CaseSearchCheckBox.Checked            := AppSettings.CaseSensitiveSearch;
+  CaseSortCheckBox.Checked              := AppSettings.CaseSensitiveSort;
+  HideFoldersSizeCheckbox.Checked       := AppSettings.HideFoldersSize;
+  EnableSearchHistoryCheckBox.Checked   := AppSettings.EnableSearchHistory;
+  FoldersOnTopCheckBox.Checked          := AppSettings.FoldersOnTop;
+  MaxNumFoundBox.ValueInt               := Integer(AppSettings.MaxFoundItems);
+  SearchAsYouTypeCheckBox.Checked       := AppSettings.SearchAsYouType;
+  ShowTrayIconCheckBox.Checked          := AppSettings.ShowTrayIcon;
+  MinimizeToTrayCheckBox.Checked        := AppSettings.MinimizeToTray;
+  SearchAfterNumberBox.ValueInt         := AppSettings.SearchAfterSymbols;
+  RunAsAdminCheckBox.Checked            := AppSettings.RunAsAdmin;
+  HighlightSearchTermsCheckBox.Checked  := AppSettings.HighlightSearchTerms;
+  ShowRowOnMouseOverCheckBox.Checked    := AppSettings.ShowRowMouseover;
+  StartWithWindowsCheckBox.Checked      := AppSettings.StartAppWithSystem;
+  IncludeNewFixedDrivesCheckBox.Checked := AppSettings.IncludeNewFixedVolumes;
+  IncludeNewRemovableDrivesCheckBox.Checked := AppSettings.IncludeNewRemovableVolumes;
+  RemoveOfflineDrivesCheckBox.Checked   := AppSettings.RemoveOfflineVolumes;
+  ExcludeFoldersCheckBox.Checked        := AppSettings.ExcludeFolders;
+  SizeFormatComboBox.Text               := AppSettings.SizeFormat;
+
+  //ArrayToStringList(AppSettings.VolumesToIndex, VolumesListBox.Items);
+  ArrayToStringList(AppSettings.ExcludeFoldersList, ExcludeFoldersListBox.Items);
+
 
   if TFSC.Instance.Count = 0 then begin
     IndexInfoLabel.Visible := True;
@@ -160,10 +300,78 @@ begin
   end else begin
     IndexInfoLabel.Visible := False;
   end;
-  MaxNumberInfoLabel.Caption := Format('Enter value between %u and %u', [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
 
+  MaxNumFoundBox.Hint := Format('Enter value between %u and %u', [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
+
+  var drv := GetLogicalDrives;
+  VolumesListBox.Clear;
+  // merge list of volumes actually availalbe on the PC with list read from registry.
+  for i := 1 to Length(drv) do begin
+    Found := False;
+    for j := 1 to Length(AppSettings.VolumesToIndex) do
+      if drv[i - 1] = AppSettings.VolumesToIndex[j - 1] then begin
+         Found := True;  // found volume in stored list of volumes
+         break
+      end;
+
+    if NOT Found then Insert(drv[i-1], AppSettings.VolumesToIndex, Length(AppSettings.VolumesToIndex));
+  end;
+
+  SetLength(VolName, MAX_PATH);
+   for i := 1 to Length(AppSettings.VolumesToIndex) do begin
+    res := GetVolumeInformation(PChar(AppSettings.VolumesToIndex[i - 1]), PChar(VolName), MAX_PATH, nil, MaxComponentLen, SystemFlags, nil, 0);
+    if res = False then MessageDlg('GetVolumeInformation failed with error: ' + GetLastError.ToString, mtError, [mbOK], 0);
+
+    VolName2 := PChar(VolName);
+    str := VolName2 + IfThen(Length(VolName2) > 9, ' ', #9) + drv[i - 1] + #9 + GetDriveTypeString(drv[i - 1]);
+    VolumesListBox.Items.Add(str);
+  end;
+
+
+  ExcludeFoldersListBox.Clear;
+
+  if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Temp');
+  CoTaskMemFree(TmpFolder);
+
+  if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppDataLow, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Temp');
+  CoTaskMemFree(TmpFolder);
+
+ { if S_OK <> SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+  ExcludeFoldersListBox.Items.Add(TmpFolder);
+  CoTaskMemFree(TmpFolder);
+  }
+  if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Microsoft\Temp');
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Google\Temp');
+  CoTaskMemFree(TmpFolder);
+
+  if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Microsoft\Search\Data\Temp');
+  CoTaskMemFree(TmpFolder);
+
+  if S_OK <> SHGetKnownFolderPath(FOLDERID_Windows, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Temp');
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\WinSyS\Temp');
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\assembly\Temp');
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\assembly\tmp');
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\System32\DriverStore\Temp');
+  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Microsoft Antimalware\Tmp');
+  CoTaskMemFree(TmpFolder);
 end;
 
+
+procedure TSettingsForm1.ListBox1Click(Sender: TObject);
+begin
+
+end;
 
 { TSettingsFormIndexingProgress }
 
