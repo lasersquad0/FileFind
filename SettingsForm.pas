@@ -74,6 +74,7 @@ type
     FIndexingThread: TLoadFSThread;
     FProgressListener: IIndexingProgress;
     FCancel: Boolean;
+    FVolumes: TArray<string>;
     procedure OnThreadTerminate(Sender: TObject);
   public
     ExecData: TExecutionData;
@@ -129,7 +130,7 @@ begin
    AppSettings.EnableSearchHistory := EnableSearchHistoryCheckBox.Checked;
    AppSettings.FoldersOnTop := FoldersOnTopCheckBox.Checked;
    AppSettings.MaxFoundItems := Cardinal(MaxNumFoundBox.ValueInt);
-   AppSettings.VolumesToIndex := StringListToArrayTab(VolumesListBox.Items); //FolderToIndexEditBox.Text;
+   AppSettings.VolumesToIndex := FVolumes; //StringListToArrayTab(VolumesListBox.Items); //FolderToIndexEditBox.Text;
    AppSettings.SearchAsYouType := SearchAsYouTypeCheckBox.Checked;
    AppSettings.SearchAfterSymbols := SearchAfterNumberBox.ValueInt;
    AppSettings.ShowTrayIcon := ShowTrayIconCheckBox.Checked;
@@ -162,7 +163,10 @@ end;
 
 procedure TSettingsForm1.RemoveDriveButtonClick(Sender: TObject);
 begin
-  if VolumesListBox.Count > 1 then VolumesListBox.DeleteSelected;
+  if VolumesListBox.Count > 1 then begin
+    Delete(FVolumes, VolumesListBox.ItemIndex, 1);
+    VolumesListBox.DeleteSelected;
+  end;
 end;
 
 procedure TSettingsForm1.SearchAsYouTypeCheckBoxClick(Sender: TObject);
@@ -200,9 +204,8 @@ begin
   if ExcludeFoldersListBox.ItemIndex = -1 then Exit;
 
   FileOpenDialog1.DefaultFolder := ExcludeFoldersListBox.Items[ExcludeFoldersListBox.ItemIndex];
-  if FileOpenDialog1.Execute then begin
-    ExcludeFoldersListBox.Items.Add(FileOpenDialog1.FileName);
-  end;
+  if FileOpenDialog1.Execute
+    then ExcludeFoldersListBox.Items[ExcludeFoldersListBox.ItemIndex] := FileOpenDialog1.FileName;
 end;
 
 procedure TSettingsForm1.BuildIndexButtonClick(Sender: TObject);
@@ -267,7 +270,7 @@ var
   res: LongBool;
   TmpFolder: PChar;
   Found: Boolean;
-  Volumes: TArray<string>;
+  //Volumes: TArray<string>;
 begin
   AppSettings.Load; // load settings from registry each time settings form is shown
 
@@ -305,24 +308,24 @@ begin
   MaxNumFoundBox.Hint := Format('Enter value between %u and %u', [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
 
   var drv := GetLogicalDrives;
-  Volumes := AppSettings.VolumesToIndex;
+  FVolumes := AppSettings.VolumesToIndex;
   VolumesListBox.Clear;
   // merge list of volumes actually availalbe on the PC with list read from registry.
   for i := 1 to Length(drv) do begin
     Found := False;
-    for j := 1 to Length(Volumes) do
-      if drv[i - 1] = Volumes[j - 1] then begin
+    for j := 1 to Length(FVolumes) do
+      if drv[i - 1] = FVolumes[j - 1] then begin
          Found := True;  // found volume in stored list of volumes
          break
       end;
 
-    if NOT Found then Insert(drv[i-1], Volumes, Length(Volumes));
+    if NOT Found then Insert(drv[i-1], FVolumes, Length(FVolumes));
   end;
 
 
-  VolCnt := Length(Volumes);
+  VolCnt := Length(FVolumes);
   for i := 1 to VolCnt do begin
-    CurrVol := Volumes[i - 1];
+    CurrVol := FVolumes[i - 1];
     SetLength(VolName, MAX_PATH);
     res := GetVolumeInformation(PChar(CurrVol), PChar(VolName), MAX_PATH, nil, MaxComponentLen, SystemFlags, nil, 0);
     if res = False then begin
