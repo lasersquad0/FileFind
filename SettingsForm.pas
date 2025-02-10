@@ -267,6 +267,7 @@ var
   res: LongBool;
   TmpFolder: PChar;
   Found: Boolean;
+  Volumes: TArray<string>;
 begin
   AppSettings.Load; // load settings from registry each time settings form is shown
 
@@ -304,24 +305,24 @@ begin
   MaxNumFoundBox.Hint := Format('Enter value between %u and %u', [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
 
   var drv := GetLogicalDrives;
+  Volumes := AppSettings.VolumesToIndex;
   VolumesListBox.Clear;
   // merge list of volumes actually availalbe on the PC with list read from registry.
   for i := 1 to Length(drv) do begin
     Found := False;
-    for j := 1 to Length(AppSettings.VolumesToIndex) do
-      if drv[i - 1] = AppSettings.VolumesToIndex[j - 1] then begin
+    for j := 1 to Length(Volumes) do
+      if drv[i - 1] = Volumes[j - 1] then begin
          Found := True;  // found volume in stored list of volumes
          break
       end;
 
-    //TODO: may be insert into a local variable instead of AppSettings.VolumesToIndex
-    if NOT Found then Insert(drv[i-1], AppSettings.VolumesToIndex, Length(AppSettings.VolumesToIndex));
+    if NOT Found then Insert(drv[i-1], Volumes, Length(Volumes));
   end;
 
 
-  VolCnt := Length(AppSettings.VolumesToIndex);
+  VolCnt := Length(Volumes);
   for i := 1 to VolCnt do begin
-    CurrVol := AppSettings.VolumesToIndex[i - 1];
+    CurrVol := Volumes[i - 1];
     SetLength(VolName, MAX_PATH);
     res := GetVolumeInformation(PChar(CurrVol), PChar(VolName), MAX_PATH, nil, MaxComponentLen, SystemFlags, nil, 0);
     if res = False then begin
