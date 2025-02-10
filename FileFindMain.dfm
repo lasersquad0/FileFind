@@ -2,9 +2,11 @@ object MainForm: TMainForm
   Left = 0
   Top = 0
   Caption = 'FileFind - find files quick!'
-  ClientHeight = 496
-  ClientWidth = 1117
+  ClientHeight = 497
+  ClientWidth = 1296
   Color = clBtnFace
+  Constraints.MinHeight = 200
+  Constraints.MinWidth = 200
   DoubleBuffered = True
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -208,7 +210,7 @@ object MainForm: TMainForm
     000000100000C000000000300000E000000000700000F000000000F00000FC00
     000001F00000FF8000000FF00000}
   Menu = MainMenu1
-  Position = poScreenCenter
+  Position = poDesigned
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
@@ -233,17 +235,17 @@ object MainForm: TMainForm
   object SearchPanel: TPanel
     Left = 0
     Top = 28
-    Width = 1117
-    Height = 67
+    Width = 1296
+    Height = 40
     Align = alTop
     BevelOuter = bvNone
     TabOrder = 2
     DesignSize = (
-      1117
-      67)
+      1296
+      40)
     object AdvancedSearchButton: TSpeedButton
-      Left = 991
-      Top = 31
+      Left = 1175
+      Top = 6
       Width = 121
       Height = 27
       AllowAllUp = True
@@ -262,20 +264,9 @@ object MainForm: TMainForm
       Height = 15
       Caption = 'and'
     end
-    object SelectFolderButton: TSpeedButton
-      Left = 515
-      Top = 6
-      Width = 24
-      Height = 25
-      Hint = 'Select folder to index and press  Index button'
-      Caption = '...'
-      ParentShowHint = False
-      ShowHint = True
-      OnClick = SelectFolderButtonClick
-    end
     object SearchByFileSize: TCheckBox
       Left = 11
-      Top = 71
+      Top = 43
       Width = 66
       Height = 17
       Caption = 'File Size'
@@ -284,7 +275,7 @@ object MainForm: TMainForm
     end
     object FileSizeOp: TComboBox
       Left = 114
-      Top = 68
+      Top = 40
       Width = 49
       Height = 23
       Style = csDropDownList
@@ -298,14 +289,14 @@ object MainForm: TMainForm
     end
     object SearchFileSize: TNumberBox
       Left = 169
-      Top = 68
+      Top = 40
       Width = 82
       Height = 23
       TabOrder = 2
     end
     object FileSizeFactor: TComboBox
       Left = 257
-      Top = 68
+      Top = 40
       Width = 83
       Height = 23
       Style = csDropDownList
@@ -320,7 +311,7 @@ object MainForm: TMainForm
     end
     object SearchByModifiedDate: TCheckBox
       Left = 11
-      Top = 104
+      Top = 76
       Width = 97
       Height = 17
       Caption = 'Date between'
@@ -329,7 +320,7 @@ object MainForm: TMainForm
     end
     object DateTimePickerFrom: TDateTimePicker
       Left = 114
-      Top = 100
+      Top = 72
       Width = 150
       Height = 23
       Date = 45491.000000000000000000
@@ -340,7 +331,7 @@ object MainForm: TMainForm
     end
     object DateTimePickerTo: TDateTimePicker
       Left = 296
-      Top = 100
+      Top = 72
       Width = 150
       Height = 23
       Date = 45491.000000000000000000
@@ -350,7 +341,7 @@ object MainForm: TMainForm
     end
     object SearchByAttributes: TCheckBox
       Left = 11
-      Top = 136
+      Top = 108
       Width = 78
       Height = 17
       Caption = 'Attributes'
@@ -359,7 +350,7 @@ object MainForm: TMainForm
     end
     object AttrArchive: TCheckBox
       Left = 624
-      Top = 136
+      Top = 108
       Width = 65
       Height = 17
       Caption = 'Archive'
@@ -367,7 +358,7 @@ object MainForm: TMainForm
     end
     object AttrHidden: TCheckBox
       Left = 196
-      Top = 136
+      Top = 108
       Width = 74
       Height = 17
       Caption = 'Hidden'
@@ -375,7 +366,7 @@ object MainForm: TMainForm
     end
     object AttrDirectory: TCheckBox
       Left = 114
-      Top = 136
+      Top = 108
       Width = 81
       Height = 17
       Caption = 'Directory'
@@ -383,7 +374,7 @@ object MainForm: TMainForm
     end
     object AttrEncrypted: TCheckBox
       Left = 533
-      Top = 136
+      Top = 108
       Width = 85
       Height = 17
       Caption = 'Encrypted'
@@ -391,7 +382,7 @@ object MainForm: TMainForm
     end
     object AttrCompressed: TCheckBox
       Left = 431
-      Top = 136
+      Top = 108
       Width = 85
       Height = 17
       Caption = 'Compressed'
@@ -399,7 +390,7 @@ object MainForm: TMainForm
     end
     object AttrReadonly: TCheckBox
       Left = 347
-      Top = 136
+      Top = 108
       Width = 80
       Height = 17
       Caption = 'Readonly'
@@ -407,7 +398,7 @@ object MainForm: TMainForm
     end
     object AttrSystem: TCheckBox
       Left = 273
-      Top = 136
+      Top = 108
       Width = 59
       Height = 17
       Caption = 'System'
@@ -415,7 +406,7 @@ object MainForm: TMainForm
     end
     object StartSearchBtn: TBitBtn
       Left = 515
-      Top = 31
+      Top = 6
       Width = 75
       Height = 28
       Caption = 'Search'
@@ -426,7 +417,7 @@ object MainForm: TMainForm
     end
     object IndexingBitBtn: TBitBtn
       Left = 608
-      Top = 31
+      Top = 6
       Width = 121
       Height = 28
       Caption = 'Refresh Index...'
@@ -437,26 +428,11 @@ object MainForm: TMainForm
       TabOrder = 16
       OnClick = IndexingBitBtnClick
     end
-    object StartSearchFolder: TLabeledEdit
-      Left = 114
-      Top = 6
-      Width = 389
-      Height = 23
-      Hint = 'Enter your search here'
-      EditLabel.Width = 94
-      EditLabel.Height = 23
-      EditLabel.Caption = 'Search from path '
-      LabelPosition = lpLeft
-      ParentShowHint = False
-      ShowHint = True
-      TabOrder = 17
-      Text = ''
-    end
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Top = 472
-    Width = 1117
+    Top = 473
+    Width = 1296
     Height = 24
     Panels = <
       item
@@ -482,23 +458,61 @@ object MainForm: TMainForm
   end
   object ListView1: TListView
     Left = 0
-    Top = 95
-    Width = 1117
-    Height = 377
+    Top = 68
+    Width = 1296
+    Height = 405
     Align = alClient
-    Columns = <>
+    Columns = <
+      item
+        Caption = 'Name'
+        Width = 250
+      end
+      item
+        Caption = 'Size'
+        Tag = 1
+        Width = 100
+      end
+      item
+        Caption = 'Type'
+        Tag = 2
+        Width = 130
+      end
+      item
+        Caption = 'Modified'
+        Tag = 3
+        Width = 140
+      end
+      item
+        Caption = 'Last Access'
+        Tag = 4
+        Width = 140
+      end
+      item
+        Caption = 'Created'
+        Tag = 5
+        Width = 140
+      end
+      item
+        Caption = 'Attributes'
+        Tag = 6
+        Width = 70
+      end
+      item
+        Caption = 'Path'
+        Tag = 7
+        Width = 400
+      end>
     FullDrag = True
-    HotTrack = True
     OwnerData = True
     ReadOnly = True
     RowSelect = True
-    PopupMenu = PopupMenu1
     SortType = stBoth
     StateImages = StateImageList
     TabOrder = 0
     ViewStyle = vsReport
     OnAdvancedCustomDrawItem = ListView1AdvancedCustomDrawItem
     OnColumnClick = ListView1ColumnClick
+    OnContextPopup = ListView1ContextPopup
     OnData = ListView1Data
     OnDblClick = ListView1DblClick
   end
@@ -513,7 +527,7 @@ object MainForm: TMainForm
   object AlertPanel1: TPanel
     Left = 0
     Top = 0
-    Width = 1117
+    Width = 1296
     Height = 28
     Align = alTop
     Alignment = taLeftJustify
@@ -584,18 +598,10 @@ object MainForm: TMainForm
   end
   object Timer1: TTimer
     Enabled = False
-    Interval = 500
+    Interval = 600
     OnTimer = Timer1Timer
     Left = 864
     Top = 336
-  end
-  object FileOpenDialog1: TFileOpenDialog
-    FavoriteLinks = <>
-    FileTypes = <>
-    Options = [fdoPickFolders, fdoPathMustExist]
-    Title = 'Select folder'
-    Left = 752
-    Top = 392
   end
   object MainMenu1: TMainMenu
     Images = ImageList1
@@ -1197,8 +1203,84 @@ object MainForm: TMainForm
       C003000000000000F00F00000000000000000000000000000000000000000000
       000000000000}
   end
+  object PopupMenu2: TPopupMenu
+    OnPopup = PopupMenu2Popup
+    Left = 312
+    Top = 336
+    object MenuItem1: TMenuItem
+      Caption = 'Name'
+      Checked = True
+      OnClick = MenuItem8Click
+    end
+    object MenuItem2: TMenuItem
+      Tag = 1
+      Caption = 'Size'
+      Checked = True
+      OnClick = MenuItem8Click
+    end
+    object MenuItem3: TMenuItem
+      Tag = 2
+      Caption = 'Type'
+      Checked = True
+      OnClick = MenuItem8Click
+    end
+    object MenuItem4: TMenuItem
+      Tag = 3
+      Caption = 'Modified'
+      Checked = True
+      OnClick = MenuItem8Click
+    end
+    object MenuItem5: TMenuItem
+      Tag = 4
+      Caption = 'Last Access'
+      Checked = True
+      OnClick = MenuItem8Click
+    end
+    object MenuItem6: TMenuItem
+      Tag = 5
+      Caption = 'Created'
+      Checked = True
+      OnClick = MenuItem8Click
+    end
+    object MenuItem7: TMenuItem
+      Tag = 6
+      Caption = 'Attributes'
+      Checked = True
+      OnClick = MenuItem8Click
+    end
+    object MenuItem8: TMenuItem
+      Tag = 7
+      Caption = 'Path'
+      Checked = True
+      OnClick = MenuItem8Click
+    end
+  end
+  object TrayIcon1: TTrayIcon
+    Hint = 'File Find'
+    BalloonHint = 'balooooooon hint'
+    BalloonTitle = 'baloonttttitle'
+    BalloonFlags = bfInfo
+    IconIndex = -1
+    PopupMenu = PopupMenuTray
+    OnDblClick = TrayIcon1DblClick
+    Left = 560
+    Top = 152
+  end
+  object PopupMenuTray: TPopupMenu
+    Left = 760
+    Top = 152
+    object MenuItem9: TMenuItem
+      Caption = '&Open File Find'
+      OnClick = TrayIcon1DblClick
+    end
+    object MenuItem10: TMenuItem
+      Caption = '&Exit '
+      OnClick = MenuItem10Click
+    end
+  end
   object ApplicationEvents1: TApplicationEvents
-    Left = 472
-    Top = 280
+    OnMinimize = ApplicationEvents1Minimize
+    Left = 656
+    Top = 152
   end
 end
