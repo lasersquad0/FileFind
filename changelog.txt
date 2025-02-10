@@ -1,6 +1,16 @@
 
-
 FileFind version 1.1.0
+
+Improvements:
+
+- search term is marked bold in search results
+- search history suggestion drop down window (can be turned off in settings)
+- do not show folders sizes setting (useful when you need to find files by size)
+- loading file/folder icons in background (significantly improves search speed)
+
+---------------------------------------------------
+
+FileFind version 1.0.1
 
 Improvements:
 
