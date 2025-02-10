@@ -261,8 +261,8 @@ end;
 
 procedure TSettingsForm1.FormShow(Sender: TObject);
 var
-  i, j: Cardinal;
-  VolName, VolName2, str: string;
+  i, j, error, VolCnt: Cardinal;
+  VolName, VolName2, CurrVol, str: string;
   MaxComponentLen, SystemFlags: DWORD;
   res: LongBool;
   TmpFolder: PChar;
@@ -314,17 +314,27 @@ begin
          break
       end;
 
+    //TODO: may be insert into a local variable instead of AppSettings.VolumesToIndex
     if NOT Found then Insert(drv[i-1], AppSettings.VolumesToIndex, Length(AppSettings.VolumesToIndex));
   end;
 
-  SetLength(VolName, MAX_PATH);
-   for i := 1 to Length(AppSettings.VolumesToIndex) do begin
-    res := GetVolumeInformation(PChar(AppSettings.VolumesToIndex[i - 1]), PChar(VolName), MAX_PATH, nil, MaxComponentLen, SystemFlags, nil, 0);
-    if res = False then MessageDlg('GetVolumeInformation failed with error: ' + GetLastError.ToString, mtError, [mbOK], 0);
+
+  VolCnt := Length(AppSettings.VolumesToIndex);
+  for i := 1 to VolCnt do begin
+    CurrVol := AppSettings.VolumesToIndex[i - 1];
+    SetLength(VolName, MAX_PATH);
+    res := GetVolumeInformation(PChar(CurrVol), PChar(VolName), MAX_PATH, nil, MaxComponentLen, SystemFlags, nil, 0);
+    if res = False then begin
+      error := GetLastError;
+      if error = ERROR_NOT_READY // CD-ROM is present but no disk there - we get ERROR_NOT_READY while attempting to read volume name
+        then VolName := '<not ready>'
+        else MessageDlg('GetVolumeInformation failed with error: ' + error.ToString, mtError, [mbOK], 0);
+    end;
 
     VolName2 := PChar(VolName);
-    str := VolName2 + IfThen(Length(VolName2) > 9, ' ', #9) + drv[i - 1] + #9 + GetDriveTypeString(drv[i - 1]);
+    str := VolName2 + IfThen(Length(VolName2) > 9, ' ', #9) + CurrVol + #9 + GetDriveTypeString(CurrVol);
     VolumesListBox.Items.Add(str);
+    VolName := '';
   end;
 
 
