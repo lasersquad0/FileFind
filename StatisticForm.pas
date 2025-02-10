@@ -37,7 +37,25 @@ implementation
 {$R *.dfm}
 
 uses
-  TypInfo, FileNamesCache;
+  TypInfo, DynamicArray, FileCache;
+
+type
+ TTopFolders = class
+ protected
+   FItems: THArrayG<TCacheItem>;
+   FMin: uint64;
+   FMax: uint64;
+   FSize: Cardinal;
+   procedure UpdateMinMaxAndDelete();
+   procedure AddValue(Item: TCacheItem);
+   function CompareProc(Item1, Item2: TCacheItem): Integer;
+ public
+   constructor Create(Num: Cardinal);
+   destructor Destroy; override;
+   procedure BuildTopFolders;
+   procedure BuildTopFiles;
+   function GetItem(Index: Cardinal): TCacheItem;
+ end;
 
 procedure TStatisticForm1.TabSheet1Show(Sender: TObject);
 var
@@ -93,5 +111,112 @@ begin
     end;
 
 end;
+
+{ TTopFolders }
+
+procedure TTopFolders.UpdateMinMaxAndDelete();
+var
+  i, MinIndex: Cardinal;
+  Item: TCacheItem;
+begin
+  if FItems.Count = 0 then exit;
+
+  FMax := 0;
+  FMin := FItems[0].FFullFileSize;
+  MinIndex := 0;
+  for i := 0 to FItems.Count - 1 do
+  begin
+    Item := FItems[i];
+    if FMax < item.FFullFileSize then FMax := item.FFullFileSize;
+    if FMin > item.FFullFileSize then begin
+      FMin := item.FFullFileSize;
+      MinIndex := i;
+    end;
+  end;
+
+  FItems.DeleteValue(minIndex);
+end;
+
+function TTopFolders.CompareProc(Item1, Item2: TCacheItem): Integer;
+begin
+  if Item1.FFullFileSize > Item2.FFullFileSize then Result := 1
+  else if Item1.FFullFileSize < Item2.FFullFileSize then Result := -1
+  else Result := 0;
+end;
+
+constructor TTopFolders.Create(Num: Cardinal);
+begin
+  FItems := THarrayG<TCacheItem>.Create;
+  FItems.SetCapacity(Num);
+  FSize := Num;
+end;
+
+destructor TTopFolders.Destroy;
+begin
+  FItems.Free;
+  inherited;
+end;
+
+function TTopFolders.GetItem(Index: Cardinal): TCacheItem;
+begin
+  Result := FItems[Index];
+end;
+
+procedure TTopFolders.AddValue(Item: TCacheItem);
+begin
+  if FItems.Count < FSize then begin
+    FItems.AddValue(Item);
+    if FMax < item.FFullFileSize then FMax := item.FFullFileSize;
+    if FMin > item.FFullFileSize then FMin := item.FFullFileSize;
+  end else begin
+    if Item.FFullFileSize > FMin then begin
+      FItems.AddValue(Item);
+      UpdateMinMaxAndDelete();
+    end;
+  end;
+end;
+
+procedure TTopFolders.BuildTopFolders();
+var
+  level: TLevelType;
+  Item: TCacheItem;
+  i, j: Cardinal;
+begin
+  var Cache: TFileCache := TFSC.Instance;
+  if Cache.Count = 0 then Exit;
+
+  //for i = (int)FCacheData.size() - 1; i >= 0; --i)
+  for i := 0 to Cache.Levels - 1 do begin
+    //Level := Cache.FCacheData[i];
+    for j := 0 to Cache.LevelCount(i) - 1 do begin
+      Item := Cache.GetItem(i, j); //Level.GetAddr(j);
+      if IsDirectory(Item) {(Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0} then AddValue(Item);
+    end;
+  end;
+
+  FItems.InsertSort(CompareProc);
+end;
+
+procedure TTopFolders.BuildTopFiles();
+var
+  level: TLevelType;
+  Item: TCacheItem;
+  i, j: Cardinal;
+begin
+  var Cache: TFileCache := TFSC.Instance;
+  if Cache.Count = 0 then Exit;
+
+  for i := 0 to Cache.Levels - 1 do begin
+    //Level := Cache.FCacheData[i];
+    for j := 0 to Cache.LevelCount(i) - 1 do begin
+      Item := Cache.GetItem(i, j); //levelGetAddr(j);
+      if NOT (IsDirectory(Item) {(Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0)}
+         OR ((Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE) > 0)) then AddValue(Item);
+    end;
+  end;
+
+  FItems.InsertSort(CompareProc);
+end;
+
 
 end.
