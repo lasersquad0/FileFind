@@ -70,13 +70,13 @@ type
  end;
 
   // if True is returned as a result of this function that means 'stop searching'
- TFNCSearchResult = function(FullPath: string; FileData: TCacheItem): Boolean of object;
+  TFNCSearchResult = function(FullPath: string; FileData: TCacheItem): Boolean of object;
 
   TSearchResult = (srOK, srWrongPath, srNoIndexData, srCancelled);
   TFileSizeCompare = (fscEquals, fscMore, fscLess);
 
   TSearchFilter = record
-    StartFrom: string;
+    //StartFrom: string;
     SearchStr: string;
     SearchStrUpper: string; // optimization for case insensitive search
     CaseSensitive: Boolean;
@@ -143,28 +143,15 @@ type
    function  GetStat: TFileSystemStatRecord;
    procedure PrintStat(stat: TFileSystemStat; list: TStrings);
 
+   // integrity checks
+   procedure CheckThatParentIsDirectory;
+   function FindHangingDirectories: THArrayG<string>;
+   //properties
    property  Modified: Boolean read FModified write FModified;
    property  IndexFileDate: TDateTime read FDateTimeIndexFile;
    property  FindHandles: THArrayG<THandle> read FFindHandles;
  end;
 
-
- TTopFolders = class
- protected
-   FItems: THArrayG<TCacheItem>;
-   FMin: uint64;
-   FMax: uint64;
-   FSize: Cardinal;
-   procedure UpdateMinMaxAndDelete();
-   procedure AddValue(Item: TCacheItem);
-   function CompareProc(Item1, Item2: TCacheItem): Integer;
- public
-   constructor Create(Num: Cardinal);
-   destructor Destroy; override;
-   procedure BuildTopFolders;
-   procedure BuildTopFiles;
-   function GetItem(Index: Cardinal): TCacheItem;
- end;
 
   TFSC = TFileCache;  // short alias for class name, just for convenience
 
@@ -178,7 +165,7 @@ var
 implementation
 
 uses
-  System.UITypes, System.Math, Dialogs, Functions, MaskSearch, ObjectsCache;
+  System.UITypes, System.Math, Dialogs, Functions, MaskSearch, ObjectsCache, Hash2;
 
 const MAX_DIR_LEVELS = 100;
 const MAX_DIRS = 10_000;
@@ -215,7 +202,7 @@ begin
   FLevel := 0;
   ZeroMemory(@FFileData, sizeof(TWin32FindData));
   FFullFileSize := 0;
-  FIconIndex := -1;
+  FIconIndex := 0;
   FDenied := False;
   FUpperCaseName := '';
 end;
@@ -235,11 +222,13 @@ end;
 
 constructor TCacheItem.Create(Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal);
 begin
+  Create(); // call default constructor to fill cache item with default values
+
   FParent := Parent;
   FLevel := Level;
   FFileData := FileData; // because TWin32FindData is a record, data is copied here to FFileData
   FFullFileSize := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
-  FDenied := False;
+  //FDenied := False;
   FUpperCaseName := AnsiUpperCase(FileData.cFileName);
 end;
 
@@ -286,7 +275,6 @@ begin
   IStream.Read(FFileData.cFileName, lenBytes);
   FUpperCaseName := AnsiUpperCase(FFileData.cFileName);
 
- // GetFileShellInfo(FFileData.cFileName, self);
 end;
 
 ////////////////////////////////////
@@ -445,10 +433,91 @@ begin
   end;
 end;
 
+function IsReparsePoint(item: TCacheItem): Boolean;
+begin
+  Result := (item.FFileData.dwFileAttributes and FILE_ATTRIBUTE_REPARSE_POINT) > 0;
+end;
+
+function TFileCache.FindHangingDirectories: THArrayG<string>;
+var
+  i, j : Cardinal;
+  item, parent: TCacheItem;
+  table: THash2<Cardinal, Cardinal, Cardinal>;
+  pValue: THash2<Cardinal, Cardinal, Cardinal>.PointerV;
+begin
+  table := THash2<Cardinal, Cardinal, Cardinal>.Create;
+  Result := THArrayG<string>.Create;
+  try
+    table.SetValue(0, 0, 0); // root is C: set counter for it
+    for i := 1 to FCacheData.Count - 1 do begin // start from 1 here because we look for parent
+      var lv := FCacheData[i];
+      for j := 0 to lv.Count - 1 do begin
+        item := lv.GetAddr(j);
+        if item.FDenied then Assert(IsDirectory(item)); // FDenied can be set for directories only
+
+        // bypass denied dirs
+        if IsDirectory(item) AND NOT item.FDenied AND NOT IsReparsePoint(item) then begin // bypass symbolic links
+          pValue := table.GetValuePointer(i, j);
+          if pValue = nil then table.SetValue(i, j, 0); // if item is directory then set its links counter to zero
+        end;
+
+        parent := GetItem(i - 1, item.FParent);
+        Assert(IsDirectory(parent));
+        pValue := table.GetValuePointer(i - 1, item.FParent);
+        Assert((pValue <> nil) OR IsReparsePoint(parent)); // cannot be nil because we already marked all previous level dirs with zero counter
+        if Assigned(pValue) then Inc(pValue^); // increase links counter
+      end;
+    end;
+
+    var mx: Cardinal := 0;
+    var mxDir: string;
+
+    for i := 1 to table.Count do begin
+      for j := 1 to table.Count(i) do begin
+        pValue := table.GetValuePointer(i - 1, j - 1);
+        if Assigned(pValue) then begin
+          if pValue^ = 0 then begin
+            item := GetItem(i - 1, j - 1);
+            Result.AddValue(MakePathString(i - 1, j - 1));
+          end;
+
+          if mx < pValue^ then begin
+            mx := pValue^; // find dir with maximum links count
+            mxDir := MakePathString(i - 1, j - 1);
+          end;
+        end;
+      end;
+    end;
+
+    Result.AddValue('Empty folders count: ' + Result.Count.ToString);
+    Result.AddValue('Maximum items in Dir: ' + mx.ToString + ' - ' + mxDir);
+
+  finally
+    table.Free;
+  end;
+end;
+
+procedure TFileCache.CheckThatParentIsDirectory;
+var
+  i, j: Cardinal;
+  item, parent: TCacheItem;
+begin
+  for i := 1 to FCacheData.Count - 1 do begin
+    var lv := FCacheData[i];
+    for j := 0 to lv.Count - 1 do begin
+      item := lv.GetAddr(j);
+      // Parent of any item must be a directory
+      parent := GetItem(i - 1, item.FParent);
+      Assert(IsDirectory(parent));
+    end;
+  end;
+end;
+
 class procedure TFileCache.FreeInst;
 begin
   if Assigned(GInstance) then FreeAndNil(GInstance);
 end;
+
 
 procedure TFileCache.Clear;
 var
@@ -582,7 +651,7 @@ end;
 
 function TFileCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
 var
-  startArray: THArrayG<string>;
+  //startArray: THArrayG<string>;
   GrepList: TStringList;
   i, j: Cardinal;
   Found: Boolean;
@@ -593,7 +662,7 @@ begin
   Filter.SearchStrUpper := AnsiUpperCase(Filter.SearchStr);
   Found := False;
 
-  startArray := THArrayG<string>.Create;
+  //startArray := THArrayG<string>.Create;
   GrepList := nil; // substr search by default
   try
 
@@ -605,7 +674,7 @@ begin
         else SetFilters(Filter.SearchStrUpper, GrepList);
     end;
 
-    StringToArray(Filter.StartFrom, startArray, '\');
+    {StringToArray(Filter.StartFrom, startArray, '\');
 
     if StartArray.Count > 0 then begin      // verify that index DB contains all folders in Filter.StartFrom path
       for i := 0 to StartArray.Count - 1 do begin
@@ -623,8 +692,8 @@ begin
 
       if NOT Found then Exit(srWrongPath);
     end;
-
-    for i := startArray.Count to FCacheData.Count - 1 do begin // bypass Filter.StartFrom folders because each level contain only one folder from StartFrom path
+     }
+    for i := 0{startArray.Count} to FCacheData.Count - 1 do begin // bypass Filter.StartFrom folders because each level contain only one folder from StartFrom path
       var lv := FCacheData[i];
       for j := 0 to lv.Count - 1 do begin
         item := lv.GetAddr(j);
@@ -634,7 +703,7 @@ begin
     end;
     Result := srOK;
   finally
-    startArray.Free;
+    //startArray.Free;
     FreeAndNil(GrepList); // works even when GrepList=nil
   end;
 
@@ -1126,114 +1195,6 @@ begin
 
   //list.Add(Format('Remaining   : %u', [totalItems - countedItems]));
 
-end;
-
-
-
-
-
-procedure TTopFolders.UpdateMinMaxAndDelete();
-var
-  i, MinIndex: Cardinal;
-  Item: TCacheItem;
-begin
-  if FItems.Count = 0 then exit;
-
-  FMax := 0;
-  FMin := FItems[0].FFullFileSize;
-  MinIndex := 0;
-  for i := 0 to FItems.Count - 1 do
-  begin
-    Item := FItems[i];
-    if FMax < item.FFullFileSize then FMax := item.FFullFileSize;
-    if FMin > item.FFullFileSize then begin
-      FMin := item.FFullFileSize;
-      MinIndex := i;
-    end;
-  end;
-
-  FItems.DeleteValue(minIndex);
-end;
-
-function TTopFolders.CompareProc(Item1, Item2: TCacheItem): Integer;
-begin
-  if Item1.FFullFileSize > Item2.FFullFileSize then Result := 1
-  else if Item1.FFullFileSize < Item2.FFullFileSize then Result := -1
-  else Result := 0;
-end;
-
-constructor TTopFolders.Create(Num: Cardinal);
-begin
-  FItems := THarrayG<TCacheItem>.Create;
-  FItems.SetCapacity(Num);
-  FSize := Num;
-end;
-
-destructor TTopFolders.Destroy;
-begin
-  FItems.Free;
-  inherited;
-end;
-
-function TTopFolders.GetItem(Index: Cardinal): TCacheItem;
-begin
-  Result := FItems[Index];
-end;
-
-procedure TTopFolders.AddValue(Item: TCacheItem);
-begin
-  if FItems.Count < FSize then begin
-    FItems.AddValue(Item);
-    if FMax < item.FFullFileSize then FMax := item.FFullFileSize;
-    if FMin > item.FFullFileSize then FMin := item.FFullFileSize;
-  end else begin
-    if Item.FFullFileSize > FMin then begin
-      FItems.AddValue(Item);
-      UpdateMinMaxAndDelete();
-    end;
-  end;
-end;
-
-procedure TTopFolders.BuildTopFolders();
-var
-  level: TLevelType;
-  Item: TCacheItem;
-  i, j: Cardinal;
-begin
-  var Cache: TFileCache := TFSC.Instance;
-  if Cache.Count = 0 then Exit;
-
-		//for i = (int)FCacheData.size() - 1; i >= 0; --i)
-  for i := 0 to Cache.FCacheData.Count - 1 do begin
-    Level := Cache.FCacheData[i];
-    for j := 0 to Level.Count - 1 do begin
-      Item := Level.GetAddr(j);
-      if IsDirectory(Item) {(Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0} then AddValue(Item);
-    end;
-  end;
-
-  FItems.InsertSort(CompareProc);
-end;
-
-procedure TTopFolders.BuildTopFiles();
-var
-  level: TLevelType;
-  Item: TCacheItem;
-  i, j: Cardinal;
-begin
-  var Cache: TFileCache := TFSC.Instance;
-  if Cache.Count = 0 then Exit;
-
-  for i := 0 to Cache.FCacheData.Count - 1 do begin
-    Level := Cache.FCacheData[i];
-    for j := 0 to Level.Count - 1 do begin
-      Item := Level.GetAddr(j);
-      if NOT (IsDirectory(Item) {(Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0)}
-         OR ((Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE) > 0)) then AddValue(Item);
-    end;
-  end;
-
-  FItems.InsertSort(CompareProc);
 end;
 
 
