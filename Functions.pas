@@ -11,6 +11,11 @@ type
     flag: Boolean;
   end;
 
+ type
+  TTernary = class
+    class function IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T; 
+  end;
+
    // thread for background filling IconIndex, FileType string, and DisplayName fields in TCacheItem(s)
    // for each item we need make a call to ShGetFileInfo API function. It takes too much time and slows down search process.
    // it is possible to make searches during this bg process, but they will work a bit slowly because ShGetFileInfo will be called for search result item
@@ -18,7 +23,8 @@ const
   WM_FileShellInfo_MSG = WM_APP + 1;
   WM_SearchResultsShellInfo_MSG = WM_APP + 2;
 
-type
+{type
+
   TFileShellInfoThread = class(TThread)
   private
     FBegin: Cardinal;
@@ -31,6 +37,7 @@ type
     procedure Start(WinHandle: THandle; CancelFlag: PBoolean; lvStart: Cardinal = 0; lvEnd: Cardinal = 0); overload;
     class procedure RunGetShellInfoBgThread(WinHandle: THandle; CancelFlag: PBoolean);
   end;
+ }
 
   function  MillisecToStr(ms: Cardinal): string;
   function  GetLocalTime(ftm: TFileTime): string;
@@ -40,6 +47,8 @@ type
   procedure StringToArray(const str: string; var arr:THArrayG<string>; const Delim:Char {= '\n'});
   // splits string to array of strings using Delim as delimiter
   procedure StringToArrayAccum(const str:string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+  procedure WriteStringToStream(OStream: TStream; str: string);
+  function  ReadStringFromStream(IStream: TStream): string;
   function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
   function  FileTimeToDateTime(FileTime: TFileTime): TDateTime;
   function  DateTimeToFileTime(FileTime: TDateTime): TFileTime;
@@ -59,7 +68,14 @@ type
 implementation
 
 uses
-  WinAPI.ShellAPI, StrUtils, SyncObjs, Math;
+  WinAPI.ShellAPI, StrUtils, SyncObjs, Math, Hash;
+
+class function TTernary.IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T;
+begin
+  if Cond 
+    then Result := ValueTrue
+    else Result := ValueFalse;
+end;
 
 function MillisecToStr(ms: Cardinal): string;
 var
@@ -143,8 +159,26 @@ begin
   if Length(s) > 0 then arr.AddValue(s);
 end;
 
+procedure WriteStringToStream(OStream: TStream; str: string);
+var
+  lenBytes: Integer;
+begin
+  lenBytes := ByteLength(str);
+  OStream.WriteData<Integer>(lenBytes);
+  OStream.Write(str[1], lenBytes);
+end;
 
-function GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
+function ReadStringFromStream(IStream: TStream): string;
+var
+  lenBytes: Cardinal;
+begin
+  IStream.ReadData<Cardinal>(lenBytes);
+  SetLength(Result, lenBytes div sizeof(Result[1]));
+  IStream.Read(Result[1], lenBytes);
+end;
+
+
+function GetErrorMessageText(LastError: Cardinal; const ErrorPlace: string): string;
 var
   buf: string;
 begin
@@ -153,7 +187,7 @@ begin
   Winapi.Windows.FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM OR FORMAT_MESSAGE_IGNORE_INSERTS,
           nil, lastError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), PChar(buf), 1000, nil);
 
-  Result := Format('%s failed with error code %d as follows:\n%s', [errorPlace, lastError, buf]);
+  Result := Format('%s failed with error code %d as follows:\n%s', [ErrorPlace, LastError, buf]);
   //Windows.StringCchPrintf(PChar(buf2), Length(buf2), '%s failed with error code %d as follows:\n%s', PChar(errorPlace), lastError, pChar(buf));
 end;
 
@@ -358,7 +392,7 @@ var
 begin
   Len := MAX_PATH * 3; // allocate enough storage for list of drives
   SetLength(Names, Len);
-  Len := GetLogicalDriveStrings(Len, PChar(Names));
+  GetLogicalDriveStrings(Len, PChar(Names));
 
   Result := ZStrArrayToDelphiArray(PChar(Names));
 end;
@@ -371,9 +405,12 @@ begin
   Result := (dt = DRIVE_REMOVABLE) OR (dt = DRIVE_CDROM);
 end;
 
+
+var ErrorStringIDs: THash<Cardinal, string>; // mapping some error codes to string error IDs for better understanding
+
+
 // FileName - must be full path to existing file or folder
 // or relative path to existing file/folder
-
 {$WRITEABLECONST ON}   // needed for CallsCount static variable
 function GetFileShellInfo(FullFileName: TFileName; Item: TCacheItem): Boolean;
 const
@@ -391,16 +428,16 @@ begin
 
   if Res = 0 then begin // looks like file not found or some other error occurred
     Item.FDisplayName := ExtractFileName(FullFileName);
-    Item.FIconIndex := 0; // ShFileInfo.IIcon;
+    Item.FIconIndex := 0;
     Item.FDenied := True; // mark such items with red icon too
 
     var err := GetLastError();
-    if (err = ERROR_FILE_NOT_FOUND) OR (err = ERROR_PATH_NOT_FOUND)  then begin // file not found error
+    if (err = ERROR_FILE_NOT_FOUND) OR (err = ERROR_PATH_NOT_FOUND) then begin // file not found error
       Item.FFileType := 'File not found (probably deleted)';
     end else begin
       Item.FFileType := 'Unknown file type';
     end;
-    LogMessage(Format('Error %d returned by ShGetFileInfo("%s")', [err, FullFileName]));
+    LogMessage(Format('Error %s(%d) returned by ShGetFileInfo("%s")', [IfThen(ErrorStringIds.GetValuePointer(err)=nil, 'UNKNOWN' , ErrorStringIds[err]), err, FullFileName]));
   end
   else
   begin
@@ -415,7 +452,7 @@ end;
 {$WRITEABLECONST OFF}
 
 { TFileShellInfoThread }
-
+ {
 procedure TFileShellInfoThread.Execute;
 var
   i, j: Cardinal;
@@ -460,10 +497,9 @@ begin
   FileShellInfoThread.FreeOnTerminate := True;
   FileShellInfoThread.Start(WinHandle, CancelFlag, 0, TFSC.Instance.Levels - 1);
 end;
+  }
 
-
-{$IFDEF FFDEBUG}
-const LogFileName = 'FileFind_debug.log';
+const LogFileName = 'FinderX_debug.log';
 var FileH: THandle = 0;
 
 procedure LogMessage(Msg: string);
@@ -484,8 +520,12 @@ end;
 
 initialization
    FileH := 0;
+   ErrorStringIDs := THash<Cardinal, string>.Create;
+   ErrorStringIDs[2] := 'ERROR_FILE_NOT_FOUND';
+   ErrorStringIDs[3] := 'ERROR_PATH_NOT_FOUND';
+   ErrorStringIDs[234] := 'ERROR_MORE_DATA';
+   ErrorStringIDs[1008] := 'ERROR_NO_TOKEN';
 finalization
    CloseHandle(FileH);
-{$ENDIF}
-
+   FreeAndNil(ErrorStringIDs);
 end.
