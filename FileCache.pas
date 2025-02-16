@@ -2,7 +2,7 @@ Unit FileCache;
 
 interface
 
-uses System.Classes, System.SysUtils, Windows, DynamicArray, DynamicArrays;
+uses System.Classes, System.SysUtils, Windows, DynamicArray, DynamicArrays, Hash, SortedArray;
 
 type
 
@@ -12,8 +12,11 @@ type
     constructor Create(level, index: Cardinal);
  end;
 
+ TVolumeCache = class;
+
  TCacheItem = class
  public
+   FVolume: TVolumeCache; // refers to big object root cache object for single volume
    FParent: Cardinal;
    FLevel: Cardinal;
    FFileData: TWin32FindData;
@@ -24,13 +27,11 @@ type
    FIconIndex: Integer;
    FDenied: Boolean;
    constructor Create; overload;
-   constructor Create(Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal); overload;
+   constructor Create(Volume: TVolumeCache; Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal); overload;
    procedure Assign(Other: TCacheItem);
    procedure Serialize(OStream: TStream);
    procedure Deserialize(IStream: TStream);
  end;
-
- TLevelType = THArray;
 
  TFileTypes = (ftFile, ftDir, ftTemp, ftArchive, ftReadOnly, ftHidden, ftSystem, ftDevice, ftSymbolic, ftCompressed,
                ftEncrypted, ftOffline, ftSparse, ftPinned, ftNotIndexed, ftVirtual, ftAll);
@@ -63,9 +64,9 @@ type
 
 
  IIndexingProgress = class
-   procedure Start(P100: Integer); virtual; abstract; // define Max value for progress. -1 means that value for 100% progress is unknown
+   procedure Start(P100: Integer; Notes: string); virtual; abstract; // define Max value for progress. -1 means that value for 100% progress is unknown
    procedure Finish; virtual; abstract;
-   function Progress(Prgress: Integer): Boolean; virtual; abstract; // allows to stop process if indexing takes too long time
+   function Progress(Prgress: Integer): Boolean; virtual; abstract; // Result=False stops process if indexing takes too long time
    procedure ReportError(ErrorStr: string); virtual; abstract;
  end;
 
@@ -91,51 +92,56 @@ type
   end;
 
 
- TFileCache = class
+ TLevelType = THArray;
+
+ TVolumeCache = class
  private
-   class var GInstance: TFileCache; // single instance of cache
- private // do not remove this 'private' keyword
+   FName: string;
    FCacheData: THArrayG<TLevelType>;
    FProgressListeners: THArrayG<IIndexingProgress>;
-   FFindHandles: THarrayG<THandle>;
    FModified: Boolean;
-   FDateTimeIndexFile: TDateTime; // datetime when loaded index file was saved, valid only after loading index file.
+   FIndexedDateTime: TDateTime; // datetime when Volume cache data has been created (indexed).
+   FExecTime: Cardinal;
+   FExclFolders: THArraySorted<string>;
 
    procedure Serialize(OStream: TStream);
    procedure Deserialize(IStream: TStream);
    procedure SaveTo(const fileName: string);
-   function AddLevel(level: Cardinal): TLevelType;
-   function AddRootItem(var fileData: TWin32FindData):TCacheItemRef;
-   function AddItem(parent: Cardinal; var fileData:TWin32FindData; itemLevel: Cardinal; doSearch: Boolean = False): TCacheItemRef;
-   function AddFullPath(const path: string): TCacheItemRef;
-   function GetItem(itemRef: TCacheItemRef): TCacheItem; overload;
+   function  CompareProcString(item1, item2: string): Integer;
+   function  AddLevel(level: Cardinal): TLevelType;
+   function  AddRootItem(var fileData: TWin32FindData):TCacheItemRef;
+   function  AddItem(parent: Cardinal; var fileData:TWin32FindData; itemLevel: Cardinal; doSearch: Boolean = False): TCacheItemRef;
+   function  AddFullPath(const path: string): TCacheItemRef;
+   function  GetItem(itemRef: TCacheItemRef): TCacheItem; overload;
    procedure FillFileData(const filePath: string; var fileData: TWin32FindData);
-   function ReadDirectory(const currDir: TFileName; parent: TCacheItemRef; ShowProgress: Boolean): uint64;
-   procedure NotifyStart;
+   function  ReadDirectory(const currDir: TFileName; parent: TCacheItemRef; ShowProgress: Boolean): uint64;
+   procedure NotifyStart(Notes: string);
    procedure NotifyFinish;
-   function NotifyProgress(prog: Integer): Boolean;
+   function  NotifyProgress(Progrs: Integer): Boolean;
    procedure NotifyError(ErrorStr: string);
-   procedure CloseFindHandles;
-   constructor CreatePrivate;
-   destructor Destroy; override;
-   class procedure FreeInst;
+   //procedure CloseFindHandles;
+   //constructor CreatePrivate;
+   //class procedure FreeInst;
    procedure StatSort(var Stat: TFileSystemStatRecord);
 
  public
-   constructor Create; // raises an exception to avoid creating other instances of cache
-   class function Instance: TFileCache;
-   procedure SerializeTo(const fileName:string);
-   procedure DeserializeFrom(const fileName:string);
+   constructor Create;
+   destructor Destroy; override;
+//   class function Instance: TVolumeCache;
+//   class function NewInstance: TVolumeCache;
+//   class function Swap(NewInstance: TVolumeCache): TVolumeCache;
+   procedure SerializeTo(const FileName:string);
+   procedure DeserializeFrom(const FileName:string);
    procedure Clear;
+   function  Size: uint64;
    function  Count: Cardinal;
    function  GetItem(Level: Cardinal; Index: Cardinal): TCacheItem; overload;
    function  LevelCount(Level: Cardinal): Cardinal;
    function  Levels(): Cardinal;
-   function  ReadFileSystem(const startDir: string): uint64;
+//   function  ReadFileSystem(const Volumes: TArray<string>): uint64;
+   function  ReadVolume(Volume: string; ExclusionsList: TArray<string>): uint64;
    function  MakePathString(ref: TCacheItemRef): string; overload;
    function  MakePathString(itemLevel, itemIndex: Cardinal): string; overload;
-   procedure AddProgressListener(listener: IIndexingProgress);
-   procedure RemoveProgressListener(listener: IIndexingProgress);
    function  Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
 
    procedure PrintLevelsStat(list: TStrings);
@@ -145,18 +151,74 @@ type
 
    // integrity checks
    procedure CheckThatParentIsDirectory;
-   function FindHangingDirectories: THArrayG<string>;
+   function  CheckHangingDirectories: THArrayG<string>;
+   procedure CheckLevelsDataTsCorrect;
+
    //properties
    property  Modified: Boolean read FModified write FModified;
-   property  IndexFileDate: TDateTime read FDateTimeIndexFile;
-   property  FindHandles: THArrayG<THandle> read FFindHandles;
+   property  IndexedDateTime: TDateTime read FIndexedDateTime;
+   property  VolName: string read FName;
+   property  ExecTime: Cardinal read FExecTime;
+ end;
+
+  TVolumeExecData = record
+    VolumeName: string;
+    ExecTime: Cardinal;
+    VolSize: UInt64;
+    ItemsCount: Cardinal;
+  end;
+
+ TCache = class
+ private
+   class var GInstance: TCache; // single instance of cache
+   class var GInstance2: TCache;
+ private
+   FVolumeData: THash<string, TVolumeCache>;
+   FProgressListeners: THArrayG<IIndexingProgress>;
+   FIndexFileSaveDate: TDateTime; // datetime when index file was saved, valid only after loading index file.
+
+   procedure Serialize(OStream: TStream);
+   procedure Deserialize(IStream: TStream);
+//   procedure SaveTo(const fileName: string);
+   function GetModified: Boolean;
+   constructor CreatePrivate;
+   destructor Destroy; override;
+   class procedure FreeInst;
+
+ public
+   constructor Create; // raises an exception to avoid creating other instances of cache
+   class procedure FreeInst2;
+   class function Instance: TCache;
+   class function NewInstance: TCache;
+   class procedure Swap;
+   class function HasNewInstance: Boolean;
+   procedure SerializeTo(const FileName:string);
+   procedure DeserializeFrom(const FileName:string);
+   procedure Clear; overload;  // clears data of all volumes
+   procedure Clear(Volume: string); overload;  // clears specified volume only
+   function  VolumesCount: Cardinal;
+   function  GetVolume(Volume: string): TVolumeCache;
+   function  GetOrCreateVolume(Volume: string): TVolumeCache;
+   function  GetExecData: TArray<TVolumeExecData>;
+   function  GetVolumeNamesAsString: string;
+   procedure ReadVolume(Volume: string; ExclusionsList: TArray<string>);
+   function  Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
+   procedure AddProgressListener(listener: IIndexingProgress);
+   procedure RemoveProgressListener(listener: IIndexingProgress);
+
+   function  GetStat(): TFileSystemStatRecord;
+
+   //properties
+   property  Modified: Boolean read GetModified;
+   property  IndexFileSaveDate: TDateTime read FIndexFileSaveDate;
  end;
 
 
-  TFSC = TFileCache;  // short alias for class name, just for convenience
+  TFSC = TCache;  // short alias for class name, just for convenience
 
   function IsDirectory(Item: TCacheItem): Boolean; overload;
   function IsDirectory(var FileData: TWin32FindData): Boolean; overload;
+  function IsSymLink(var FileData: TWin32FindData): Boolean;
 
 var
   FileTypeNames: TFileTypeNames = ('File', 'Directory', 'Temporary', 'Archive', 'ReadOnly', 'Hidden', 'System', 'Device',
@@ -165,7 +227,7 @@ var
 implementation
 
 uses
-  System.UITypes, System.Math, Dialogs, Functions, MaskSearch, ObjectsCache, Hash2;
+  System.UITypes, System.Math, Dialogs, System.Generics.Defaults, Functions, MaskSearch, ObjectsCache, Hash2;
 
 const MAX_DIR_LEVELS = 100;
 const MAX_DIRS = 10_000;
@@ -198,17 +260,19 @@ end;
 
 constructor TCacheItem.Create();
 begin
+  FVolume := nil;
   FParent := 0;
   FLevel := 0;
   ZeroMemory(@FFileData, sizeof(TWin32FindData));
   FFullFileSize := 0;
   FIconIndex := 0;
   FDenied := False;
-  FUpperCaseName := '';
+//  FUpperCaseName := '';
 end;
 
 procedure TCacheItem.Assign(Other: TCacheItem);
 begin
+  FVolume       := Other.FVolume;
   FParent       := Other.FParent;
   FLevel        := Other.FLevel;
   FFileData     := Other.FFileData;
@@ -220,10 +284,10 @@ begin
   FDenied       := Other.FDenied;
 end;
 
-constructor TCacheItem.Create(Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal);
+constructor TCacheItem.Create(Volume: TVolumeCache; Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal);
 begin
   Create(); // call default constructor to fill cache item with default values
-
+  FVolume := Volume;
   FParent := Parent;
   FLevel := Level;
   FFileData := FileData; // because TWin32FindData is a record, data is copied here to FFileData
@@ -246,9 +310,9 @@ begin
   OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);
   OStream.WriteData<Cardinal>(FLevel);
   OStream.WriteData<Boolean>(FDenied);
-  var lenBytes := StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
+  var lenBytes := ByteLength(FFileData.cFileName); //StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
   Assert(lenBytes < MAX_PATH * sizeof(FFileData.cFileName[0]));
-  OStream.WriteData<Cardinal>(lenBytes);
+  OStream.WriteData<Integer>(lenBytes);
   OStream.Write(FFileData.cFileName, lenBytes);
 end;
 
@@ -278,10 +342,10 @@ begin
 end;
 
 ////////////////////////////////////
-// TFileCache class methods
+// TVolumeCache methods
 ///////////////////////////////////
 
-function TFileCache.AddLevel(level: Cardinal): TLevelType;
+function TVolumeCache.AddLevel(level: Cardinal): TLevelType;
 begin
   Assert(level <= FCacheData.Count);
 
@@ -291,124 +355,126 @@ begin
   else
   begin
     Result := TLevelType.Create;
-    Result.ItemSize := TCacheItem.InstanceSize;
+    Result.ItemSize := Cardinal(TCacheItem.InstanceSize);
     Result.SetCapacity(MAX_DIRS);
     FCacheData.AddValue(Result);
   end;
 end;
 
-procedure TFileCache.AddProgressListener(listener: IIndexingProgress);
-begin
-  if NOT Assigned(listener) then Exit;
-
-  // check if listener has already added to the list
-  if FProgressListeners.IndexOf(listener) = -1 then FProgressListeners.AddValue(listener);
-end;
+ function TVolumeCache.CompareProcString(item1, item2: string): Integer;
+ begin
+   Result := CompareText(item1, item2);
+ end;
 
 {$WRITEABLECONST ON}   // needed for ProgressCounter static variable
-function TFileCache.ReadDirectory(const currDir: TFileName; parent: TCacheItemRef; ShowProgress: Boolean): uint64;
+function TVolumeCache.ReadDirectory(const CurrDir: TFileName; Parent: TCacheItemRef; ShowProgress: Boolean): UInt64;
 const
   FIND_FIRST_EX_LARGE_FETCH = $00000002;
   ProgressCounter: Integer = 0;  // this works as static variable inside a procedure
 var
-  dirSize: uint64;
-  searchDir: string;
+  DirSize: UInt64;
+  SearchDir: string;
   fileData: TWin32FindData;
   hFind: THandle;
   tmp: LARGE_INTEGER;
-  errCode: Cardinal;
-  errMess: string;
+  ErrCode: Cardinal;
+  ErrMess: string;
 begin
-    Assert(sizeof(uint64) = 8);
+    Assert(sizeof(UInt64) = 8);
+    Result := 0;
 
-    dirSize := 0;
+    // bypass directories from Exclude list
+    if FExclFolders.QuickFind(CompareProcString, CurrDir) > 0 then Exit;
+
+    DirSize := 0;
     tmp.QuadPart := 0;
-    searchDir := '\\?\' + currDir + '\*';  // add prefix to extend path string to 32767 symbols
+
+    SearchDir := '\\?\' + CurrDir + '\*';  // add prefix to extend path string to 32767 symbols
     ZeroMemory(@fileData, sizeof(fileData));
 
     // this will be true only for the first ReadDirectory call in reccursion because for all other calls ShowProgress=false
     if ShowProgress then begin
       ProgressCounter := 0; // all reccursive calls are made with ShowProgress=False;
-      NotifyStart;
+      NotifyStart(CurrDir);
     end;
 
-    hFind := FindFirstFileEx(PChar(searchDir), FindExInfoBasic, @fileData, FindExSearchNameMatch, nil, FIND_FIRST_EX_LARGE_FETCH);
+    hFind := FindFirstFileEx(PChar(SearchDir), FindExInfoBasic, @fileData, FindExSearchNameMatch, nil, FIND_FIRST_EX_LARGE_FETCH);
     //hFind := Windows.FindFirstFile(PChar(searchDir), fileData);
 
     if (hFind = INVALID_HANDLE_VALUE) then begin
-      errCode := GetLastError();
-      if errCode = ERROR_ACCESS_DENIED then begin // print error message only if other than ERROR_ACCESS_DENIED error occurred
-        NotifyError('Access denied: ' + currDir);
-        var item := GetItem(parent);
+      ErrCode := GetLastError();
+      if ErrCode = ERROR_ACCESS_DENIED then begin // print error message only if other than ERROR_ACCESS_DENIED error occurred
+        NotifyError('Access denied: ' + CurrDir);
+        var item := GetItem(Parent);
         item.FDenied := True; // set flag that we cannot enter into this folder because of permission denied or other reason.
       end
       else // other than ERROR_ACCESS_DENIED error encountered
       begin
-        errMess := 'ERROR in FindFirstFileEx: ' + currDir + ' GetLastError: ' + IntToStr(errCode);
-        NotifyError(errMess);
-        MessageDlg(errMess, mtError, [mbOK], 0); //TODO: shall we raise and exception here or call NotifyError()?
+        ErrMess := 'ERROR in FindFirstFileEx: ' + CurrDir + ' GetLastError: ' + IntToStr(ErrCode);
+        NotifyError(ErrMess);
+        MessageDlg(ErrMess, mtError, [mbOK], 0); //TODO: shall we raise and exception here or call NotifyError()?
       end;
 
-      Result := dirSize;
-      exit;
+      Result := DirSize;
+      Exit;
     end;
 
     Assert(fileData.cFileName[0] <> #0);
 
-    // bypass dirs with names '.' and '..'
+    // bypass dirs '.' and '..'
     if NOT IS_DOT_DIR(fileData.cFileName) then begin
-      var itemRef := AddItem(parent.ItemIndex, fileData, parent.ItemLevel + 1);
+      var itemRef := AddItem(parent.ItemIndex, fileData, Parent.ItemLevel + 1);
 
-      if IsDirectory(fileData) //(fileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0
-        then dirSize := ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, False)
-        else dirSize := MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
+      if IsDirectory(fileData)
+        then DirSize := ReadDirectory(CurrDir + '\' + fileData.cFileName, itemRef, False)
+        else DirSize := MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
     end;
 
-    while (True) do begin
+    while(True) do begin
       if ShowProgress then begin
         Inc(ProgressCounter);
         // if user pressed cancel then we raise an exception to be able to exit from all reccursive ReadDirectory calls.
         if NOT NotifyProgress(ProgressCounter) then raise EOperationCancelled.Create('User aborted.');
       end;
 
-      if Windows.FindNextFile(hFind, fileData) then begin
+      if FindNextFile(hFind, fileData) then begin
         Assert(fileData.cFileName[0] <> #0);
 
         if IS_DOT_DIR(fileData.cFileName) then continue;
 
-        var itemRef := AddItem(parent.ItemIndex, fileData, parent.ItemLevel + 1);
+        var itemRef := AddItem(parent.ItemIndex, fileData, Parent.ItemLevel + 1);
 
-        if IsDirectory(fileData) //(fileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0
-          then dirSize := dirSize + ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, false)
-          else dirSize := dirSize + MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
+        if IsDirectory(fileData)
+          then DirSize := DirSize + ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, False)
+          else DirSize := DirSize + MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow)
       end
       else
       begin
-        errCode := GetLastError();
-        if (errCode = ERROR_NO_MORE_FILES) then break;
-        errMess := 'ERROR in FindNexFile: ' + currDir + ' GetLastError: ' + IntToStr(errCode);
-        NotifyError(errMess);
-        MessageDlg(errMess, mtError, [mbOK], 0); //TODO: shall we raise and exception here or call NotifyError()?
+        ErrCode := GetLastError();
+        if ErrCode = ERROR_NO_MORE_FILES then break;
+        ErrMess := 'ERROR in FindNexFile: ' + CurrDir + ' GetLastError: ' + IntToStr(ErrCode);
+        NotifyError(ErrMess);
+        MessageDlg(ErrMess, mtError, [mbOK], 0); //TODO: shall we raise and exception here or call NotifyError()?
         break;
       end
     end;
 
-    var item := GetItem(parent);
-    tmp.QuadPart := Int64(dirSize);
+    var item := GetItem(Parent);
+    tmp.QuadPart := Int64(DirSize);
     item.FFileData.nFileSizeHigh := DWORD(tmp.HighPart);
     item.FFileData.nFileSizeLow := DWORD(tmp.LowPart);
-    item.FFullFileSize := dirSize;
+    item.FFullFileSize := DirSize;
 
   //  FFindHandles.AddValue(hFind);
     Windows.FindClose(hFind); // weird, this call takes too much time for some reason. It is called for each scanned directory.
 
     if ShowProgress then NotifyFinish;
 
-    Result := dirSize;
+    Result := DirSize;
 end;
 {$WRITEABLECONST OFF}
 
-procedure TFileCache.FillFileData(const filePath: string; var fileData: TWin32FindData);
+procedure TVolumeCache.FillFileData(const filePath: string; var fileData: TWin32FindData);
 var
   hf: THandle;
   fileSize: LARGE_INTEGER;
@@ -425,8 +491,8 @@ begin
 
     Windows.GetFileTime(hf, @fileData.ftCreationTime, @fileData.ftLastAccessTime, @fileData.ftLastWriteTime);
     Windows.GetFileSizeEx(hf, fileSize.QuadPart);
-    fileData.nFileSizeHigh := fileSize.HighPart;
-    fileData.nFileSizeLow := fileSize.LowPart;
+    fileData.nFileSizeHigh := DWORD(fileSize.HighPart);
+    fileData.nFileSizeLow := DWORD(fileSize.LowPart);
 
   finally
     Windows.CloseHandle(hf);
@@ -438,7 +504,7 @@ begin
   Result := (item.FFileData.dwFileAttributes and FILE_ATTRIBUTE_REPARSE_POINT) > 0;
 end;
 
-function TFileCache.FindHangingDirectories: THArrayG<string>;
+function TVolumeCache.CheckHangingDirectories: THArrayG<string>;
 var
   i, j : Cardinal;
   item, parent: TCacheItem;
@@ -452,7 +518,7 @@ begin
     for i := 1 to FCacheData.Count - 1 do begin // start from 1 here because we look for parent
       var lv := FCacheData[i];
       for j := 0 to lv.Count - 1 do begin
-        item := lv.GetAddr(j);
+        item := TCacheItem(lv.GetAddr(j));
         if item.FDenied then Assert(IsDirectory(item)); // FDenied can be set for directories only
 
         // bypass denied dirs
@@ -477,7 +543,7 @@ begin
         pValue := table.GetValuePointer(i - 1, j - 1);
         if Assigned(pValue) then begin
           if pValue^ = 0 then begin
-            item := GetItem(i - 1, j - 1);
+            //item := GetItem(i - 1, j - 1);
             Result.AddValue(MakePathString(i - 1, j - 1));
           end;
 
@@ -497,7 +563,7 @@ begin
   end;
 end;
 
-procedure TFileCache.CheckThatParentIsDirectory;
+procedure TVolumeCache.CheckThatParentIsDirectory;
 var
   i, j: Cardinal;
   item, parent: TCacheItem;
@@ -505,7 +571,7 @@ begin
   for i := 1 to FCacheData.Count - 1 do begin
     var lv := FCacheData[i];
     for j := 0 to lv.Count - 1 do begin
-      item := lv.GetAddr(j);
+      item := TCacheItem(lv.GetAddr(j));
       // Parent of any item must be a directory
       parent := GetItem(i - 1, item.FParent);
       Assert(IsDirectory(parent));
@@ -513,13 +579,28 @@ begin
   end;
 end;
 
-class procedure TFileCache.FreeInst;
+procedure TVolumeCache.CheckLevelsDataTsCorrect;
+var
+  i, j: Cardinal;
+  item: TCacheItem;
+begin
+  // check that all items contain correct Level data.
+  for i := 1 to FCacheData.Count  do begin
+    var lv := FCacheData[i - 1];
+    for j := 1 to lv.Count do begin
+      item := TCacheItem(lv.GetAddr(j - 1));
+      Assert(item.FLevel = i);
+    end;
+  end;
+end;
+                             {
+class procedure TVolumeCache.FreeInst;
 begin
   if Assigned(GInstance) then FreeAndNil(GInstance);
-end;
+end;                          }
 
 
-procedure TFileCache.Clear;
+procedure TVolumeCache.Clear;
 var
   item: TCacheItem;
 begin
@@ -528,7 +609,7 @@ begin
   for var i: Cardinal := 0 to FCacheData.Count - 1 do begin
     var lv := FCacheData[i];
     for var j: Cardinal := 0 to lv.Count - 1 do begin
-      item := lv.GetAddr(j);
+      item := TCacheItem(lv.GetAddr(j));
       item.CleanupInstance;
     end;
     lv.Free;
@@ -536,45 +617,39 @@ begin
 
   FCacheData.Clear;
 end;
-
-procedure TFileCache.CloseFindHandles;
+{
+procedure TVolumeCache.CloseFindHandles;
 var i: Cardinal;
 begin
   for i := 1 to FFindHandles.Count do Windows.FindClose(FFindHandles[i - 1]);
   FFindHandles.Clear;
 end;
-
-function TFileCache.Count: Cardinal;
+ }
+function TVolumeCache.Count: Cardinal;
 begin
   Result := 0;
-  if FCacheData.Count = 0 then exit;
+  if FCacheData.Count = 0 then Exit;
 
   for var i: Cardinal := 0 to FCacheData.Count - 1 do
     Result := Result + FCacheData[i].Count;
 end;
 
-constructor TFileCache.Create;
-begin
-  raise ENoConstructException.Create('TFileCache instance cannot be directly constructed');
-end;
-
-constructor TFileCache.CreatePrivate;
+constructor TVolumeCache.Create;
 begin
   FCacheData := THArrayG<TLevelType>.Create;
   FCacheData.SetCapacity(MAX_DIR_LEVELS);
-  FProgressListeners := THArrayG<IIndexingProgress>.Create;
-  FFindHandles :=  THArrayG<THandle>.Create;
-  FFindHandles.SetCapacity(MAX_FIND_HANDLES_CAPACITY);
+  FProgressListeners := nil; //THArrayG<IIndexingProgress>.Create;
+  FExclFolders :=  THArraySorted<string>.Create(TIStringComparer.Ordinal);
   FModified := False;
-  FDateTimeIndexFile := 0; // default value, because index file is not loaded yet
+  FIndexedDateTime := 0; // default value, because index is not created yet
 end;
 
-destructor TFileCache.Destroy;
+destructor TVolumeCache.Destroy;
 begin
   Clear;
   FreeAndNil(FCacheData);
-  FreeAndNil(FProgressListeners);
-  FreeAndNil(FFindHandles);
+  //FreeAndNil(FProgressListeners);
+  FreeAndNil(FExclFolders);
 end;
 
 /////////////////////////////////////
@@ -618,19 +693,23 @@ end;
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
 function CheckForAttributes(var Filter: TSearchFilter; FileAttributes: Cardinal): Boolean;
 begin
-  Result := FileAttributes AND Filter.Attributes > 0;
+  Result := (FileAttributes AND Filter.Attributes) > 0;
 end;
 
 function IsDirectory(Item: TCacheItem): Boolean;
 begin
-  IsDirectory := Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY > 0;
+  IsDirectory := (Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0;
 end;
 
 function IsDirectory(var FileData: TWin32FindData): Boolean;
 begin
-  IsDirectory := FileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY > 0;
+  IsDirectory := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0;
 end;
 
+function IsSymLink(var FileData: TWin32FindData): Boolean;
+begin
+  IsSymLink := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT) > 0;
+end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
 // if GrepList=nil use substr search otherwise use mask search functions
@@ -649,18 +728,18 @@ begin
   Result := True;
 end;
 
-function TFileCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
+function TVolumeCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
 var
   //startArray: THArrayG<string>;
   GrepList: TStringList;
   i, j: Cardinal;
-  Found: Boolean;
+  //Found: Boolean;
   item: TCacheItem;
 begin
   if FCacheData.Count = 0 then Exit(srNoIndexData);
 
   Filter.SearchStrUpper := AnsiUpperCase(Filter.SearchStr);
-  Found := False;
+  //Found := False;
 
   //startArray := THArrayG<string>.Create;
   GrepList := nil; // substr search by default
@@ -696,7 +775,7 @@ begin
     for i := 0{startArray.Count} to FCacheData.Count - 1 do begin // bypass Filter.StartFrom folders because each level contain only one folder from StartFrom path
       var lv := FCacheData[i];
       for j := 0 to lv.Count - 1 do begin
-        item := lv.GetAddr(j);
+        item := TCacheItem(lv.GetAddr(j));
         if ApplyFilter(Filter, GrepList, item) then
           if NOT Callback(MakePathString(i, j), item) then Exit(srCancelled); //TODO: optimization: cache PathString in the item and use it during next searches
       end;
@@ -706,48 +785,49 @@ begin
     //startArray.Free;
     FreeAndNil(GrepList); // works even when GrepList=nil
   end;
-
 end;
 
-procedure TFileCache.Serialize(OStream: TStream);
+procedure TVolumeCache.Serialize(OStream: TStream);
 var
   i, j: Cardinal;
-  tmpDate: TDateTime;
   item: TCacheItem;
 begin
-  tmpDate := Now();
-  OStream.WriteData<TDateTime>(tmpDate); // write datetime of latest index file update
+  OStream.WriteData<TDateTime>(FIndexedDateTime); // write datetime of latest index file update
+  WriteStringToStream(OStream, FName);
   OStream.WriteData<Cardinal>(FCacheData.Count);
   for i := 0 to FCacheData.Count - 1 do begin
     var lv := FCacheData[i];
     OStream.WriteData<Cardinal>(lv.Count);
     for j := 0 to lv.Count - 1 do begin
-      item := lv.GetAddr(j);
+      item := TCacheItem(lv.GetAddr(j));
       item.Serialize(OStream);
     end;
   end;
-  FDateTimeIndexFile := tmpDate; // update index file date field after successfull saving
+
   FModified := False;
 end;
 
-procedure TFileCache.Deserialize(IStream: TStream);
+procedure TVolumeCache.Deserialize(IStream: TStream);
 var
-  i, j: Cardinal;
-  cacheSize, levelSize: Cardinal;
+  i, j, start: Cardinal;
+  CacheSize, levelSize: Cardinal;
   level: TLevelType;
   item: TCacheItem;
 begin
+  start := GetTickCount;
+
   Clear;
 
-  IStream.ReadData<TDateTime>(FDateTimeIndexFile);
-  IStream.ReadData<Cardinal>(cacheSize);
+  IStream.ReadData<TDateTime>(FIndexedDateTime);
+  FName := ReadStringFromStream(IStream);
+  IStream.ReadData<Cardinal>(CacheSize);
   if cacheSize = 0 then Exit;
 
-  FCacheData.SetCapacity(cacheSize);
+  FCacheData.SetCapacity(CacheSize);
 
-  for i := 0 to cacheSize - 1 do begin
+  for i := 0 to CacheSize - 1 do begin
     level := TLevelType.Create;
-    level.ItemSize := TCacheItem.InstanceSize;
+    level.ItemSize := Cardinal(TCacheItem.InstanceSize);
     FCacheData.AddValue(level);
 
     IStream.ReadData<Cardinal>(levelSize);
@@ -764,50 +844,52 @@ begin
   end;
 
   FModified := False; // loading index file does not mean "Modified". Modified=True after updating data from file system
-
-  {
-  // optional check that all items contain correct Level data.
-  for i := 0 to FCacheData.Count - 1 do begin
-    var lv := FCacheData[i];
-    for j := 0 to lv.Count - 1 do begin
-      item := lv.GetAddr(j);
-      Assert(item.FLevel = i);
-    end;
-  end; }
+  FExecTime := GetTickCount - start;
 end;
 
-function TFileCache.GetItem(Level, Index: Cardinal): TCacheItem;
+function TVolumeCache.GetItem(Level, Index: Cardinal): TCacheItem;
 begin
-  Result := FCacheData[Level].GetAddr(Index);
+  Result := TCacheItem(FCacheData[Level].GetAddr(Index));
 end;
 
-function TFileCache.GetItem(itemRef: TCacheItemRef): TCacheItem;
+function TVolumeCache.GetItem(itemRef: TCacheItemRef): TCacheItem;
 begin
-  Result:= FCacheData.GetValue(itemRef.ItemLevel).GetAddr(itemRef.ItemIndex);
+  Result:= TCacheItem(FCacheData.GetValue(itemRef.ItemLevel).GetAddr(itemRef.ItemIndex));
 end;
 
-function TFileCache.LevelCount(Level: Cardinal): Cardinal;
+function TVolumeCache.LevelCount(Level: Cardinal): Cardinal;
 begin
   Result := FCacheData[Level].Count;
 end;
 
-function TFileCache.Levels(): Cardinal;
+function TVolumeCache.Levels(): Cardinal;
 begin
   Result := FCacheData.Count;
 end;
-
-class function TFileCache.Instance: TFileCache;
+        {
+class function TVolumeCache.Instance: TVolumeCache;
 begin
-  if NOT Assigned(GInstance) then GInstance := TFileCache.CreatePrivate;
+  if NOT Assigned(GInstance) then GInstance := TVolumeCache.CreatePrivate;
   Result := GInstance;
 end;
 
-function TFileCache.AddRootItem(var fileData: TWin32FindData): TCacheItemRef;
+class function TVolumeCache.NewInstance: TVolumeCache;
+begin
+  Result := TVolumeCache.CreatePrivate;
+end;
+
+class function TVolumeCache.Swap(NewInstance: TVolumeCache): TVolumeCache;
+begin
+  Result := GInstance;
+  GInstance := NewInstance;
+end;      }
+
+function TVolumeCache.AddRootItem(var fileData: TWin32FindData): TCacheItemRef;
 var
   level: TLevelType;
   i: Cardinal;
   item: TCacheItem;
-  ref: TCacheItemRef;
+  //ref: TCacheItemRef;
 begin
   level := AddLevel(0);
 
@@ -819,49 +901,37 @@ begin
     Inc(i);
   end;
 
-  //auto iter = std::find_if(biter, eiter, [&fn](const TCacheItem& elem) -> bool { return _tcsnicmp(elem.FFileData.cFileName, fn, MAX_PATH) == 0; });
-
   if i < level.Count then begin // fount root item
-    item := level.GetAddr(i);
+    item := TCacheItem(level.GetAddr(i));
     Result := TCacheItemRef.Create(item.FLevel, i);
     Exit;
   end;
 
   // need to create new root items
-  level.AddFillValues(1);
-  item := TCacheItem(TCacheItem.InitInstance(level.GetAddr(level.Count - 1)));
-  item.Create(0, fileData, 0);
+  //level.AddFillValues(1);
+  item := TCacheItem(TCacheItem.InitInstance(level.AddFillValues(1){level.GetAddr(level.Count - 1)}));
+  item.Create(self, 0, fileData, 0);
   //level.Add(item);
-  ref.ItemLevel := 0;
-  ref.ItemIndex := level.Count - 1;
-  Result := ref;
+  Result.ItemLevel := 0;
+  Result.ItemIndex := level.Count - 1;
+  //Result := ref;
 end;
 
-function TFileCache.AddItem(parent: Cardinal; var fileData: TWin32FindData; itemLevel: Cardinal; doSearch: Boolean = False): TCacheItemRef;
+function TVolumeCache.AddItem(parent: Cardinal; var fileData: TWin32FindData; itemLevel: Cardinal; doSearch: Boolean = False): TCacheItemRef;
 var
   item: TCacheItem;
 begin
   var level := AddLevel(itemLevel);
 
-  //if (doSearch) then begin
-    //	auto biter = level.begin();
-    //	auto eiter = level.end();
-    //	ci_string itemName = fileData.cFileName;
-    //	auto iter = std::find_if(biter, eiter, [&itemName, parent](const TCacheItem& elem) -> bool { return elem.FParent == parent && elem.FFileData.cFileName == itemName; });
-
-    //	if (iter != eiter) // we've found an item
-    //		return TCacheItemRef{ iter->FLevel, (size_t)std::distance(biter, iter) };
-  //  end;
-
-  level.AddFillValues(1);
-  item := TCacheItem(TCacheItem.InitInstance(level.GetAddr(level.Count - 1)));
-  item.Create(parent, fileData, itemLevel);
+  //level.AddFillValues(1);
+  item := TCacheItem(TCacheItem.InitInstance(level.AddFillValues(1){level.GetAddr(level.Count - 1)}));
+  item.Create(self, parent, fileData, itemLevel);
   //level.Add(item);
   Result.ItemLevel := itemLevel;
   Result.ItemIndex := level.Count - 1;
 end;
 
-function TFileCache.AddFullPath(const path: string): TCacheItemRef;
+function TVolumeCache.AddFullPath(const path: string): TCacheItemRef;
 var
   pathArray: THArrayG<string>;
   pathArrayAccum: THArrayG<string>;
@@ -902,7 +972,7 @@ begin
   Result := parent;
 end;
 
-procedure TFileCache.SerializeTo(const FileName: string);
+procedure TVolumeCache.SerializeTo(const FileName: string);
 var
   mout: TMemoryStream;
 begin
@@ -915,7 +985,12 @@ begin
   end;
 end;
 
-procedure TFileCache.DeserializeFrom(const FileName: string);
+function TVolumeCache.Size: uint64;
+begin
+  Result := GetItem(0, 0).FFullFileSize;
+end;
+
+procedure TVolumeCache.DeserializeFrom(const FileName: string);
 var
   msin: TMemoryStream;
 begin
@@ -930,7 +1005,7 @@ begin
   end;
 end;
 
-procedure TFileCache.SaveTo(const FileName: string);
+procedure TVolumeCache.SaveTo(const FileName: string);
 var
   fout:TFileStream;
   ii, k: Integer;
@@ -949,7 +1024,7 @@ begin
       var level := FCacheData[i];
 
       for j := 0 to level.Count - 1 do begin
-        sitem := level.GetAddr(j);
+        sitem := TCacheItem(level.GetAddr(j));
 
         path.Clear();
         path.AddValue(sitem);
@@ -968,8 +1043,8 @@ begin
           pathStr := pathStr + '\' +  path[k].FFileData.cFileName;
         end;
 
-        fout.Write(PChar(pathStr)^, Length(pathStr)*sizeof(Char));
-        fout.Write(PChar(sLineBreak)^, Length(sLineBreak)*sizeof(Char));
+        fout.Write(PChar(pathStr)^, ByteLength(pathStr){*sizeof(Char)});
+        fout.Write(PChar(sLineBreak)^, ByteLength(sLineBreak){*sizeof(Char)});
       end;
     end;
 
@@ -979,23 +1054,52 @@ begin
   end;
 end;
 
-function TFileCache.ReadFileSystem(const startDir: string): uint64;
+function TVolumeCache.ReadVolume(Volume: string; ExclusionsList: TArray<string>): uint64;
+var
+  i: Cardinal;
+  str: string;
 begin
-  Clear; // remove previous cache data
-  var startItemRef := AddFullPath(startDir);
+  var start := GetTickCount;
+  Clear;
+  FName := Volume;
 
-  Result := ReadDirectory(startDir, startItemRef, True);
+  //TODO: may be list of exclusions should be Volume agnostic somehow???
 
+  // fill ExclFolders with values related to the specified Volume only
+  for i := 1 to Length(ExclusionsList) do begin
+    str := ExclusionsList[i - 1];
+    if str.StartsWith(Volume) then begin
+      if str[Length(str)] = '\' then Delete(str, Length(str), 1); // delete trailing backslash for proper comparing in ReadDirectory method
+      FExclFolders.AddValue(str);
+    end;
+  end;
+
+  if Volume[Length(Volume)] = '\' then Delete(Volume, Length(Volume), 1);
+  var startItemRef := AddFullPath(Volume);
+  Result := ReadDirectory(Volume, startItemRef, True);
+
+  FExecTime := GetTickCount - start;
   FModified := True;
 end;
 
-procedure TFileCache.RemoveProgressListener(listener: IIndexingProgress);
+{
+function TVolumeCache.ReadFileSystem(const Volumes: TArray<string>): uint64;
+var
+  i, cnt: Cardinal;
 begin
-  var index := FProgressListeners.IndexOf(listener);
-  if index <> -1 then FProgressListeners.DeleteValue(Cardinal(index));
-end;
+  Clear; // remove previous cache data
 
-function TFileCache.MakePathString(ref: TCacheItemRef):string;
+  cnt := Length(Volumes);
+  for i := 0 to cnt - 1 do begin
+    var startItemRef := AddFullPath(Volumes[i]);
+    Result := ReadDirectory(Volumes[i], startItemRef, True);
+  end;
+
+  FModified := True;
+end;
+ }
+
+function TVolumeCache.MakePathString(ref: TCacheItemRef):string;
 begin
   Result := MakePathString(ref.ItemLevel, ref.ItemIndex);
 end;
@@ -1006,7 +1110,7 @@ type
 var
   GPathCache: TObjectsCache<TGPath> = nil; // optimization, global array to hold path items before converting into full path string
 
-function TFileCache.MakePathString(itemLevel, itemIndex: Cardinal): string;
+function TVolumeCache.MakePathString(itemLevel, itemIndex: Cardinal): string;
 var
   k, ii: Integer;
   GPath: TGPath;
@@ -1047,29 +1151,33 @@ begin
 
 end;
 
-procedure TFileCache.NotifyFinish;
+procedure TVolumeCache.NotifyFinish;
 begin
-  for var i := 1 to FProgressListeners.Count do FProgressListeners[i - 1].Finish;
+  if Assigned(FProgressListeners) then
+    for var i := 1 to FProgressListeners.Count do FProgressListeners[i - 1].Finish;
 end;
 
-function TFileCache.NotifyProgress(prog: Integer): Boolean;
+function TVolumeCache.NotifyProgress(Progrs: Integer): Boolean;
 begin
   Result := False; // cancel by default
-  for var i := 1 to FProgressListeners.Count do if NOT FProgressListeners[i - 1].Progress(prog) then Exit;
+  if Assigned(FProgressListeners) then
+    for var i := 1 to FProgressListeners.Count do if NOT FProgressListeners[i - 1].Progress(Progrs) then Exit;
   Result := True;  // everything is ok return true
 end;
 
-procedure TFileCache.NotifyStart;
+procedure TVolumeCache.NotifyStart(Notes: string);
 begin
-  for var i := 1 to FProgressListeners.Count do FProgressListeners[i - 1].Start(-1);
+  if Assigned(FProgressListeners) then
+    for var i := 1 to FProgressListeners.Count do FProgressListeners[i - 1].Start(-1, Notes);
 end;
 
-procedure TFileCache.NotifyError(ErrorStr: string);
+procedure TVolumeCache.NotifyError(ErrorStr: string);
 begin
-  for var i := 1 to FProgressListeners.Count do FProgressListeners[i - 1].ReportError(ErrorStr);
+  if Assigned(FProgressListeners) then
+    for var i := 1 to FProgressListeners.Count do FProgressListeners[i - 1].ReportError(ErrorStr);
 end;
 
-procedure TFileCache.PrintLevelsStat(list: TStrings);
+procedure TVolumeCache.PrintLevelsStat(list: TStrings);
 begin
   list.Add(Format('Levels : %u', [FCacheData.Count]));
   var sum: Cardinal := 0;
@@ -1083,16 +1191,16 @@ begin
   list.Add(Format('SUMM of Levels : ', [sum]));
 end;
 
-procedure TFileCache.PrintAllItems(list: TStrings);
+procedure TVolumeCache.PrintAllItems(list: TStrings);
 var
   sitem: TCacheItem;
 begin
   for var i: Integer := Integer(FCacheData.Count) - 1 downto 0 do begin
-    var level := FCacheData[i];
+    var level := FCacheData[Cardinal(i)];
     var pathStr: string;
 
     for var j: Cardinal := 0 to level.Count - 1 do begin
-      sitem := level.GetAddr(j);
+      sitem := TCacheItem(level.GetAddr(j));
 
       if IsDirectory(sitem) {(sitem.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0} then begin
         pathStr := MakePathString(i, j);
@@ -1104,7 +1212,7 @@ begin
   end;
  end;
 
-function TFileCache.GetStat(): TFileSystemStatRecord;
+function TVolumeCache.GetStat(): TFileSystemStatRecord;
 var
    i,j: Cardinal;
    item: TCacheItem;
@@ -1120,7 +1228,7 @@ begin
     var lv := FCacheData[i];
     // totalItems := totalItems + lv.Count;
     for j := 0 to lv.Count - 1 do begin
-      item := lv.GetAddr(j);
+      item := TCacheItem(lv.GetAddr(j));
       var counted: Boolean := false;
 
       if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY)    > 0 then begin Inc(Result.Stat[ftDir]);       counted := true; end;
@@ -1150,7 +1258,7 @@ begin
   StatSort(Result);
 end;
 
-procedure TFileCache.StatSort(var Stat: TFileSystemStatRecord);
+procedure TVolumeCache.StatSort(var Stat: TFileSystemStatRecord);
 var
   i, j: Cardinal;
   k, val, L, R: Cardinal;
@@ -1173,7 +1281,7 @@ begin
   end;
 end;
 
-procedure TFileCache.PrintStat(stat: TFileSystemStat; list: TStrings);
+procedure TVolumeCache.PrintStat(stat: TFileSystemStat; list: TStrings);
 begin
   list.Add(Format('Total number of files and dirs : %u', [stat[ftAll]]));
   // list.Add(Format('Total without dirs : %u', [totalItems - stat[ftDir]]));
@@ -1198,13 +1306,241 @@ begin
 end;
 
 
+{ TCache }
+
+procedure TCache.Clear(Volume: string);
+begin
+  FVolumeData.GetValue(Volume).Free;
+  FVolumeData.Delete(Volume);
+end;
+
+procedure TCache.Clear;
+var
+  i: Cardinal;
+begin
+  for i := 1 to FVolumeData.Count do FVolumeData.GetPair(i - 1).Second.Free;
+  FVolumeData.Clear;
+end;
+
+constructor TCache.Create;
+begin
+  raise ENoConstructException.Create('TCache instance cannot be directly constructed.');
+end;
+
+constructor TCache.CreatePrivate;
+begin
+  FVolumeData := THash<string, TVolumeCache>.Create;
+  FProgressListeners := THArrayG<IIndexingProgress>.Create;
+  //FModified := False;
+  FIndexFileSaveDate := 0; // default value, because index file is not loaded yet
+end;
+
+procedure TCache.Deserialize(IStream: TStream);
+var
+  i, VolumesCnt: Cardinal;
+  vol: TVolumeCache;
+begin
+  Clear;
+
+  IStream.ReadData<TDateTime>(FIndexFileSaveDate);
+  IStream.ReadData<Cardinal>(VolumesCnt);
+  if VolumesCnt = 0 then Exit;
+
+  //TODO: possibly we can do it more effective - do not delete TVolumeCache cashes but just clear them and preserve allocated memory
+  for i := 1 to VolumesCnt do begin
+    vol := TVolumeCache.Create;
+    vol.Deserialize(IStream);
+    FVolumeData.SetValue(vol.FName, vol);
+  end;
+end;
+
+procedure TCache.DeserializeFrom(const fileName: string);
+var
+  msin: TMemoryStream;
+begin
+  msin := TMemoryStream.Create;
+  try
+    if FileExists(FileName) then begin
+      msin.LoadFromFile(FileName);
+      Deserialize(msin);
+    end;
+  finally
+    msin.Free;
+  end;
+end;
+
+procedure TCache.Serialize(OStream: TStream);
+var
+  i: Cardinal;
+begin
+  FIndexFileSaveDate := Now;
+  OStream.WriteData<TDateTime>(FIndexFileSaveDate);
+  OStream.WriteData<Cardinal>(FVolumeData.Count);
+  for i := 1 to FVolumeData.Count do FVolumeData.GetPair(i - 1).Second.Serialize(OStream);
+end;
+
+procedure TCache.SerializeTo(const fileName: string);
+var
+  mout: TMemoryStream;
+begin
+  mout := TMemoryStream.Create;
+  try
+    Serialize(mout);
+    mout.SaveToFile(FileName);
+  finally
+    mout.Free;
+  end;
+end;
+
+destructor TCache.Destroy;
+begin
+  Clear;
+  FreeAndNil(FVolumeData);
+  FreeAndNil(FProgressListeners);
+
+  inherited;
+end;
+
+function TCache.VolumesCount: Cardinal;
+begin
+  Result := FVolumeData.Count;
+end;
+
+function TCache.GetExecData: TArray<TVolumeExecData>;
+var
+  i: Cardinal;
+  rec: TVolumeExecData;
+begin
+  for i := 1 to FVolumeData.Count do begin
+    var vol := FVolumeData.GetPair(i - 1).Second;
+    rec.VolumeName := vol.VolName;
+    rec.ExecTime := vol.ExecTime;
+    rec.VolSize := vol.Size;
+    rec.ItemsCount := vol.Count;
+    Insert(rec, Result, Length(Result));
+  end;
+end;
+
+function TCache.GetModified: Boolean;
+var
+  i: Cardinal;
+begin
+  Result := False;
+  for i := 1 to FVolumeData.Count do begin
+    Result := Result OR FVolumeData.GetPair(i - 1).Second.Modified;
+    if Result then break;
+  end;
+end;
+
+function TCache.GetStat: TFileSystemStatRecord;
+begin
+  Result := FVolumeData.GetPair(0).Second.GetStat;  //TODO: make it work with many volunes
+end;
+
+function TCache.GetVolume(Volume: string): TVolumeCache;
+begin
+   Result := FVolumeData.GetValue(Volume);
+end;
+
+function TCache.GetVolumeNamesAsString: string;
+var
+  i: Cardinal;
+begin
+  for i := 1 to FVolumeData.Count do
+    Result := Result + ' ' + FVolumeData.GetPair(i - 1).Second.VolName;
+end;
+
+class procedure TCache.FreeInst;
+begin
+  if Assigned(GInstance) then FreeAndNil(GInstance);
+  if Assigned(GInstance2) then FreeAndNil(GInstance2);
+end;
+
+class procedure TCache.FreeInst2;
+begin
+  if Assigned(GInstance2) then FreeAndNil(GInstance2);
+end;
+
+class function TCache.Instance: TCache;
+begin
+  if NOT Assigned(GInstance) then GInstance := TCache.CreatePrivate;
+  Result := GInstance;
+end;
+
+class function TCache.NewInstance: TCache;
+begin
+  if NOT Assigned(GInstance2) then GInstance2 := TCache.CreatePrivate;
+  Result := GInstance2;
+end;
+
+function TCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
+var
+  i: Cardinal;
+begin
+  for i := 1 to FVolumeData.Count do
+    FVolumeData.GetPair(i - 1).Second.Search(Filter, Callback);
+end;
+
+class function TCache.HasNewInstance: Boolean;
+begin
+  Result := Assigned(GInstance2);
+end;
+
+class procedure TCache.Swap;
+begin
+  if Assigned(GInstance) then GInstance.Free;
+  GInstance := GInstance2;
+  GInstance2 := nil;
+end;
+
+procedure TCache.AddProgressListener(listener: IIndexingProgress);
+begin
+  if NOT Assigned(listener) then Exit;
+
+  // check if listener has already added to the list
+  if FProgressListeners.IndexOf(listener) = -1 then FProgressListeners.AddValue(listener);
+end;
+
+
+function TCache.GetOrCreateVolume(Volume: string): TVolumeCache;
+var
+  pvol: ^TVolumeCache;
+begin
+  pvol := FVolumeData.GetValuePointer(Volume);
+
+  if Assigned(pvol) then begin
+    Result := pvol^;
+  end else begin
+    Result := TVolumeCache.Create;
+    FVolumeData[Volume] := Result;
+  end;
+end;
+
+procedure TCache.ReadVolume(Volume: string; ExclusionsList: TArray<string>);
+var
+  vol: TVolumeCache;
+begin
+  vol := GetOrCreateVolume(Volume);
+
+  vol.FProgressListeners := FProgressListeners;
+  vol.ReadVolume(Volume, ExclusionsList);
+  vol.FProgressListeners := nil;
+end;
+
+procedure TCache.RemoveProgressListener(listener: IIndexingProgress);
+begin
+  var index := FProgressListeners.IndexOf(listener);
+  if index <> -1 then FProgressListeners.DeleteValue(Cardinal(index));
+end;
+
+
 initialization
   GPathCache := TObjectsCache<TGPath>.Create(3, True); //we have two threads that will work with this global objects, so 3 items should be enough
   //GPath.SetCapacity(MAX_DIR_LEVELS);
 
 finalization
   if GPathCache <> nil then FreeAndNil(GPathCache);
-  TFSC.FreeInst; // free cache singlton
+  TCache.FreeInst; // free cache singlton
 end.
 
 
