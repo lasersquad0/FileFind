@@ -1,8 +1,9 @@
-program FileFind;
+program FinderX;
 
 uses
-  Vcl.Forms, Windows,
-  FileFindMain in 'FileFindMain.pas' {MainForm},
+  Vcl.Forms,
+  Windows,
+  FinderXMain in 'FinderXMain.pas' {MainForm},
   DynamicArray in '..\DA\dynamicarrays\src\Delphi\DynamicArray.pas',
   LoadFSThread in 'LoadFSThread.pas',
   SettingsForm in 'SettingsForm.pas' {SettingsForm1},
@@ -16,7 +17,8 @@ uses
   FileCache in 'FileCache.pas',
   DynamicArrays in '..\DA\dynamicarrays\src\Delphi\DynamicArrays.pas',
   ObjectsCache in 'ObjectsCache.pas',
-  Hash2 in '..\DA\dynamicarrays\src\Delphi\Hash2.pas';
+  Hash2 in '..\DA\dynamicarrays\src\Delphi\Hash2.pas',
+  SortedArray in '..\DA\dynamicarrays\src\Delphi\SortedArray.pas';
 
 {$R *.res}
 
@@ -32,7 +34,6 @@ begin
   Application.CreateForm(TIndexingLogForm, IndexingLogForm);
   Application.CreateForm(TAboutBox, AboutBox);
   Application.CreateForm(TStatisticForm1, StatisticForm1);
-
   LogMessage('Application initialization time:' + MillisecToStr(GetTickcount - start));
   //LogMessage('STARTED');
   Application.Run;

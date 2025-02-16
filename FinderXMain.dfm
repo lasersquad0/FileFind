@@ -1,7 +1,7 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'FileFind - find files quick!'
+  Caption = 'FindexX - find files quick!'
   ClientHeight = 497
   ClientWidth = 1296
   Color = clBtnFace
@@ -244,10 +244,10 @@ object MainForm: TMainForm
       1296
       40)
     object AdvancedSearchButton: TSpeedButton
-      Left = 1175
-      Top = 6
+      Left = 1167
+      Top = 7
       Width = 121
-      Height = 27
+      Height = 26
       AllowAllUp = True
       Anchors = [akTop, akRight]
       GroupIndex = 1
@@ -404,22 +404,22 @@ object MainForm: TMainForm
       Caption = 'System'
       TabOrder = 14
     end
-    object StartSearchBtn: TBitBtn
-      Left = 515
-      Top = 6
+    object SearchBtn: TBitBtn
+      Left = 467
+      Top = 7
       Width = 75
-      Height = 28
+      Height = 26
       Caption = 'Search'
       ImageIndex = 3
       Images = ImageList1
       TabOrder = 15
-      OnClick = StartSearchBtnClick
+      OnClick = SearchBtnClick
     end
     object IndexingBitBtn: TBitBtn
-      Left = 608
-      Top = 6
+      Left = 556
+      Top = 7
       Width = 121
-      Height = 28
+      Height = 26
       Caption = 'Refresh Index...'
       ImageIndex = 7
       Images = ImageList1
@@ -468,6 +468,7 @@ object MainForm: TMainForm
         Width = 250
       end
       item
+        Alignment = taRightJustify
         Caption = 'Size'
         Tag = 1
         Width = 100
@@ -609,28 +610,29 @@ object MainForm: TMainForm
     Top = 208
     object File1: TMenuItem
       Caption = 'File'
-      object Statistics1: TMenuItem
+      object StatisticsMenuItem: TMenuItem
         Caption = 'Statistics'
         ImageIndex = 6
-        OnClick = Statistics1Click
+        OnClick = StatisticsMenuItemClick
       end
-      object File2: TMenuItem
+      object ExitAppMenuItem: TMenuItem
         Caption = 'Exit'
+        OnClick = ExitAppMenuItemClick
       end
     end
     object Options1: TMenuItem
       Caption = 'Options'
-      object Settings1: TMenuItem
+      object SettingsMenuItem: TMenuItem
         Caption = 'Settings...'
         ImageIndex = 4
-        OnClick = Settings1Click
+        OnClick = SettingsMenuItemClick
       end
     end
     object Help1: TMenuItem
       Caption = 'Help'
-      object About1: TMenuItem
+      object AboutMenuItem: TMenuItem
         Caption = 'About'
-        OnClick = About1Click
+        OnClick = AboutMenuItemClick
       end
     end
   end
