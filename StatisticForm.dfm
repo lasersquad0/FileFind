@@ -1,7 +1,7 @@
 object StatisticForm1: TStatisticForm1
   Left = 0
   Top = 0
-  Caption = 'File System Statistic'
+  Caption = 'FinderX - Statistic'
   ClientHeight = 504
   ClientWidth = 993
   Color = clBtnFace

@@ -178,19 +178,20 @@ end;
 
 procedure TTopFolders.BuildTopFolders();
 var
-  level: TLevelType;
+  //level: TLevelType;
   Item: TCacheItem;
   i, j: Cardinal;
+  vol: TVolumeCache;
 begin
-  var Cache: TFileCache := TFSC.Instance;
-  if Cache.Count = 0 then Exit;
+  var Cache: TCache := TFSC.Instance;
+  if Cache.VolumesCount = 0 then Exit;
 
-  //for i = (int)FCacheData.size() - 1; i >= 0; --i)
-  for i := 0 to Cache.Levels - 1 do begin
+  vol := Cache.GetVolume('C:\'); //TODO: make it work with many volumes
+  for i := 0 to vol.Levels - 1 do begin
     //Level := Cache.FCacheData[i];
-    for j := 0 to Cache.LevelCount(i) - 1 do begin
-      Item := Cache.GetItem(i, j); //Level.GetAddr(j);
-      if IsDirectory(Item) {(Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0} then AddValue(Item);
+    for j := 0 to vol.LevelCount(i) - 1 do begin
+      Item := vol.GetItem(i, j); //Level.GetAddr(j);
+      if IsDirectory(Item) then AddValue(Item);
     end;
   end;
 
@@ -199,18 +200,20 @@ end;
 
 procedure TTopFolders.BuildTopFiles();
 var
-  level: TLevelType;
+  //level: TLevelType;
   Item: TCacheItem;
   i, j: Cardinal;
+  vol: TVolumeCache;
 begin
-  var Cache: TFileCache := TFSC.Instance;
-  if Cache.Count = 0 then Exit;
+  var Cache: TCache := TFSC.Instance;
+  if Cache.VolumesCount = 0 then Exit;
 
-  for i := 0 to Cache.Levels - 1 do begin
+  vol := Cache.GetVolume('C:\'); //TODO: make it work with many volumes
+  for i := 0 to vol.Levels - 1 do begin
     //Level := Cache.FCacheData[i];
-    for j := 0 to Cache.LevelCount(i) - 1 do begin
-      Item := Cache.GetItem(i, j); //levelGetAddr(j);
-      if NOT (IsDirectory(Item) {(Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0)}
+    for j := 0 to vol.LevelCount(i) - 1 do begin
+      Item := vol.GetItem(i, j); //levelGetAddr(j);
+      if NOT (IsDirectory(Item)
          OR ((Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE) > 0)) then AddValue(Item);
     end;
   end;
