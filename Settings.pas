@@ -17,6 +17,8 @@ type
 
   TColumnInfos = array [0..Ord(High(TFileInfo))] of TColumnInfo;
 
+  TSizeFormat = (sfAuto, sfBytes, sfKilobytes, sfMegabytes);
+  TSizeFormatLabels = array[TSizeFormat] of string;
 
   TSettings = class
   public
@@ -38,7 +40,7 @@ type
     ExcludeFolders: Boolean;
     SearchAfterSymbols: Cardinal;
     MaxFoundItems: Cardinal;
-    SizeFormat: string;
+    SizeFormat: TSizeFormat;
     VolumesToIndex: TArray<string>;
     ExcludeFoldersList: TArray<string>;
     SearchHistory: TStringList;
@@ -50,18 +52,19 @@ type
     procedure Save;
     procedure Load;
   const
-    APPKEY = 'SOFTWARE\NotepadCo\FileFind';
+    APPKEY = 'SOFTWARE\NotepadCo\FinderX';
     HISTORYKEY = APPKEY + '\SearchHistory';
     MAINWINDOWKEY = APPKEY + '\MainWindow';
   end;
 
 var
   AppSettings: TSettings;
+  SizeLabels: TSizeFormatLabels = ('', 'Bytes', 'KB', 'MB');
 
 implementation
 
 uses
-  System.SysUtils, WinAPI.Windows, Registry;
+  System.SysUtils, WinAPI.Windows, Vcl.Dialogs, Registry, Functions;
 
 var
   DefColumnInfos: TColumnInfos = ((ColType:fiName;       Visible:True; Width:300),
@@ -98,7 +101,7 @@ begin
   IncludeNewRemovableVolumes := False;
   RemoveOfflineVolumes := True;
   ExcludeFolders := False;
-  SizeFormat := 'auto';
+  SizeFormat := sfAuto;
   SearchAfterSymbols := 3;
   MaxFoundItems := 20000;
   Insert('C:\', VolumesToIndex, 0); // add one volume by default
@@ -116,10 +119,13 @@ end;
 
 procedure TSettings.Load;
 var
-  i: Cardinal;
+  MaxComponentLen, SystemFlags: DWORD;
+  i, j, DriveType, error: Cardinal;
   reg: TRegistry;
   list: TStrings;
   str: string;
+  Found: Boolean;
+  res: LongBool;
 begin
    reg := TRegistry.Create;
    list := TStringList.Create();
@@ -146,7 +152,7 @@ begin
        if reg.ValueExists('RemoveOfflineVolumes')      then RemoveOfflineVolumes    := reg.ReadBool('RemoveOfflineVolumes');
        if reg.ValueExists('ExcludeFolders')            then ExcludeFolders          := reg.ReadBool('ExcludeFolders');
        if reg.ValueExists('ExcludeFoldersList')        then ExcludeFoldersList      := reg.ReadMultiString('ExcludeFoldersList');
-       if reg.ValueExists('SizeFormat')                then SizeFormat              := reg.ReadString('SizeFormat');
+       if reg.ValueExists('SizeFormat')                then SizeFormat              := TSizeFormat(reg.ReadInteger('SizeFormat'));
      end;
      reg.CloseKey;
 
@@ -169,7 +175,40 @@ begin
        if reg.ValueExists('Left')   then MainWindow.Left   := reg.ReadInteger('Left');
        if reg.ValueExists('Width')  then MainWindow.Width  := reg.ReadInteger('Width');
        if reg.ValueExists('Height') then MainWindow.Height := reg.ReadInteger('Height');
+     end;
 
+     // merge list of volumes actually availalbe on the PC with list read from registry.
+     if IncludeNewFixedVolumes OR IncludeNewRemovableVolumes then begin
+       var Drives := GetLogicalDrives;
+       for i := 1 to Length(Drives) do begin
+         Found := False;
+         for j := 1 to Length(VolumesToIndex) do
+           if Drives[i - 1] = VolumesToIndex[j - 1] then begin
+             Found := True; // found volume in stored list of volumes
+             break
+           end;
+
+         if NOT Found then begin // check whether use wants to automatically add fixed or removable volumes into index
+           DriveType := GetDriveType(PChar(Drives[i - 1]));
+           if (((DriveType = DRIVE_REMOVABLE) OR (DriveType = DRIVE_CDROM)) AND IncludeNewRemovableVolumes) OR
+             ((DriveType = DRIVE_FIXED) AND IncludeNewFixedVolumes) then
+               Insert(Drives[i - 1], VolumesToIndex, Length(VolumesToIndex));
+         end;
+       end;
+     end;
+
+     if RemoveOfflineVolumes then begin
+       i := Length(VolumesToIndex);
+       while i > 0  do begin
+         res := GetVolumeInformation(PChar(VolumesToIndex[i - 1]), nil, 0, nil, MaxComponentLen, SystemFlags, nil, 0);
+         if res = False then begin
+           error := GetLastError;
+           if error = ERROR_NOT_READY // CD-ROM is present but no disk there - we get ERROR_NOT_READY while attempting to read volume name
+             then Delete(VolumesToIndex, i - 1, 1)
+             else MessageDlg('GetVolumeInformation failed with error: ' + error.ToString, mtError, [mbOK], 0);
+         end;
+         Dec(i);
+       end;
      end;
 
    finally
@@ -206,9 +245,9 @@ begin
        reg.WriteBool('IncludeNewFixedVolumes', IncludeNewFixedVolumes);
        reg.WriteBool('IncludeNewRemovableVolumes', IncludeNewRemovableVolumes);
        reg.WriteBool('RemoveOfflineVolumes', RemoveOfflineVolumes);
-       reg.WriteBool('Exceludefolders', ExcludeFolders);
-       reg.WriteMultiString('ExceludeFoldersList', ExcludeFoldersList);
-       reg.WriteString('SizeFormat', SizeFormat);
+       reg.WriteBool('ExcludeFolders', ExcludeFolders);
+       reg.WriteMultiString('ExcludeFoldersList', ExcludeFoldersList);
+       reg.WriteInteger('SizeFormat', Integer(SizeFormat));
 
      end;
      reg.CloseKey;

@@ -2,7 +2,7 @@ object SettingsForm1: TSettingsForm1
   Left = 0
   Top = 0
   BorderStyle = bsDialog
-  Caption = 'FindFile - Options'
+  Caption = 'FinderX - Options'
   ClientHeight = 363
   ClientWidth = 456
   Color = clBtnFace
@@ -189,14 +189,14 @@ object SettingsForm1: TSettingsForm1
       VerticalAlignment = taAlignTop
       object Label1: TLabel
         Left = 8
-        Top = 106
+        Top = 162
         Width = 158
         Height = 15
         Caption = 'Max number of items to show'
       end
       object SizeFormatLabel: TLabel
-        Left = 8
-        Top = 184
+        Left = 9
+        Top = 188
         Width = 59
         Height = 15
         Caption = 'Size format'
@@ -211,7 +211,7 @@ object SettingsForm1: TSettingsForm1
       end
       object MaxNumFoundBox: TNumberBox
         Left = 171
-        Top = 103
+        Top = 158
         Width = 45
         Height = 23
         Decimal = 0
@@ -241,8 +241,8 @@ object SettingsForm1: TSettingsForm1
         TabOrder = 3
       end
       object SizeFormatComboBox: TComboBox
-        Left = 72
-        Top = 181
+        Left = 73
+        Top = 184
         Width = 64
         Height = 23
         Style = csDropDownList
@@ -255,7 +255,7 @@ object SettingsForm1: TSettingsForm1
       end
       object ShowRowOnMouseOverCheckBox: TCheckBox
         Left = 8
-        Top = 158
+        Top = 132
         Width = 208
         Height = 21
         Caption = 'Show row mouseover'
@@ -264,7 +264,7 @@ object SettingsForm1: TSettingsForm1
       end
       object HighlightSearchTermsCheckBox: TCheckBox
         Left = 8
-        Top = 132
+        Top = 106
         Width = 208
         Height = 21
         Caption = 'Highlight search terms'
@@ -311,14 +311,14 @@ object SettingsForm1: TSettingsForm1
         TabOrder = 0
         Visible = False
       end
-      object Button1: TButton
+      object IndexingLogButton: TButton
         Left = 141
         Top = 184
         Width = 108
         Height = 27
         Caption = 'Indexing log...'
         TabOrder = 1
-        OnClick = Button1Click
+        OnClick = IndexingLogButtonClick
       end
       object BuildIndexButton: TButton
         Left = 8
@@ -392,12 +392,13 @@ object SettingsForm1: TSettingsForm1
         Height = 17
         Caption = 'Exclude folders from list below'
         TabOrder = 0
+        OnClick = ExcludeFoldersCheckBoxClick
       end
       object ExcludeFoldersListBox: TListBox
         Left = 8
         Top = 54
         Width = 236
-        Height = 193
+        Height = 230
         ItemHeight = 15
         TabOrder = 1
       end

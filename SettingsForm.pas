@@ -3,12 +3,11 @@ unit SettingsForm;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  {Winapi.Windows,} Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Buttons, Vcl.ExtCtrls, Vcl.NumberBox,
-  LoadFSThread, System.ImageList, Vcl.ImgList, {FileNamesCache,} FileCache, Vcl.WinXPanels;
+  LoadFSThread, System.ImageList, Vcl.ImgList, FileCache, Vcl.WinXPanels;
 
 type
-
 
   TSettingsForm1 = class(TForm)
     OKButton: TButton;
@@ -36,7 +35,7 @@ type
     IndexingProgressLabel: TLabel;
     ProgressBar1: TProgressBar;
     IndexInfoLabel: TLabel;
-    Button1: TButton;
+    IndexingLogButton: TButton;
     BuildIndexButton: TButton;
     IncludeNewFixedDrivesCheckBox: TCheckBox;
     IncludeNewRemovableDrivesCheckBox: TCheckBox;
@@ -59,25 +58,27 @@ type
     procedure OKButtonClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure BuildIndexButtonClick(Sender: TObject);
-    procedure Button1Click(Sender: TObject);
+    procedure IndexingLogButtonClick(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure SearchAsYouTypeCheckBoxClick(Sender: TObject);
     procedure ShowTrayIconCheckBoxClick(Sender: TObject);
-    procedure ListBox1Click(Sender: TObject);
     procedure SectionsClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure RemoveDriveButtonClick(Sender: TObject);
     procedure AddFolderButtonClick(Sender: TObject);
     procedure RemoveFolderButtonClick(Sender: TObject);
     procedure EditFolderButtonClick(Sender: TObject);
+    procedure ExcludeFoldersCheckBoxClick(Sender: TObject);
   private
     FIndexingThread: TLoadFSThread;
     FProgressListener: IIndexingProgress;
     FCancel: Boolean;
     FVolumes: TArray<string>;
+
     procedure OnThreadTerminate(Sender: TObject);
+    function  GetDefaultTempFoldersList: TArray<string>;
   public
-    ExecData: TExecutionData;
+    ExecData: TVolumeExecData;
     property Cancel: Boolean read FCancel;
   end;
 
@@ -88,7 +89,7 @@ type
    FErrors: TStrings;
  public
    constructor Create(Thread: TLoadFSThread; Output: TStrings);
-   procedure Start(P100: Integer); override; // define Max value for progress. -1 means that value for 100% progress is unknown
+   procedure Start(P100: Integer; Notes: string); override; // define Max value for progress. -1 means that value for 100% progress is unknown
    procedure Finish; override;
    function  Progress(Prgress: Integer): Boolean; override; // allows to stop process if indexing takes too long time
    procedure ReportError(ErrorStr: string); override;
@@ -99,14 +100,15 @@ var
   SettingsForm1: TSettingsForm1;
 
 const
-  INDEX_FILENAME = 'FileFindIndexDB.idx';
+  INDEX_FILENAME = 'FinderXIndexDB.idx';
 
 implementation
 
 {$R *.dfm}
 
 uses
-  System.UITypes, System.StrUtils, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, Registry, Settings, IndexingLog, Functions;
+  System.UITypes, System.StrUtils, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, WinApi.Windows, Registry, Math,
+  Settings, IndexingLog, Functions;
 
 function  StringListToArrayTab(Strings: TStrings): TArray<string>;
 var
@@ -144,28 +146,34 @@ begin
    AppSettings.RemoveOfflineVolumes := RemoveOfflineDrivesCheckBox.Checked;
    AppSettings.ExcludeFolders := ExcludeFoldersCheckBox.Checked;
    AppSettings.ExcludeFoldersList := StringListToArray(ExcludeFoldersListBox.Items);
-   AppSettings.SizeFormat := SizeFormatComboBox.Text;
+   AppSettings.SizeFormat := TSizeFormat(SizeFormatComboBox.ItemIndex);
 
    AppSettings.Save;
+
+   //CheckTokenMembership
 end;
 
 procedure TSettingsForm1.OnThreadTerminate(Sender: TObject);
 begin
-  IndexInfoLabel.Caption := 'Indexing done in ' + MillisecToStr(FIndexingThread.ExecData.ExecTime);
+  //IndexInfoLabel.Caption := 'Indexing done in ' + MillisecToStr(FIndexingThread.ExecData.ExecTime);
 
-  TFSC.Instance.RemoveProgressListener(FProgressListener);
+  //TFSC.Instance.RemoveProgressListener(FProgressListener);
   FreeAndNil(FProgressListener);
 
-  ExecData := FIndexingThread.ExecData;
+  //ExecData := FIndexingThread.ExecData;
   TFSC.Instance.SerializeTo(INDEX_FILENAME); // saving data into .idx file
   FCancel := False;
 end;
 
 procedure TSettingsForm1.RemoveDriveButtonClick(Sender: TObject);
+var
+  idx: Integer;
 begin
   if VolumesListBox.Count > 1 then begin
+    idx := VolumesListBox.ItemIndex;
     Delete(FVolumes, VolumesListBox.ItemIndex, 1);
     VolumesListBox.DeleteSelected;
+    VolumesListBox.ItemIndex := IfThen(idx < VolumesListBox.Count, idx, VolumesListBox.Count - 1);
   end;
 end;
 
@@ -187,8 +195,12 @@ begin
 end;
 
 procedure TSettingsForm1.RemoveFolderButtonClick(Sender: TObject);
+var
+  idx: Integer;
 begin
+  idx := ExcludeFoldersListBox.ItemIndex;
   ExcludeFoldersListBox.DeleteSelected;
+  ExcludeFoldersListBox.ItemIndex := IfThen(idx < ExcludeFoldersListBox.Count, idx, ExcludeFoldersListBox.Count - 1);
 end;
 
 procedure TSettingsForm1.AddFolderButtonClick(Sender: TObject);
@@ -204,26 +216,38 @@ begin
   if ExcludeFoldersListBox.ItemIndex = -1 then Exit;
 
   FileOpenDialog1.DefaultFolder := ExcludeFoldersListBox.Items[ExcludeFoldersListBox.ItemIndex];
+  FileOpenDialog1.FileName := '';
   if FileOpenDialog1.Execute
     then ExcludeFoldersListBox.Items[ExcludeFoldersListBox.ItemIndex] := FileOpenDialog1.FileName;
+end;
+
+procedure TSettingsForm1.ExcludeFoldersCheckBoxClick(Sender: TObject);
+var
+  Enbld: Boolean;
+begin
+  Enbld := ExcludeFoldersCheckBox.Checked;
+  ExcludeFoldersListBox.Enabled := Enbld;
+  AddFolderButton.Enabled := Enbld;
+  EditFolderButton.Enabled := Enbld;
+  RemoveFolderButton.Enabled := Enbld;
 end;
 
 procedure TSettingsForm1.BuildIndexButtonClick(Sender: TObject);
 begin
   FCancel := False;
-  FIndexingThread := TLoadFSThread.Create(True); // create suspended
-  FProgressListener := TSettingsFormIndexingProgress.Create(FIndexingThread, IndexingLogForm.LogMemo.Lines);
-  TFSC.Instance.AddProgressListener(FProgressListener);
+  //FProgressListener := TSettingsFormIndexingProgress.Create(FIndexingThread, IndexingLogForm.LogMemo.Lines);
+  //FIndexingThread := TLoadFSThread.Create(True, FProgressListener); // create suspended
+  //TFSC.Instance.AddProgressListener(FProgressListener);
 
-  FIndexingThread.OnTerminate := OnThreadTerminate;
-  FIndexingThread.FreeOnTerminate := True;
-  FIndexingThread.ProgressBar := ProgressBar1;
-  FIndexingThread.ExecData.VolumesToIndex := StringListToArray(VolumesListBox.Items); //FolderToIndexEditBox.Text;
+  //FIndexingThread.OnTerminate := OnThreadTerminate;
+  //FIndexingThread.FreeOnTerminate := True;
+ // FIndexingThread.ProgressBar := ProgressBar1;
+  //FIndexingThread.ExecData.VolumesToIndex := StringListToArray(VolumesListBox.Items); //FolderToIndexEditBox.Text;
 
-  FIndexingThread.Start([{FolderToIndexEditBox,} BuildIndexButton{, SelectFolderButton}], [ProgressBar1, IndexingProgressLabel], [IndexInfoLabel]);
+ // FIndexingThread.Start([{FolderToIndexEditBox,} BuildIndexButton{, SelectFolderButton}], [ProgressBar1, IndexingProgressLabel], [IndexInfoLabel], FProgressListener);
 end;
 
-procedure TSettingsForm1.Button1Click(Sender: TObject);
+procedure TSettingsForm1.IndexingLogButtonClick(Sender: TObject);
 begin
   IndexingLogForm.ShowModal;
 end;
@@ -268,9 +292,8 @@ var
   VolName, VolName2, CurrVol, str: string;
   MaxComponentLen, SystemFlags: DWORD;
   res: LongBool;
-  TmpFolder: PChar;
   Found: Boolean;
-  //Volumes: TArray<string>;
+  TmpFolders: TArray<string>;
 begin
   AppSettings.Load; // load settings from registry each time settings form is shown
 
@@ -292,13 +315,24 @@ begin
   IncludeNewRemovableDrivesCheckBox.Checked := AppSettings.IncludeNewRemovableVolumes;
   RemoveOfflineDrivesCheckBox.Checked   := AppSettings.RemoveOfflineVolumes;
   ExcludeFoldersCheckBox.Checked        := AppSettings.ExcludeFolders;
-  SizeFormatComboBox.Text               := AppSettings.SizeFormat;
+  SizeFormatComboBox.ItemIndex          := Integer(AppSettings.SizeFormat);
 
-  //ArrayToStringList(AppSettings.VolumesToIndex, VolumesListBox.Items);
+  ExcludeFoldersListBox.Clear;
   ArrayToStringList(AppSettings.ExcludeFoldersList, ExcludeFoldersListBox.Items);
 
+  ExcludeFoldersCheckBoxClick(self); // enable/disable controls
 
-  if TFSC.Instance.Count = 0 then begin
+  // exclude folders: if list from registry is empty then populate it with default values.
+  if(ExcludeFoldersListBox.Items.Count = 0) then begin
+    ExcludeFoldersListBox.Clear;
+    TmpFolders := GetDefaultTempFoldersList;
+    for i := 1 to Length(TmpFolders) do begin
+      ExcludeFoldersListBox.Items.Add(TmpFolders[i - 1]);
+    end;
+  end;
+
+
+  if TFSC.Instance.VolumesCount = 0 then begin
     IndexInfoLabel.Visible := True;
     IndexInfoLabel.Caption := 'Index is not created, press Build Index button';
   end else begin
@@ -307,22 +341,12 @@ begin
 
   MaxNumFoundBox.Hint := Format('Enter value between %u and %u', [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
 
-  var drv := GetLogicalDrives;
-  FVolumes := AppSettings.VolumesToIndex;
+  { AppSettings.VolumesToIndex already contains list of volumes read from registry and merged with volumes present on current PC
+    Merging is done during loading application settings in AppSettings.Load method
+    Below we load other Volumes info and add list of volumes into VolumesListBox.
+    }
   VolumesListBox.Clear;
-  // merge list of volumes actually availalbe on the PC with list read from registry.
-  for i := 1 to Length(drv) do begin
-    Found := False;
-    for j := 1 to Length(FVolumes) do
-      if drv[i - 1] = FVolumes[j - 1] then begin
-         Found := True;  // found volume in stored list of volumes
-         break
-      end;
-
-    if NOT Found then Insert(drv[i-1], FVolumes, Length(FVolumes));
-  end;
-
-
+  FVolumes := AppSettings.VolumesToIndex;
   VolCnt := Length(FVolumes);
   for i := 1 to VolCnt do begin
     CurrVol := FVolumes[i - 1];
@@ -340,18 +364,21 @@ begin
     VolumesListBox.Items.Add(str);
     VolName := '';
   end;
+end;
 
 
-  ExcludeFoldersListBox.Clear;
-
+function TSettingsForm1.GetDefaultTempFoldersList: TArray<string>;
+var
+  TmpFolder: PChar;
+begin
   if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
     then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Temp');
+  Insert(TmpFolder + '\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppDataLow, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
     then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Temp');
+  Insert(TmpFolder + '\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
  { if S_OK <> SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
@@ -361,30 +388,24 @@ begin
   }
   if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
     then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Microsoft\Temp');
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Google\Temp');
+  Insert(TmpFolder + '\Microsoft\Temp', Result, Length(Result));
+  Insert(TmpFolder + '\Google\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
     then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Microsoft\Search\Data\Temp');
+  Insert(TmpFolder + '\Microsoft\Search\Data\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_Windows, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
     then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Temp');
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\WinSyS\Temp');
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\assembly\Temp');
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\assembly\tmp');
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\System32\DriverStore\Temp');
-  ExcludeFoldersListBox.Items.Add(TmpFolder + '\Microsoft Antimalware\Tmp');
+  Insert(TmpFolder + '\Temp', Result, Length(Result));
+  Insert(TmpFolder + '\WinSyS\Temp', Result, Length(Result));
+  Insert(TmpFolder + '\assembly\Temp', Result, Length(Result));
+  Insert(TmpFolder + '\assembly\tmp', Result, Length(Result));
+  Insert(TmpFolder + '\System32\DriversStore\Temp', Result, Length(Result));
+  Insert(TmpFolder + '\Microsoft Antimalware\Tmp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
-end;
-
-
-procedure TSettingsForm1.ListBox1Click(Sender: TObject);
-begin
-
 end;
 
 { TSettingsFormIndexingProgress }
@@ -431,13 +452,13 @@ begin
    );
 end;
 
-procedure TSettingsFormIndexingProgress.Start(P100: Integer);
+procedure TSettingsFormIndexingProgress.Start(P100: Integer; Notes: string);
 begin
   FMaxValue := P100;
-    TLoadFSThread.Synchronize(FThread,
+  TLoadFSThread.Synchronize(FThread,
     procedure
     begin
-      if Assigned(FErrors) then FErrors.Add('Start Indexing');
+      if Assigned(FErrors) then FErrors.Add('Start Indexing ' + Notes);
     end
     );
 end;
