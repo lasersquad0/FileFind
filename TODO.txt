@@ -1,5 +1,5 @@
 
-FileFind application for fast and easy file system search 
+FinderX is an application for fast and easy file search 
 =========================================================
 
 CONTACTS
@@ -12,9 +12,9 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
-- [DONE] select search on mouse click (in edit box)
+- [DONE] select search on mouse click (in search edit box)
 - may be usefull option to find files that have hardlinks and also .symlink files.
-- add column: file/folder Owner, num of child folders, num of files inside dir, % of parent allocated
+- add column: file/folder Owner, num of child folders, num of files inside dir, % of parent allocated, length of path in chars
 - statistics: "interesting facts about your filesystem":
     number of empty directories
     2 folders that have biggest number of items
@@ -26,7 +26,7 @@ TO DO
     how many files are resident in $MFT
     2-5 files with unusual attributes:  encrypted, sparse, etc.
     
-- make standard list of folder exceptions which are not indexed (various Temp folders):
+- [DONE] make standard list of folder exceptions which will not be indexed (various Temp folders):
    Windows\Temp
    Users\<user>\AppData\Local\Temp
    Users\<user>\AppData\LocalLow\Temp
@@ -39,22 +39,22 @@ TO DO
   c:\Windows\System32\DriverStore\Temp
   c:\Program Files\Git\tmp
   c:\Windows\Microsoft Antimalware\Tmp
-  
+  etc.
+
 - [FIXED] BUG: show yellow warning immediately after start if IndexDb not found
 - THINK OF: possibility to open several search windows (related to minimize to system tray feature)
 - [DONE] minimize to system tray
 - [DONE] search as you type option in settings (ON by default)
 - looks like wildcards search with '?' wildcard does not work well
-- possibility to make search while FS is being indexed in background
+- [DONE] possibility to make search while FS is being indexed in background
 - Option to specify IndexDB location
 - [DONE] Search history in edit box
-- [DONE] GUI: show row mouse over
+- GUI: show row mouse over
 - Match whole word option. When search term should have word separators in both sides 
 - Add possibility to search for composite folders e.g. 'source\repos'
 - [DONE] Highlight search term in search results list
 - [DONE] "Denied" folders mark with special icon in the list
 - Add possibility to select a subfolder to make search to. Subfolder inside of existing index top folder.
-- Add reminder if Index is outdated - DONE (14 days reminder)
+- [DONE] Add reminder if Index is outdated (14 days reminder)
 - [DONE] Add notification to select folder if user presses Build Index on main form during first run
-- Think of what additional columns it is useful to show in search results: Attributes
-- Do we need possibility to select two and more folders for indexing? Now you can select only one folder on entire disk (C: and D:)
+- [DONE] Do we need possibility to select two and more folders for indexing? Now you can select only one folder on entire disk (C: and D:)

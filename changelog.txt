@@ -3,8 +3,11 @@ FileFind version 1.1.0
 
 Improvements:
 
-- search term is marked bold in search results
+- changed settings window. many new settings added.
+- search term is marked bold in search results (can be turned off in settings)
+- If you have several volumes on your PC all of them can be indexed (which volumes to index can be configured in settings)
 - search history suggestion drop down window (can be turned off in settings)
+- automatic discovering non-indexed volumes.
 - do not show folders sizes setting (useful when you need to find files by size)
 - loading file/folder icons in background (significantly improves search speed)
 
