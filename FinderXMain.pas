@@ -231,7 +231,7 @@ begin
        end else begin
          ResultsItem.Size := Item.FFullFileSize;
          ResultsItem.SizeStr := MakeSizeStr(ResultsItem.Size); //ThousandSep(ResultsItem.Size);
-         //ResultsItem.Size := (uint64(Item.FFileData.nFileSizeHigh) shl 32) + uint64(Item.FFileData.nFileSizeLow);
+         //ResultsItem.Size := (UInt64(Item.FFileData.nFileSizeHigh) shl 32) + UInt64(Item.FFileData.nFileSizeLow);
        end;
      end;
    end else begin // file, not a directory
@@ -280,7 +280,7 @@ var
   resItem: TSearchResultsItem;
   cnt, index: Cardinal;
 begin
-  index := Msg.LParam;
+  index := Cardinal(Msg.LParam);
   TmpItem := TCacheItem(Msg.WParam);
 
   if index < FSearchResults.Count then begin
@@ -759,7 +759,7 @@ end;
 procedure TMainForm.CancelBtnClick(Sender: TObject);
 begin
   // because other threads read this variable as a signal to stop execution
-  TInterlocked.Exchange(FCancelIndexing, mrYes = MessageDlg('Are you sure you want to cancel indexing?', TMsgDlgType.mtConfirmation, [mbYes, mbNo], 0, mbYes));
+  TInterlocked.Exchange(FCancelIndexing, mrYes = MessageDlg('Are you sure you want to cancel indexing?', TMsgDlgType.mtWarning, [mbYes, mbNo], 0, mbYes));
 end;
 
 procedure TMainForm.ClearSearchResults;
@@ -833,26 +833,18 @@ var
   VolSize, LoadTime, ItemsCnt: string;
 begin
   for i := 1 to Length(ExecData) do begin
-     LoadTime := LoadTime + Format('%s: %s ', [ExecData[i - 1].VolumeName, MillisecToStr(ExecData[i - 1].ExecTime)]);
-     ItemsCnt := ItemsCnt + Format('%s: %s ', [ExecData[i - 1].VolumeName, ThousandSep(ExecData[i - 1].ItemsCount)]);
-     VolSize  := VolSize  + Format('%s: %s ', [ExecData[i - 1].VolumeName, {ThousandSep}MakeSizeStr(ExecData[i - 1].VolSize)]);
+     LoadTime := LoadTime + Format('%s %s ', [ExcludeTrailingPathDelimiter(ExecData[i - 1].VolumeName), MillisecToStr(ExecData[i - 1].ExecTime)]);
+     ItemsCnt := ItemsCnt + Format('%s %s ', [ExcludeTrailingPathDelimiter(ExecData[i - 1].VolumeName), ThousandSep(ExecData[i - 1].ItemsCount)]);
+     VolSize  := VolSize  + Format('%s %s ', [ExcludeTrailingPathDelimiter(ExecData[i - 1].VolumeName), MakeSizeStr(ExecData[i - 1].VolSize)]);
   end;
 
-  StatusBar1.Panels[2].Text := 'Data load time: ' + LoadTime;
+  StatusBar1.Panels[2].Text := 'Load time: ' + LoadTime;
   StatusBar1.Panels[3].Text := 'Items: ' + ItemsCnt;
   StatusBar1.Panels[4].Text := 'Folder size: ' + VolSize;
 end;
 
 procedure TMainForm.SearchBtnClick(Sender: TObject);
-//var i: Cardinal;
 begin
-{  var list := TFSC.Instance.FindHangingDirectories;
-
-  for i := 1 to list.Count do begin
-    LogMessage(list[i-1]);
-  end;
-
-  list.Free; }
   MakeSearch(); // execute the same code when timer has triggered
 end;
 
@@ -926,7 +918,7 @@ end;
 procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
   if Assigned(FProgressListener)
-    then MessageDlg('Cannot close form because indexing is in progress.', TMsgDlgType.mtInformation, [mbOK], 0);
+    then MessageDlg('Cannot close form because indexing is in progress.', TMsgDlgType.mtWarning, [mbOK], 0);
 
   CanClose := NOT Assigned(FProgressListener);
 
@@ -938,15 +930,15 @@ end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
- // var start := GetTickCount;
+  MsgDlgIcons[mtInformation] := TMsgDlgIcon.mdiInformation;
+  MsgDlgIcons[mtConfirmation] := TMsgDlgIcon.mdiShield;
 
-{$IFNDEF PROFILING}
+//  var start := GetTickCount;
   TFSC.Instance.DeserializeFrom(INDEX_FILENAME);
-{$ENDIF}
-  //TFSC.Instance.Modified := False;
+
   Timer2Timer(nil); // show yellow warning immediately after app start if IndexDB is old or absent.
 
-  AppSettings.Load; // loading settings from registry
+  // settings are already loaded in FinderX.dpr
   TrayIcon1.Visible := AppSettings.ShowTrayIcon;
 
   FSearchResults := THArrayG<TSearchResultsItem>.Create(AppSettings.MaxFoundItems + 1);  // default capacity (+1 just in case)

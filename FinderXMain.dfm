@@ -1258,9 +1258,10 @@ object MainForm: TMainForm
     end
   end
   object TrayIcon1: TTrayIcon
-    Hint = 'File Find'
-    BalloonHint = 'balooooooon hint'
-    BalloonTitle = 'baloonttttitle'
+    Hint = 'FinderX'
+    BalloonHint = 'FinxerX is running. You can always find it here in system tray.'
+    BalloonTitle = 'FinderX'
+    BalloonTimeout = 3000
     BalloonFlags = bfInfo
     IconIndex = -1
     PopupMenu = PopupMenuTray
@@ -1272,7 +1273,7 @@ object MainForm: TMainForm
     Left = 760
     Top = 152
     object MenuItem9: TMenuItem
-      Caption = '&Open File Find'
+      Caption = '&Open FinderX'
       OnClick = TrayIcon1DblClick
     end
     object MenuItem10: TMenuItem
