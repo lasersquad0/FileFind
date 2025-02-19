@@ -12,7 +12,12 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
-- [DONE] select search on mouse click (in search edit box)
+- Refresh Index in bachground.
+- [DONE] Implement option start FinderX on system startup
+- Add option whether to run signle app copy or several (depends on Show tray icon option)
+- Add detailed hints to all settings on settings form
+- [DONE] Option to run app ad admin to index more files
+- [DONE] Select search text on mouse click (in search edit box)
 - may be usefull option to find files that have hardlinks and also .symlink files.
 - add column: file/folder Owner, num of child folders, num of files inside dir, % of parent allocated, length of path in chars
 - statistics: "interesting facts about your filesystem":
@@ -32,14 +37,14 @@ TO DO
    Users\<user>\AppData\LocalLow\Temp
    C:\ProgramData\Microsoft\Search\Data\Temp
    C:\Program Files (x86)\Microsoft\Temp
-  C:\Windows\WinSxS\Temp
-  C:\Windows\assembly\temp
-  C:\Windows\assembly\tmp 
-  c:\Program Files (x86)\Google\Temp
-  c:\Windows\System32\DriverStore\Temp
-  c:\Program Files\Git\tmp
-  c:\Windows\Microsoft Antimalware\Tmp
-  etc.
+   C:\Windows\WinSxS\Temp
+   C:\Windows\assembly\temp
+   C:\Windows\assembly\tmp 
+   c:\Program Files (x86)\Google\Temp
+   c:\Windows\System32\DriverStore\Temp
+   c:\Program Files\Git\tmp
+   c:\Windows\Microsoft Antimalware\Tmp
+   etc.
 
 - [FIXED] BUG: show yellow warning immediately after start if IndexDb not found
 - THINK OF: possibility to open several search windows (related to minimize to system tray feature)
