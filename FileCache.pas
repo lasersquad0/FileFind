@@ -20,7 +20,7 @@ type
    FParent: Cardinal;
    FLevel: Cardinal;
    FFileData: TWin32FindData;
-   FFullFileSize: uint64;
+   FFullFileSize: UInt64;
    FUpperCaseName: string; // name of file/dir in upper case. need for search routines
    FDisplayName: string;
    FFileType: string;
@@ -41,7 +41,7 @@ type
  TFileSystemStatIndex = array [Ord(Low(TFileTypes)).. Ord(High(TFileTypes))] of TFileTypes;
 
  TFileSystemStatRecord = record
-   Stat: TFileSystemStat;
+   Stat : TFileSystemStat;
    Index: TFileSystemStatIndex;
  end;
 
@@ -82,7 +82,7 @@ type
     SearchStrUpper: string; // optimization for case insensitive search
     CaseSensitive: Boolean;
     SearchByFileSize: Boolean;
-    FileSize: uint64;
+    FileSize: UInt64;
     FileSizeCmpType: TFileSizeCompare;
     SearchByModifiedDate: Boolean;
     ModifiedDateFrom: TFileTime;
@@ -114,7 +114,7 @@ type
    function  AddFullPath(const path: string): TCacheItemRef;
    function  GetItem(itemRef: TCacheItemRef): TCacheItem; overload;
    procedure FillFileData(const filePath: string; var fileData: TWin32FindData);
-   function  ReadDirectory(const currDir: TFileName; parent: TCacheItemRef; ShowProgress: Boolean): uint64;
+   function  ReadDirectory(const currDir: TFileName; parent: TCacheItemRef; ShowProgress: Boolean): UInt64;
    procedure NotifyStart(Notes: string);
    procedure NotifyFinish;
    function  NotifyProgress(Progrs: Integer): Boolean;
@@ -133,13 +133,13 @@ type
    procedure SerializeTo(const FileName:string);
    procedure DeserializeFrom(const FileName:string);
    procedure Clear;
-   function  Size: uint64;
+   function  Size: UInt64;
    function  Count: Cardinal;
    function  GetItem(Level: Cardinal; Index: Cardinal): TCacheItem; overload;
    function  LevelCount(Level: Cardinal): Cardinal;
    function  Levels(): Cardinal;
-//   function  ReadFileSystem(const Volumes: TArray<string>): uint64;
-   function  ReadVolume(Volume: string; ExclusionsList: TArray<string>): uint64;
+//   function  ReadFileSystem(const Volumes: TArray<string>): UInt64;
+   function  ReadVolume(Volume: string; ExclusionsList: TArray<string>): UInt64;
    function  MakePathString(ref: TCacheItemRef): string; overload;
    function  MakePathString(itemLevel, itemIndex: Cardinal): string; overload;
    function  Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
@@ -198,6 +198,7 @@ type
    procedure Clear(Volume: string); overload;  // clears specified volume only
    function  VolumesCount: Cardinal;
    function  GetVolume(Volume: string): TVolumeCache;
+   function  GetVolumes: TArray<string>;
    function  GetOrCreateVolume(Volume: string): TVolumeCache;
    function  GetExecData: TArray<TVolumeExecData>;
    function  GetVolumeNamesAsString: string;
@@ -206,7 +207,7 @@ type
    procedure AddProgressListener(listener: IIndexingProgress);
    procedure RemoveProgressListener(listener: IIndexingProgress);
 
-   function  GetStat(): TFileSystemStatRecord;
+   function  GetStat(Volume: string): TFileSystemStatRecord;
 
    //properties
    property  Modified: Boolean read GetModified;
@@ -243,9 +244,9 @@ begin
   Result := ( (dirName[0] = '.') AND (dirName[1] = #0) ) OR ( (dirName[0] = '.') AND (dirName[1] = '.') AND (dirName[2] = #0) );
 end;
 
-function MakeFileSize(hi, lo: Cardinal) : uint64; inline;
+function MakeFileSize(hi, lo: Cardinal) : UInt64; inline;
 begin
-  Result := (uint64(hi) shl 32) + uint64(lo);
+  Result := (UInt64(hi) shl 32) + UInt64(lo);
 end;
 
 ////////////////////////////////////
@@ -657,7 +658,7 @@ end;
 ////////////////////////////////////
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
-function CheckForFileSize(var Filter: TSearchFilter; FileSize: uint64{; IsDir: Boolean}): Boolean;
+function CheckForFileSize(var Filter: TSearchFilter; FileSize: UInt64{; IsDir: Boolean}): Boolean;
 begin
   Result := False;
   case Filter.FileSizeCmpType of
@@ -985,7 +986,7 @@ begin
   end;
 end;
 
-function TVolumeCache.Size: uint64;
+function TVolumeCache.Size: UInt64;
 begin
   Result := GetItem(0, 0).FFullFileSize;
 end;
@@ -1054,7 +1055,7 @@ begin
   end;
 end;
 
-function TVolumeCache.ReadVolume(Volume: string; ExclusionsList: TArray<string>): uint64;
+function TVolumeCache.ReadVolume(Volume: string; ExclusionsList: TArray<string>): UInt64;
 var
   i: Cardinal;
   str: string;
@@ -1069,7 +1070,8 @@ begin
   for i := 1 to Length(ExclusionsList) do begin
     str := ExclusionsList[i - 1];
     if str.StartsWith(Volume) then begin
-      if str[Length(str)] = '\' then Delete(str, Length(str), 1); // delete trailing backslash for proper comparing in ReadDirectory method
+      str := ExcludeTrailingPathDelimiter(str);
+      //if str[Length(str)] = '\' then Delete(str, Length(str), 1); // delete trailing backslash for proper comparing in ReadDirectory method
       FExclFolders.AddValue(str);
     end;
   end;
@@ -1083,7 +1085,7 @@ begin
 end;
 
 {
-function TVolumeCache.ReadFileSystem(const Volumes: TArray<string>): uint64;
+function TVolumeCache.ReadFileSystem(const Volumes: TArray<string>): UInt64;
 var
   i, cnt: Cardinal;
 begin
@@ -1231,21 +1233,21 @@ begin
       item := TCacheItem(lv.GetAddr(j));
       var counted: Boolean := false;
 
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY)    > 0 then begin Inc(Result.Stat[ftDir]);       counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_ARCHIVE)      > 0 then begin Inc(Result.Stat[ftArchive]);   counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_READONLY)     > 0 then begin Inc(Result.Stat[ftReadOnly]);  counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_NORMAL)       > 0 then begin Inc(Result.Stat[ftFile]);      counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_HIDDEN)       > 0 then begin Inc(Result.Stat[ftHidden]);    counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_TEMPORARY)    > 0 then begin Inc(Result.Stat[ftTemp]);      counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_SYSTEM)       > 0 then begin Inc(Result.Stat[ftSystem]);    counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE)       > 0 then begin Inc(Result.Stat[ftDevice]);    counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT)> 0 then begin Inc(Result.Stat[ftSymbolic]);  counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_COMPRESSED)   > 0 then begin Inc(Result.Stat[ftCompressed]);counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_ENCRYPTED)    > 0 then begin Inc(Result.Stat[ftEncrypted]); counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_OFFLINE)      > 0 then begin Inc(Result.Stat[ftOffline]);   counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_SPARSE_FILE)  > 0 then begin Inc(Result.Stat[ftSparse]);    counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_VIRTUAL)      > 0 then begin Inc(Result.Stat[ftVirtual]); counted := true; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) > 0 then begin Inc(Result.Stat[ftNotIndexed]); counted := true; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY)    > 0 then begin Inc(Result.Stat[ftDir]);       counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_ARCHIVE)      > 0 then begin Inc(Result.Stat[ftArchive]);   counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_READONLY)     > 0 then begin Inc(Result.Stat[ftReadOnly]);  counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_NORMAL)       > 0 then begin Inc(Result.Stat[ftFile]);      counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_HIDDEN)       > 0 then begin Inc(Result.Stat[ftHidden]);    counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_TEMPORARY)    > 0 then begin Inc(Result.Stat[ftTemp]);      counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_SYSTEM)       > 0 then begin Inc(Result.Stat[ftSystem]);    counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE)       > 0 then begin Inc(Result.Stat[ftDevice]);    counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT)> 0 then begin Inc(Result.Stat[ftSymbolic]);  counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_COMPRESSED)   > 0 then begin Inc(Result.Stat[ftCompressed]);counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_ENCRYPTED)    > 0 then begin Inc(Result.Stat[ftEncrypted]); counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_OFFLINE)      > 0 then begin Inc(Result.Stat[ftOffline]);   counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_SPARSE_FILE)  > 0 then begin Inc(Result.Stat[ftSparse]);    counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_VIRTUAL)      > 0 then begin Inc(Result.Stat[ftVirtual]);   counted := True; end;
+      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) > 0 then begin Inc(Result.Stat[ftNotIndexed]); counted := True; end;
       //if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_PINNED) > 0 then begin Inc(Result[ftPinned]); counted := true; end;
       if counted
         then Inc(countedItems)
@@ -1432,9 +1434,9 @@ begin
   end;
 end;
 
-function TCache.GetStat: TFileSystemStatRecord;
+function TCache.GetStat(Volume: string): TFileSystemStatRecord;
 begin
-  Result := FVolumeData.GetPair(0).Second.GetStat;  //TODO: make it work with many volunes
+  Result := FVolumeData[Volume].GetStat;
 end;
 
 function TCache.GetVolume(Volume: string): TVolumeCache;
@@ -1448,6 +1450,14 @@ var
 begin
   for i := 1 to FVolumeData.Count do
     Result := Result + ' ' + FVolumeData.GetPair(i - 1).Second.VolName;
+end;
+
+function TCache.GetVolumes: TArray<string>;
+var
+  i: Cardinal;
+begin
+  for i := 1 to FVolumeData.Count do
+    Insert(FVolumeData.GetPair(i - 1).Second.VolName, Result, Length(Result));
 end;
 
 class procedure TCache.FreeInst;
@@ -1478,7 +1488,7 @@ var
   i: Cardinal;
 begin
   for i := 1 to FVolumeData.Count do
-    FVolumeData.GetPair(i - 1).Second.Search(Filter, Callback);
+    Result := FVolumeData.GetPair(i - 1).Second.Search(Filter, Callback);
 end;
 
 class function TCache.HasNewInstance: Boolean;
