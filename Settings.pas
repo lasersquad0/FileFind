@@ -51,6 +51,8 @@ type
     destructor Destroy; override;
     procedure Save;
     procedure Load;
+    procedure AddRemoveToStartup(Add: Boolean);
+
   const
     APPKEY = 'SOFTWARE\NotepadCo\FinderX';
     HISTORYKEY = APPKEY + '\SearchHistory';
@@ -203,7 +205,7 @@ begin
          res := GetVolumeInformation(PChar(VolumesToIndex[i - 1]), nil, 0, nil, MaxComponentLen, SystemFlags, nil, 0);
          if res = False then begin
            error := GetLastError;
-           if error = ERROR_NOT_READY // CD-ROM is present but no disk there - we get ERROR_NOT_READY while attempting to read volume name
+           if (error = ERROR_NOT_READY) OR (error = ERROR_PATH_NOT_FOUND) // CD-ROM is present but no disk there - we get ERROR_NOT_READY while attempting to read volume name
              then Delete(VolumesToIndex, i - 1, 1)
              else MessageDlg('GetVolumeInformation failed with error: ' + error.ToString, mtError, [mbOK], 0);
          end;
@@ -273,10 +275,34 @@ begin
        reg.WriteInteger('Height', MainWindow.Height);
      end;
 
+     // make application to start with windows by modifying registry settings
+     AddRemoveToStartup(StartAppWithSystem);
+
    finally
      reg.Free;
    end;
 
+end;
+
+procedure TSettings.AddRemoveToStartup(Add: Boolean);
+var
+  Reg: TRegistry;
+  AppPath: string;
+begin
+  AppPath := ParamStr(0);  // Path to your application
+
+  Reg := TRegistry.Create;
+  try
+    Reg.RootKey := HKEY_CURRENT_USER;
+    if Reg.OpenKey('Software\Microsoft\Windows\CurrentVersion\Run', True) then begin
+      if Add
+        then Reg.WriteString('FinderX', AppPath)
+        else Reg.DeleteValue('FinderX');
+      Reg.CloseKey;
+    end;
+  finally
+    Reg.Free;
+  end;
 end;
 
 initialization
