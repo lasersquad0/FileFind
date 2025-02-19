@@ -62,7 +62,10 @@ const
   function  IsDriveRemovable(drive: string): Boolean;
   function  GetFileShellInfo(FullFileName: TFileName; Item: TCacheItem): Boolean;
 
-  {$IFDEF FFDEBUG} procedure LogMessage(Msg: string);{$ENDIF}
+  function IsAppRunningAsAdminMode(): Boolean;
+  function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; IsMember: PLongBool): LongBool; stdcall;
+
+  procedure LogMessage(Msg: string);
 
 
 implementation
@@ -70,9 +73,11 @@ implementation
 uses
   WinAPI.ShellAPI, StrUtils, SyncObjs, Math, Hash;
 
+function CheckTokenMembership; external 'advapi32.dll' name 'CheckTokenMembership';
+
 class function TTernary.IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T;
 begin
-  if Cond 
+  if Cond
     then Result := ValueTrue
     else Result := ValueFalse;
 end;
@@ -451,6 +456,66 @@ begin
 end;
 {$WRITEABLECONST OFF}
 
+function IsAppRunningAsAdminMode(): Boolean;
+type
+  TArr = array[0..5] of Byte;
+const
+  SECURITY_BUILTIN_DOMAIN_RID = $00000020;
+  DOMAIN_ALIAS_RID_ADMINS = $00000220;
+  //SECURITY_NT_AUTHORITY: array[0..5] of Byte = (0,0,0,0,0,5);
+var
+  fIsRunAsAdmin: LongBool;
+  dwError: DWORD;
+  pAdministratorsGroup: PSID;
+  NtAuthority: SID_IDENTIFIER_AUTHORITY;
+
+label Cleanup;
+begin
+  fIsRunAsAdmin := FALSE;
+  dwError := ERROR_SUCCESS;
+  pAdministratorsGroup := nil;
+
+  // Allocate and initialize a SID of the administrators group.
+  NtAuthority.Value[0] := 0; //SECURITY_NT_AUTHORITY;
+  NtAuthority.Value[1] := 0;
+  NtAuthority.Value[2] := 0;
+  NtAuthority.Value[3] := 0;
+  NtAuthority.Value[4] := 0;
+  NtAuthority.Value[5] := 5;
+
+  if NOT AllocateAndInitializeSid(
+        &NtAuthority,
+        2,
+        SECURITY_BUILTIN_DOMAIN_RID,
+        DOMAIN_ALIAS_RID_ADMINS,
+        0, 0, 0, 0, 0, 0,
+        &pAdministratorsGroup)
+  then begin
+    dwError := GetLastError();
+    goto Cleanup;
+  end;
+
+  // Determine whether the SID of administrators group is enabled in
+  // the primary access token of the process.
+  if NOT CheckTokenMembership(0, pAdministratorsGroup, @fIsRunAsAdmin) then begin
+    dwError := GetLastError();
+    goto Cleanup;
+  end;
+
+Cleanup:
+    // Centralized cleanup for all allocated resources.
+  if Assigned(pAdministratorsGroup) then begin
+    FreeSid(pAdministratorsGroup);
+    pAdministratorsGroup := nil;
+  end;
+
+    // Throw the error if something failed in the function.
+  if ERROR_SUCCESS <> dwError then raise Exception.Create('dwError:' + dwError.ToString);
+
+  Result := fIsRunAsAdmin;
+end;
+
+
 { TFileShellInfoThread }
  {
 procedure TFileShellInfoThread.Execute;
@@ -508,10 +573,11 @@ var
   bytesWritten: DWORD;
 begin
   if FileH = 0
-    then FileH := CreateFile(PChar(LogFileName), GENERIC_WRITE OR GENERIC_READ, FILE_SHARE_READ, nil, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+    then FileH := CreateFile(PChar(LogFileName), GENERIC_WRITE OR GENERIC_READ, FILE_SHARE_READ OR FILE_SHARE_WRITE, nil, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
 
-  if FileH = INVALID_HANDLE_VALUE then raise Exception.CreateFmt('Cannot open/create file : %s', [LogFileName]);
-
+  if FileH = INVALID_HANDLE_VALUE then begin
+    raise Exception.CreateFmt('Cannot open/create file (' + GetLastError.ToString + '): %s', [LogFileName]);
+  end;
 
    SetFilePointer(FileH, 0, nil, FILE_END);
    MsgA := AnsiString(DateTimeToStr(Now) + ' ' + Msg) + sLineBreak; // use AnsiString here to be able to easily view log file in any file viewer.
@@ -521,10 +587,11 @@ end;
 initialization
    FileH := 0;
    ErrorStringIDs := THash<Cardinal, string>.Create;
-   ErrorStringIDs[2] := 'ERROR_FILE_NOT_FOUND';
-   ErrorStringIDs[3] := 'ERROR_PATH_NOT_FOUND';
-   ErrorStringIDs[234] := 'ERROR_MORE_DATA';
-   ErrorStringIDs[1008] := 'ERROR_NO_TOKEN';
+   ErrorStringIDs[ERROR_FILE_NOT_FOUND] := 'ERROR_FILE_NOT_FOUND'; //3
+   ErrorStringIDs[ERROR_PATH_NOT_FOUND] := 'ERROR_PATH_NOT_FOUND'; //5
+   ErrorStringIDs[ERROR_MORE_DATA]      := 'ERROR_MORE_DATA'; //234
+   ErrorStringIDs[ERROR_NO_TOKEN]       := 'ERROR_NO_TOKEN'; //1008
+   ErrorStringIDs[ERROR_NO_MORE_ITEMS]  := 'ERROR_NO_MORE_ITEMS'; //259
 finalization
    CloseHandle(FileH);
    FreeAndNil(ErrorStringIDs);
