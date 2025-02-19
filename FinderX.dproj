@@ -166,8 +166,8 @@
         <Icon_MainIcon>Images\AppIcon.ico</Icon_MainIcon>
         <UWP_DelphiLogo44>Images\logo64x64.png</UWP_DelphiLogo44>
         <UWP_DelphiLogo150>Images\logo64x64.png</UWP_DelphiLogo150>
-        <VerInfo_Build>28</VerInfo_Build>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.28;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1.0.0;Comments=Probably the best file search application</VerInfo_Keys>
+        <VerInfo_Build>29</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.29;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1.0.0;Comments=Probably the best file search application</VerInfo_Keys>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
