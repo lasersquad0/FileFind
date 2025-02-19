@@ -63,7 +63,7 @@ object SettingsForm1: TSettingsForm1
     Top = 10
     Width = 339
     Height = 297
-    ActiveCard = Card5
+    ActiveCard = Card1
     BevelInner = bvRaised
     BevelOuter = bvLowered
     Caption = 'SettingsPanels'
@@ -100,6 +100,9 @@ object SettingsForm1: TSettingsForm1
         Top = 80
         Width = 153
         Height = 21
+        Hint = 
+          'If you check Run as administrator it will apply next time you la' +
+          'unch FinderX again.'
         Caption = 'Run as administrator'
         TabOrder = 2
         OnClick = ShowTrayIconCheckBoxClick
@@ -109,7 +112,7 @@ object SettingsForm1: TSettingsForm1
         Top = 106
         Width = 208
         Height = 21
-        Caption = 'Start FileFind on system startup'
+        Caption = 'Start FinderX on system startup'
         TabOrder = 3
         OnClick = ShowTrayIconCheckBoxClick
       end
@@ -246,7 +249,9 @@ object SettingsForm1: TSettingsForm1
         Width = 64
         Height = 23
         Style = csDropDownList
+        ItemIndex = 0
         TabOrder = 4
+        Text = 'auto'
         Items.Strings = (
           'auto'
           'Bytes'
@@ -397,37 +402,47 @@ object SettingsForm1: TSettingsForm1
       object ExcludeFoldersListBox: TListBox
         Left = 8
         Top = 54
-        Width = 236
+        Width = 232
         Height = 230
+        ExtendedSelect = False
         ItemHeight = 15
         TabOrder = 1
       end
       object AddFolderButton: TButton
-        Left = 250
+        Left = 243
         Top = 54
-        Width = 77
+        Width = 88
         Height = 23
         Caption = 'Add Folder...'
         TabOrder = 2
         OnClick = AddFolderButtonClick
       end
       object EditFolderButton: TButton
-        Left = 250
-        Top = 81
-        Width = 77
+        Left = 243
+        Top = 79
+        Width = 88
         Height = 23
         Caption = 'Edit Folder...'
         TabOrder = 3
         OnClick = EditFolderButtonClick
       end
       object RemoveFolderButton: TButton
-        Left = 250
+        Left = 243
         Top = 108
-        Width = 77
+        Width = 88
         Height = 23
         Caption = 'Remove'
         TabOrder = 4
         OnClick = RemoveFolderButtonClick
+      end
+      object ResetToDefaultButton: TButton
+        Left = 243
+        Top = 260
+        Width = 88
+        Height = 23
+        Caption = 'Reset to default'
+        TabOrder = 5
+        OnClick = ResetToDefaultButtonClick
       end
     end
   end

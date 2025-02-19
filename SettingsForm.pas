@@ -3,7 +3,7 @@ unit SettingsForm;
 interface
 
 uses
-  {Winapi.Windows,} Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Buttons, Vcl.ExtCtrls, Vcl.NumberBox,
   LoadFSThread, System.ImageList, Vcl.ImgList, FileCache, Vcl.WinXPanels;
 
@@ -55,6 +55,7 @@ type
     ShowRowOnMouseOverCheckBox: TCheckBox;
     HighlightSearchTermsCheckBox: TCheckBox;
     ImageList1: TImageList;
+    ResetToDefaultButton: TButton;
     procedure OKButtonClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure BuildIndexButtonClick(Sender: TObject);
@@ -69,6 +70,7 @@ type
     procedure RemoveFolderButtonClick(Sender: TObject);
     procedure EditFolderButtonClick(Sender: TObject);
     procedure ExcludeFoldersCheckBoxClick(Sender: TObject);
+    procedure ResetToDefaultButtonClick(Sender: TObject);
   private
     FIndexingThread: TLoadFSThread;
     FProgressListener: IIndexingProgress;
@@ -126,31 +128,32 @@ end;
 
 procedure TSettingsForm1.OKButtonClick(Sender: TObject);
 begin
-   AppSettings.CaseSensitiveSearch := CaseSearchCheckBox.Checked;
-   AppSettings.CaseSensitiveSort := CaseSortCheckBox.Checked;
-   AppSettings.HideFoldersSize := HideFoldersSizeCheckbox.Checked;
-   AppSettings.EnableSearchHistory := EnableSearchHistoryCheckBox.Checked;
-   AppSettings.FoldersOnTop := FoldersOnTopCheckBox.Checked;
-   AppSettings.MaxFoundItems := Cardinal(MaxNumFoundBox.ValueInt);
-   AppSettings.VolumesToIndex := FVolumes; //StringListToArrayTab(VolumesListBox.Items); //FolderToIndexEditBox.Text;
-   AppSettings.SearchAsYouType := SearchAsYouTypeCheckBox.Checked;
-   AppSettings.SearchAfterSymbols := SearchAfterNumberBox.ValueInt;
-   AppSettings.ShowTrayIcon := ShowTrayIconCheckBox.Checked;
-   AppSettings.MinimizeToTray := MinimizeToTrayCheckBox.Checked;
-   AppSettings.RunAsAdmin := RunAsAdminCheckBox.Checked;
-   AppSettings.HighlightSearchTerms := HighlightSearchTermsCheckBox.Checked;
-   AppSettings.ShowRowMouseover := ShowRowOnMouseOverCheckBox.Checked;
-   AppSettings.StartAppWithSystem := StartWithWindowsCheckBox.Checked;
-   AppSettings.IncludeNewFixedVolumes := IncludeNewFixedDrivesCheckBox.Checked;
-   AppSettings.IncludeNewRemovableVolumes := IncludeNewRemovableDrivesCheckBox.Checked;
-   AppSettings.RemoveOfflineVolumes := RemoveOfflineDrivesCheckBox.Checked;
-   AppSettings.ExcludeFolders := ExcludeFoldersCheckBox.Checked;
-   AppSettings.ExcludeFoldersList := StringListToArray(ExcludeFoldersListBox.Items);
-   AppSettings.SizeFormat := TSizeFormat(SizeFormatComboBox.ItemIndex);
+  if RunAsAdminCheckBox.Checked
+    then MessageDlg('You selected to run FinderX as administrator. FinderX will run as adminisrator next time start it.', TMsgDlgType.mtConfirmation, [mbOK], 0);
 
-   AppSettings.Save;
+  AppSettings.CaseSensitiveSearch := CaseSearchCheckBox.Checked;
+  AppSettings.CaseSensitiveSort := CaseSortCheckBox.Checked;
+  AppSettings.HideFoldersSize := HideFoldersSizeCheckbox.Checked;
+  AppSettings.EnableSearchHistory := EnableSearchHistoryCheckBox.Checked;
+  AppSettings.FoldersOnTop := FoldersOnTopCheckBox.Checked;
+  AppSettings.MaxFoundItems := Cardinal(MaxNumFoundBox.ValueInt);
+  AppSettings.VolumesToIndex := FVolumes; //StringListToArrayTab(VolumesListBox.Items); //FolderToIndexEditBox.Text;
+  AppSettings.SearchAsYouType := SearchAsYouTypeCheckBox.Checked;
+  AppSettings.SearchAfterSymbols := SearchAfterNumberBox.ValueInt;
+  AppSettings.ShowTrayIcon := ShowTrayIconCheckBox.Checked;
+  AppSettings.MinimizeToTray := MinimizeToTrayCheckBox.Checked;
+  AppSettings.RunAsAdmin := RunAsAdminCheckBox.Checked;
+  AppSettings.HighlightSearchTerms := HighlightSearchTermsCheckBox.Checked;
+  AppSettings.ShowRowMouseover := ShowRowOnMouseOverCheckBox.Checked;
+  AppSettings.StartAppWithSystem := StartWithWindowsCheckBox.Checked;
+  AppSettings.IncludeNewFixedVolumes := IncludeNewFixedDrivesCheckBox.Checked;
+  AppSettings.IncludeNewRemovableVolumes := IncludeNewRemovableDrivesCheckBox.Checked;
+  AppSettings.RemoveOfflineVolumes := RemoveOfflineDrivesCheckBox.Checked;
+  AppSettings.ExcludeFolders := ExcludeFoldersCheckBox.Checked;
+  AppSettings.ExcludeFoldersList := StringListToArray(ExcludeFoldersListBox.Items);
+  AppSettings.SizeFormat := TSizeFormat(SizeFormatComboBox.ItemIndex);
 
-   //CheckTokenMembership
+  AppSettings.Save;
 end;
 
 procedure TSettingsForm1.OnThreadTerminate(Sender: TObject);
@@ -201,6 +204,12 @@ begin
   idx := ExcludeFoldersListBox.ItemIndex;
   ExcludeFoldersListBox.DeleteSelected;
   ExcludeFoldersListBox.ItemIndex := IfThen(idx < ExcludeFoldersListBox.Count, idx, ExcludeFoldersListBox.Count - 1);
+end;
+
+procedure TSettingsForm1.ResetToDefaultButtonClick(Sender: TObject);
+begin
+  ExcludeFoldersListBox.Clear;
+  ArrayToStringList(GetDefaultTempFoldersList, ExcludeFoldersListBox.Items);
 end;
 
 procedure TSettingsForm1.AddFolderButtonClick(Sender: TObject);
@@ -255,7 +264,7 @@ end;
 procedure TSettingsForm1.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
   if Assigned(FProgressListener) then begin
-    FCancel := mrYes = MessageDlg('Indexing is in progress. Are you sure you want to cancel indexing and close Settings dialog?', TMsgDlgType.mtConfirmation, [mbYes, mbNo], 0, mbYes);
+    FCancel := mrYes = MessageDlg('Indexing is in progress. Are you sure you want to cancel indexing and close Settings dialog?', TMsgDlgType.mtWarning, [mbYes, mbNo], 0, mbYes);
   //MessageDlg('Cannot close form because indexing is in progress.', TMsgDlgType.mtInformation, [mbOK], 0);
     while FCancel do begin TThread.Sleep(200); Application.ProcessMessages; end; //waiting till thread finishes
   end;
@@ -288,11 +297,11 @@ end;
 
 procedure TSettingsForm1.FormShow(Sender: TObject);
 var
-  i, j, error, VolCnt: Cardinal;
+  i, error, VolCnt: Cardinal;
   VolName, VolName2, CurrVol, str: string;
   MaxComponentLen, SystemFlags: DWORD;
   res: LongBool;
-  Found: Boolean;
+  //Found: Boolean;
   TmpFolders: TArray<string>;
 begin
   AppSettings.Load; // load settings from registry each time settings form is shown
@@ -366,39 +375,33 @@ begin
   end;
 end;
 
-
 function TSettingsForm1.GetDefaultTempFoldersList: TArray<string>;
 var
   TmpFolder: PChar;
 begin
   if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+    then LogMessage('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppData.');
   Insert(TmpFolder + '\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppDataLow, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+    then LogMessage('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppDataLow.');
   Insert(TmpFolder + '\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
- { if S_OK <> SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
-  ExcludeFoldersListBox.Items.Add(TmpFolder);
-  CoTaskMemFree(TmpFolder);
-  }
   if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+    then LogMessage('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramFilesX86.');
   Insert(TmpFolder + '\Microsoft\Temp', Result, Length(Result));
   Insert(TmpFolder + '\Google\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+    then LogMessage('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramData.');
   Insert(TmpFolder + '\Microsoft\Search\Data\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_Windows, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then MessageDlg('SHGetKnownFolderPath failed. ', mtError, [mbOK], 0);
+    then LogMessage('SHGetKnownFolderPath failed: cannot get FOLDERID_Windows.');
   Insert(TmpFolder + '\Temp', Result, Length(Result));
   Insert(TmpFolder + '\WinSyS\Temp', Result, Length(Result));
   Insert(TmpFolder + '\assembly\Temp', Result, Length(Result));
