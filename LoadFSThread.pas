@@ -91,37 +91,37 @@ end;
 procedure TLoadFSThread.Execute;
 var
   i, start: Cardinal;
-  inst1, inst2: TCache;
+  inst2: TCache;
 begin
-   SetReturnValue(0); // mark that thread didnt finish successfully
+  SetReturnValue(0); // mark that thread didnt finish successfully
 
-   try
-     if TFSC.HasNewInstance then TFSC.FreeInst2;
+  try
+    if TFSC.HasNewInstance then TFSC.FreeInst2;
 
-     inst2 := TFSC.NewInstance;
-     inst2.AddProgressListener(FListener);
+    inst2 := TFSC.NewInstance;
+    inst2.AddProgressListener(FListener);
 
-     for i := Low(ExecData) to High(ExecData) do begin
-       start := GetTickCount;
-       inst2.ReadVolume(ExecData[i].VolumeName, FExclusionsList);
-       ExecData[i].VolSize := inst2.GetVolume(ExecData[i].VolumeName).Size;
-       ExecData[i].ExecTime := GetTickCount - start;
-       LogMessage(Format('[IndexingThread][%d] Finished indexing volume %s. Time spent %s', [ThreadID, ExecData[i].VolumeName, MillisecToStr(ExecData[i].ExecTime)]));
-     end;
+    for i := Low(ExecData) to High(ExecData) do begin
+      start := GetTickCount;
+      inst2.ReadVolume(ExecData[i].VolumeName, FExclusionsList);
+      ExecData[i].VolSize    := inst2.GetVolume(ExecData[i].VolumeName).Size;
+      ExecData[i].ItemsCount := inst2.GetVolume(ExecData[i].VolumeName).Count;
+      ExecData[i].ExecTime   := GetTickCount - start;
+      LogMessage(Format('[IndexingThread][%d] Finished indexing volume %s. Time spent %s', [ThreadID, ExecData[i].VolumeName, MillisecToStr(ExecData[i].ExecTime)]));
+    end;
 
-     inst2.RemoveProgressListener(FListener);
+    inst2.RemoveProgressListener(FListener);
      //inst1 := TFSC.Swap(inst2); // replace old data by new one
     // inst1.Free; // old File Cache Data is not needed any more
-     SetReturnValue(1); // finiahed successfully
-   except
-     on E: EOperationCancelled do begin
-       TCache.FreeInst2; // clear half filled Instance2
-       Synchronize(procedure begin MessageDlg('User has cancelled file indexing operation.', mtInformation, [mbOK], 0) end);
-     end;
-     else begin
-       TCache.FreeInst2; // clear half filled Instance2
-     end;
-   end;
+    SetReturnValue(1); // finiahed successfully
+  except
+    on E: EOperationCancelled do begin
+      TCache.FreeInst2; // clear half filled Instance2
+      Synchronize(procedure begin MessageDlg('User has cancelled file indexing operation.', mtInformation, [mbOK], 0) end);
+    end else begin
+      TCache.FreeInst2; // clear half filled Instance2
+    end;
+  end;
 
   //var FindCloseThread := TFindCloseThread.Create(True); // thread to close all find handles
   //FindCloseThread.FreeOnTerminate := True;

@@ -192,7 +192,7 @@ var
    //ct:Integer;
 begin
      Result := True;
-     // different handling between filefind an textfind
+     // different handling between file find an text find
      // true if no or each text is wanted
      if (GrepList.Count < 1) or (GrepList[0] = '*') then exit;
 
