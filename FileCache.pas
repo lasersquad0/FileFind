@@ -1041,7 +1041,7 @@ begin
 
         pathStr := path[path.Count - 1].FFileData.cFileName;
         for k := Integer(path.Count) - 2 downto 0 do begin
-          pathStr := pathStr + '\' +  path[k].FFileData.cFileName;
+          pathStr := pathStr + '\' +  path[Cardinal(k)].FFileData.cFileName;
         end;
 
         fout.Write(PChar(pathStr)^, ByteLength(pathStr){*sizeof(Char)});
@@ -1143,7 +1143,7 @@ begin
 
     Result := GPath[GPath.Count - 1];
     for k := Integer(GPath.Count) - 2 downto 0 do begin
-      Result := Result + '\' + GPath[k];
+      Result := Result + '\' + GPath[Cardinal(k)];
     end;
 
   finally
@@ -1195,17 +1195,18 @@ end;
 
 procedure TVolumeCache.PrintAllItems(list: TStrings);
 var
+  i, j: Cardinal;
   sitem: TCacheItem;
+  pathStr: string;
 begin
-  for var i: Integer := Integer(FCacheData.Count) - 1 downto 0 do begin
-    var level := FCacheData[Cardinal(i)];
-    var pathStr: string;
+  for i := 1 to FCacheData.Count do begin
+    var level := FCacheData[Cardinal(i - 1)];
 
-    for var j: Cardinal := 0 to level.Count - 1 do begin
-      sitem := TCacheItem(level.GetAddr(j));
+    for j := 1 to level.Count do begin
+      sitem := TCacheItem(level.GetAddr(j - 1));
 
-      if IsDirectory(sitem) {(sitem.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0} then begin
-        pathStr := MakePathString(i, j);
+      if IsDirectory(sitem) then begin
+        pathStr := MakePathString(i - 1, j - 1);
 
         list.Add(Format('%s \t %u', [pathStr, sitem.FFullFileSize]));
         //"\t" << FileTimeToString(sitem.FFileData.ftLastWriteTime) << "\t" << FileTimeToString(sitem.FFileData.ftLastAccessTime) << std::endl;

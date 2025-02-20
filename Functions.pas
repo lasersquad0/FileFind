@@ -56,8 +56,8 @@ const
   // the same as Pos() but does case INsensitive search
   function  XPos(const cSubStr, cString: string; Offset: Integer = 1): Integer;
   procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
-  function  AttrStr(Attr: Integer): string;
-  function  AttrStr2(Attr: Integer): string;
+  function  AttrStr(Attr: DWORD): string;
+  function  AttrStr2(Attr: DWORD): string;
   function  GetLogicalDrives: TArray<string>;
   function  IsDriveRemovable(drive: string): Boolean;
   function  GetFileShellInfo(FullFileName: TFileName; Item: TCacheItem): Boolean;
@@ -352,7 +352,7 @@ begin
 end;
 
 // returns a string with file attributes (DRSH)
-function AttrStr(Attr: Integer): string;
+function AttrStr(Attr: DWORD): string;
 begin
   Result := '';
   if (Attr AND FILE_ATTRIBUTE_ARCHIVE)    > 0 then Result := Result + 'A';
@@ -367,7 +367,7 @@ end;
 
 
 // returns a string with file attributes in fixed format
-function AttrStr2(Attr: Integer): string;
+function AttrStr2(Attr: DWORD): string;
 begin
   Result := '--------';
   if (Attr AND FILE_ATTRIBUTE_ARCHIVE)    > 0 then Result[2] := 'A';
