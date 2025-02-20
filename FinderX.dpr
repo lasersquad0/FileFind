@@ -1,9 +1,11 @@
 program FinderX;
 
 uses
-  Vcl.Forms, Windows, ShellApi, SysUtils,
+  Vcl.Forms,
+  Windows,
+  ShellApi,
+  SysUtils,
   FinderXMain in 'FinderXMain.pas' {MainForm},
-  DynamicArray in '..\DA\dynamicarrays\src\Delphi\DynamicArray.pas',
   LoadFSThread in 'LoadFSThread.pas',
   SettingsForm in 'SettingsForm.pas' {SettingsForm1},
   Settings in 'Settings.pas',
@@ -14,10 +16,12 @@ uses
   MaskSearch in 'MaskSearch.pas',
   HistoryEdit in 'HistoryEdit.pas',
   FileCache in 'FileCache.pas',
-  DynamicArrays in '..\DA\dynamicarrays\src\Delphi\DynamicArrays.pas',
   ObjectsCache in 'ObjectsCache.pas',
-  Hash2 in '..\DA\dynamicarrays\src\Delphi\Hash2.pas',
-  SortedArray in '..\DA\dynamicarrays\src\Delphi\SortedArray.pas';
+  DynamicArray in '..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
+  Hash in '..\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas',
+  Hash2 in '..\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas',
+  SortedArray in '..\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas',
+  DynamicArrays in '..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas';
 
 {$R *.res}
 

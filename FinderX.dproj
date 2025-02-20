@@ -83,7 +83,6 @@
         <DCC_IMPLICIT_CONVERSION_LOSS>true</DCC_IMPLICIT_CONVERSION_LOSS>
         <DCC_UNSAFE_TYPE>true</DCC_UNSAFE_TYPE>
         <DCC_UNSAFE_CAST>true</DCC_UNSAFE_CAST>
-        <DCC_UnitSearchPath>..\DA\dynamicarrays\src\Delphi;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_DcpOutput>.\$(Platform)\$(Config)</DCC_DcpOutput>
         <DCC_BplOutput>.\$(Platform)\$(Config)</DCC_BplOutput>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
@@ -166,8 +165,8 @@
         <Icon_MainIcon>Images\AppIcon.ico</Icon_MainIcon>
         <UWP_DelphiLogo44>Images\logo64x64.png</UWP_DelphiLogo44>
         <UWP_DelphiLogo150>Images\logo64x64.png</UWP_DelphiLogo150>
-        <VerInfo_Build>29</VerInfo_Build>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.29;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1.0.0;Comments=Probably the best file search application</VerInfo_Keys>
+        <VerInfo_Build>32</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.32;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1.0.0;Comments=Probably the best file search application</VerInfo_Keys>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
@@ -176,7 +175,6 @@
         <DCCReference Include="FinderXMain.pas">
             <Form>MainForm</Form>
         </DCCReference>
-        <DCCReference Include="..\DA\dynamicarrays\src\Delphi\DynamicArray.pas"/>
         <DCCReference Include="LoadFSThread.pas"/>
         <DCCReference Include="SettingsForm.pas">
             <Form>SettingsForm1</Form>
@@ -195,10 +193,12 @@
         <DCCReference Include="MaskSearch.pas"/>
         <DCCReference Include="HistoryEdit.pas"/>
         <DCCReference Include="FileCache.pas"/>
-        <DCCReference Include="..\DA\dynamicarrays\src\Delphi\DynamicArrays.pas"/>
         <DCCReference Include="ObjectsCache.pas"/>
-        <DCCReference Include="..\DA\dynamicarrays\src\Delphi\Hash2.pas"/>
-        <DCCReference Include="..\DA\dynamicarrays\src\Delphi\SortedArray.pas"/>
+        <DCCReference Include="..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas"/>
+        <DCCReference Include="..\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas"/>
+        <DCCReference Include="..\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas"/>
+        <DCCReference Include="..\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas"/>
+        <DCCReference Include="..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas"/>
         <None Include="FinderX.todo"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
@@ -258,12 +258,6 @@
                 <DeployFile LocalName="Win64\Debug\FinderX.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win64">
                         <RemoteName>FinderX.exe</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="Win64\Debug\FinderX.rsm" Configuration="Debug" Class="DebugSymbols">
-                    <Platform Name="Win64">
-                        <RemoteName>FinderX.rsm</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
