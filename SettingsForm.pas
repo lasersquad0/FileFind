@@ -72,7 +72,7 @@ type
     procedure ExcludeFoldersCheckBoxClick(Sender: TObject);
     procedure ResetToDefaultButtonClick(Sender: TObject);
   private
-    FIndexingThread: TLoadFSThread;
+  //  FIndexingThread: TLoadFSThread;
     FProgressListener: IIndexingProgress;
     FCancel: Boolean;
     FVolumes: TArray<string>;
@@ -84,6 +84,7 @@ type
     property Cancel: Boolean read FCancel;
   end;
 
+  {
  TSettingsFormIndexingProgress = class(IIndexingProgress)
  private
    FMaxValue: Integer;
@@ -96,7 +97,7 @@ type
    function  Progress(Prgress: Integer): Boolean; override; // allows to stop process if indexing takes too long time
    procedure ReportError(ErrorStr: string); override;
  end;
-
+   }
 
 var
   SettingsForm1: TSettingsForm1;
@@ -412,7 +413,7 @@ begin
 end;
 
 { TSettingsFormIndexingProgress }
-
+ {
 constructor TSettingsFormIndexingProgress.Create(Thread: TLoadFSThread; Output: TStrings);
 begin
   inherited Create;
@@ -465,6 +466,6 @@ begin
     end
     );
 end;
-
+     }
 
 end.
