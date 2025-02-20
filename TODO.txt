@@ -12,6 +12,7 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
+- Eliminate dependency from DynamicArrayS.pas
 - Refresh Index in bachground.
 - [DONE] Implement option start FinderX on system startup
 - Add option whether to run signle app copy or several (depends on Show tray icon option)
