@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Buttons, Vcl.ExtCtrls, Vcl.NumberBox,
-  LoadFSThread, System.ImageList, Vcl.ImgList, FileCache, Vcl.WinXPanels;
+ { LoadFSThread,} System.ImageList, Vcl.ImgList, FileCache, Vcl.WinXPanels;
 
 type
 
@@ -32,11 +32,6 @@ type
     CaseSortCheckBox: TCheckBox;
     HideFoldersSizeCheckbox: TCheckBox;
     Card4: TCard;
-    IndexingProgressLabel: TLabel;
-    ProgressBar1: TProgressBar;
-    IndexInfoLabel: TLabel;
-    IndexingLogButton: TButton;
-    BuildIndexButton: TButton;
     IncludeNewFixedDrivesCheckBox: TCheckBox;
     IncludeNewRemovableDrivesCheckBox: TCheckBox;
     RemoveOfflineDrivesCheckBox: TCheckBox;
@@ -56,10 +51,11 @@ type
     HighlightSearchTermsCheckBox: TCheckBox;
     ImageList1: TImageList;
     ResetToDefaultButton: TButton;
+    LogFileCheckBox: TCheckBox;
+    LogFileEdit: TEdit;
+    LogFileLabel: TLabel;
     procedure OKButtonClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
-    procedure BuildIndexButtonClick(Sender: TObject);
-    procedure IndexingLogButtonClick(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure SearchAsYouTypeCheckBoxClick(Sender: TObject);
     procedure ShowTrayIconCheckBoxClick(Sender: TObject);
@@ -71,17 +67,17 @@ type
     procedure EditFolderButtonClick(Sender: TObject);
     procedure ExcludeFoldersCheckBoxClick(Sender: TObject);
     procedure ResetToDefaultButtonClick(Sender: TObject);
+    procedure LogFileCheckBoxClick(Sender: TObject);
   private
   //  FIndexingThread: TLoadFSThread;
-    FProgressListener: IIndexingProgress;
-    FCancel: Boolean;
+//    FProgressListener: IIndexingProgress;
+//    FCancel: Boolean;
     FVolumes: TArray<string>;
 
-    procedure OnThreadTerminate(Sender: TObject);
     function  GetDefaultTempFoldersList: TArray<string>;
   public
-    ExecData: TVolumeExecData;
-    property Cancel: Boolean read FCancel;
+//    ExecData: TVolumeExecData;
+//    property Cancel: Boolean read FCancel;
   end;
 
   {
@@ -111,7 +107,7 @@ implementation
 
 uses
   System.UITypes, System.StrUtils, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, WinApi.Windows, Registry, Math,
-  Settings, IndexingLog, Functions;
+  Settings, {IndexingLog,} Functions;
 
 function  StringListToArrayTab(Strings: TStrings): TArray<string>;
 var
@@ -129,8 +125,11 @@ end;
 
 procedure TSettingsForm1.OKButtonClick(Sender: TObject);
 begin
-  if RunAsAdminCheckBox.Checked
-    then MessageDlg('You selected to run FinderX as administrator. FinderX will run as adminisrator next time start it.', TMsgDlgType.mtConfirmation, [mbOK], 0);
+  if (NOT AppSettings.RunAsAdmin) AND RunAsAdminCheckBox.Checked
+    then MessageDlg('You selected to run FinderX as administrator. FinderX will run as adminisrator next time you start it.', TMsgDlgType.mtConfirmation, [mbOK], 0);
+
+  if AppSettings.RunAsAdmin AND (NOT RunAsAdminCheckBox.Checked)
+    then MessageDlg('FinderX is running with administrator rights now. You''ve selected to run FinderX with user rights. This change will apply next time you start FinderX.', TMsgDlgType.mtConfirmation, [mbOK], 0);
 
   AppSettings.CaseSensitiveSearch := CaseSearchCheckBox.Checked;
   AppSettings.CaseSensitiveSort := CaseSortCheckBox.Checked;
@@ -155,18 +154,6 @@ begin
   AppSettings.SizeFormat := TSizeFormat(SizeFormatComboBox.ItemIndex);
 
   AppSettings.Save;
-end;
-
-procedure TSettingsForm1.OnThreadTerminate(Sender: TObject);
-begin
-  //IndexInfoLabel.Caption := 'Indexing done in ' + MillisecToStr(FIndexingThread.ExecData.ExecTime);
-
-  //TFSC.Instance.RemoveProgressListener(FProgressListener);
-  FreeAndNil(FProgressListener);
-
-  //ExecData := FIndexingThread.ExecData;
-  TFSC.Instance.SerializeTo(INDEX_FILENAME); // saving data into .idx file
-  FCancel := False;
 end;
 
 procedure TSettingsForm1.RemoveDriveButtonClick(Sender: TObject);
@@ -242,35 +229,14 @@ begin
   RemoveFolderButton.Enabled := Enbld;
 end;
 
-procedure TSettingsForm1.BuildIndexButtonClick(Sender: TObject);
-begin
-  FCancel := False;
-  //FProgressListener := TSettingsFormIndexingProgress.Create(FIndexingThread, IndexingLogForm.LogMemo.Lines);
-  //FIndexingThread := TLoadFSThread.Create(True, FProgressListener); // create suspended
-  //TFSC.Instance.AddProgressListener(FProgressListener);
-
-  //FIndexingThread.OnTerminate := OnThreadTerminate;
-  //FIndexingThread.FreeOnTerminate := True;
- // FIndexingThread.ProgressBar := ProgressBar1;
-  //FIndexingThread.ExecData.VolumesToIndex := StringListToArray(VolumesListBox.Items); //FolderToIndexEditBox.Text;
-
- // FIndexingThread.Start([{FolderToIndexEditBox,} BuildIndexButton{, SelectFolderButton}], [ProgressBar1, IndexingProgressLabel], [IndexInfoLabel], FProgressListener);
-end;
-
-procedure TSettingsForm1.IndexingLogButtonClick(Sender: TObject);
-begin
-  IndexingLogForm.ShowModal;
-end;
-
 procedure TSettingsForm1.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
-  if Assigned(FProgressListener) then begin
-    FCancel := mrYes = MessageDlg('Indexing is in progress. Are you sure you want to cancel indexing and close Settings dialog?', TMsgDlgType.mtWarning, [mbYes, mbNo], 0, mbYes);
-  //MessageDlg('Cannot close form because indexing is in progress.', TMsgDlgType.mtInformation, [mbOK], 0);
-    while FCancel do begin TThread.Sleep(200); Application.ProcessMessages; end; //waiting till thread finishes
-  end;
+//  if Assigned(FProgressListener) then begin
+//    FCancel := mrYes = MessageDlg('Indexing is in progress. Are you sure you want to cancel indexing and close Settings dialog?', TMsgDlgType.mtWarning, [mbYes, mbNo], 0, mbYes);
+//    while FCancel do begin TThread.Sleep(200); Application.ProcessMessages; end; //waiting till thread finishes
+//  end;
 
-  CanClose := NOT Assigned(FProgressListener);
+//  CanClose := NOT Assigned(FProgressListener);
 end;
 
 procedure TSettingsForm1.FormCreate(Sender: TObject);
@@ -285,13 +251,13 @@ var
 begin
   dt := GetDriveType(PChar(drive));
   case dt of
-    DRIVE_REMOVABLE: Result := 'removable';
-    DRIVE_CDROM: Result := 'removable';
-    DRIVE_UNKNOWN:Result := 'unknown';
-    DRIVE_FIXED: Result := 'fixed';
-    DRIVE_RAMDISK: Result := 'fixed';
+    DRIVE_REMOVABLE: Result := ' (removable)';
+    DRIVE_CDROM: Result := ' (removable)';
+    DRIVE_UNKNOWN:Result := ' (unknown)';
+    DRIVE_FIXED: Result := ' (fixed)';
+    DRIVE_RAMDISK: Result := ' (fixed)';
     else
-      Result := 'unknown2';
+      Result := ' (unknown2)';
   end;
 end;
 
@@ -341,19 +307,11 @@ begin
     end;
   end;
 
-
-  if TFSC.Instance.VolumesCount = 0 then begin
-    IndexInfoLabel.Visible := True;
-    IndexInfoLabel.Caption := 'Index is not created, press Build Index button';
-  end else begin
-    IndexInfoLabel.Visible := False;
-  end;
-
   MaxNumFoundBox.Hint := Format('Enter value between %u and %u', [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
 
   { AppSettings.VolumesToIndex already contains list of volumes read from registry and merged with volumes present on current PC
     Merging is done during loading application settings in AppSettings.Load method
-    Below we load other Volumes info and add list of volumes into VolumesListBox.
+    Below we load Volumes info and add list of volumes into VolumesListBox.
     }
   VolumesListBox.Clear;
   FVolumes := AppSettings.VolumesToIndex;
@@ -370,7 +328,9 @@ begin
     end;
 
     VolName2 := PChar(VolName);
-    str := VolName2 + IfThen(Length(VolName2) > 9, ' ', #9) + CurrVol + #9 + GetDriveTypeString(CurrVol);
+    if VolName2 = '' then VolName2 := '<noname>';
+
+    str := VolName2 + IfThen(Length(VolName2) > 9, ' ', #9) + CurrVol {+ #9} + GetDriveTypeString(CurrVol) +#9+ DateToStr(TFSC.Instance.GetVolume(CurrVol).IndexedDateTime);
     VolumesListBox.Items.Add(str);
     VolName := '';
   end;
@@ -410,6 +370,12 @@ begin
   Insert(TmpFolder + '\System32\DriversStore\Temp', Result, Length(Result));
   Insert(TmpFolder + '\Microsoft Antimalware\Tmp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
+end;
+
+procedure TSettingsForm1.LogFileCheckBoxClick(Sender: TObject);
+begin
+  LogFileLabel.Enabled := LogFileCheckBox.Checked;
+  LogFileEdit.Enabled := LogFileCheckBox.Checked;
 end;
 
 { TSettingsFormIndexingProgress }

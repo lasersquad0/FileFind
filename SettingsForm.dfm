@@ -78,6 +78,13 @@ object SettingsForm1: TSettingsForm1
       ShowCaption = True
       TabOrder = 0
       VerticalAlignment = taAlignTop
+      object LogFileLabel: TLabel
+        Left = 28
+        Top = 159
+        Width = 72
+        Height = 15
+        Caption = 'Log file name'
+      end
       object MinimizeToTrayCheckBox: TCheckBox
         Left = 28
         Top = 55
@@ -115,6 +122,23 @@ object SettingsForm1: TSettingsForm1
         Caption = 'Start FinderX on system startup'
         TabOrder = 3
         OnClick = ShowTrayIconCheckBoxClick
+      end
+      object LogFileCheckBox: TCheckBox
+        Left = 8
+        Top = 132
+        Width = 232
+        Height = 21
+        Caption = 'Write diagnostic info into log file'
+        TabOrder = 4
+        OnClick = LogFileCheckBoxClick
+      end
+      object LogFileEdit: TEdit
+        Left = 106
+        Top = 157
+        Width = 159
+        Height = 23
+        TabOrder = 5
+        Text = 'FinderX_debug.log'
       end
     end
     object Card2: TCard
@@ -293,57 +317,13 @@ object SettingsForm1: TSettingsForm1
       ShowCaption = True
       TabOrder = 3
       VerticalAlignment = taAlignTop
-      object IndexingProgressLabel: TLabel
-        Left = 8
-        Top = 253
-        Width = 102
-        Height = 15
-        Caption = 'Indexing progress...'
-        Visible = False
-      end
-      object IndexInfoLabel: TLabel
-        Left = 8
-        Top = 232
-        Width = 235
-        Height = 15
-        Caption = 'Index is not created, press Build Index button'
-      end
-      object ProgressBar1: TProgressBar
-        Left = 116
-        Top = 253
-        Width = 161
-        Height = 17
-        TabOrder = 0
-        Visible = False
-      end
-      object IndexingLogButton: TButton
-        Left = 141
-        Top = 184
-        Width = 108
-        Height = 27
-        Caption = 'Indexing log...'
-        TabOrder = 1
-        OnClick = IndexingLogButtonClick
-      end
-      object BuildIndexButton: TButton
-        Left = 8
-        Top = 184
-        Width = 108
-        Height = 27
-        Caption = 'Build Index...'
-        ImageIndex = 0
-        ImageMargins.Left = 3
-        Images = ImageList1
-        TabOrder = 2
-        OnClick = BuildIndexButtonClick
-      end
       object IncludeNewFixedDrivesCheckBox: TCheckBox
         Left = 8
         Top = 28
         Width = 249
         Height = 17
         Caption = 'Automatically include new fixed volumes'
-        TabOrder = 3
+        TabOrder = 0
       end
       object IncludeNewRemovableDrivesCheckBox: TCheckBox
         Left = 8
@@ -351,7 +331,7 @@ object SettingsForm1: TSettingsForm1
         Width = 278
         Height = 17
         Caption = 'Automatically include new removable volumes'
-        TabOrder = 4
+        TabOrder = 1
       end
       object RemoveOfflineDrivesCheckBox: TCheckBox
         Left = 8
@@ -359,16 +339,16 @@ object SettingsForm1: TSettingsForm1
         Width = 249
         Height = 17
         Caption = 'Automatically remove offline volumnes'
-        TabOrder = 5
+        TabOrder = 2
       end
       object VolumesListBox: TListBox
         Left = 8
         Top = 106
         Width = 241
-        Height = 57
+        Height = 95
         ItemHeight = 15
-        TabOrder = 6
-        TabWidth = 40
+        TabOrder = 3
+        TabWidth = 50
       end
       object RemoveDriveButton: TButton
         Left = 254
@@ -376,7 +356,7 @@ object SettingsForm1: TSettingsForm1
         Width = 75
         Height = 23
         Caption = 'Remove'
-        TabOrder = 7
+        TabOrder = 4
         OnClick = RemoveDriveButtonClick
       end
     end
