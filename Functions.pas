@@ -22,6 +22,7 @@ type
 const
   WM_FileShellInfo_MSG = WM_APP + 1;
   WM_SearchResultsShellInfo_MSG = WM_APP + 2;
+  WM_RESTORE_MAINFORM_MSG = WM_APP + 3;
 
 {type
 
