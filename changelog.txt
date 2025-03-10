@@ -27,6 +27,9 @@ Improvements:
 
 - If you have several volumes on your PC all of them can be indexed (which volumes will be indexed can be configured in settings)
 
+- Ability to change visibility and order of columns. 
+  Width and columns order is saved and restored next application run.
+
 - Automatic discovering non-indexed volumes.
   New volumes are discovered and added into list of volumes on Settings/Indexing screen. 
   Which volumes are automatically added depends on these settings: 
