@@ -230,9 +230,9 @@ implementation
 uses
   System.UITypes, System.Math, Dialogs, System.Generics.Defaults, Functions, MaskSearch, ObjectsCache, Hash2;
 
-const MAX_DIR_LEVELS = 100;
-const MAX_DIRS = 10_000;
-const MAX_FIND_HANDLES_CAPACITY = 30_000;
+const MAX_LEVELS = 100;
+const MAX_LEVEL_DIRS = 10_000;
+//const MAX_FIND_HANDLES_CAPACITY = 30_000;
 
 ////////////////////////////////////
 // Common Functions
@@ -357,7 +357,7 @@ begin
   begin
     Result := TLevelType.Create;
     Result.ItemSize := Cardinal(TCacheItem.InstanceSize);
-    Result.SetCapacity(MAX_DIRS);
+    Result.SetCapacity(MAX_LEVEL_DIRS);
     FCacheData.AddValue(Result);
   end;
 end;
@@ -638,7 +638,7 @@ end;
 constructor TVolumeCache.Create;
 begin
   FCacheData := THArrayG<TLevelType>.Create;
-  FCacheData.SetCapacity(MAX_DIR_LEVELS);
+  FCacheData.SetCapacity(MAX_LEVELS);
   FProgressListeners := nil; //THArrayG<IIndexingProgress>.Create;
   FExclFolders :=  THArraySorted<string>.Create(TIStringComparer.Ordinal);
   FModified := False;
@@ -1018,7 +1018,7 @@ begin
 
   fout := TFileStream.Create(fileName, fmCreate);
   path := THArrayG<TCacheItem>.Create;
-  path.SetCapacity(MAX_DIR_LEVELS);
+  path.SetCapacity(MAX_LEVELS);
 
   try
     for i := FCacheData.Count - 1 downto 0 do begin
@@ -1076,12 +1076,14 @@ begin
     end;
   end;
 
-  if Volume[Length(Volume)] = '\' then Delete(Volume, Length(Volume), 1);
+  //if Volume[Length(Volume)] = '\' then Delete(Volume, Length(Volume), 1);
+  ExcludeTrailingPathDelimiter(Volume);
   var startItemRef := AddFullPath(Volume);
   Result := ReadDirectory(Volume, startItemRef, True);
 
   FExecTime := GetTickCount - start;
   FModified := True;
+  FIndexedDateTime := Now;
 end;
 
 {
