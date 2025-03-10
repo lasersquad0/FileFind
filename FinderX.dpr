@@ -34,8 +34,9 @@ begin
     LogMessage('Another copy of FinderX app is running. Activating it.');
     var hWnd := FindWindow('TMainForm', 'FindexX - find files quick!');
     if hWnd = 0 then LogMessage('Cannot find FinderX window.');
-    ShowWindow(hWnd, SW_RESTORE {SHOWNORMAL});
-    SetForegroundWindow(hWnd);
+    SendMessage(hWnd, WM_RESTORE_MAINFORM_MSG, 0, 0); //send user message to restore main form from tray
+    //ShowWindow(hWnd, SW_RESTORE {SHOWNORMAL});
+    //SetForegroundWindow(hWnd);
     CloseHandle(mutex);
     LogMessage('Another copy is activated. Exiting.');
     Exit;
@@ -64,5 +65,5 @@ begin
   LogMessage('Application initialization time:' + MillisecToStr(GetTickcount - start));
   Application.Run;
 
-  CloseHandle(mutex);
+  CloseHandle(mutex); // important to close mutex in the beginning of app shutdown
 end.
