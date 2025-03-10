@@ -157,8 +157,11 @@ type
     function GetAttributes: Cardinal;
     procedure MakeSearch;
     function BuildIndexingBtnHint: string;
+    procedure RestoreMainForm();
+
     //procedure OnFileShellInfo(var Msg: TMessage); message WM_FileShellInfo_MSG;
     procedure OnSearchResultsShellInfo(var Msg: TMessage); message WM_SearchResultsShellInfo_MSG;
+    procedure OnRestoreFormRemote(var Msg: TMessage); message WM_RESTORE_MAINFORM_MSG;
   public
    // property Cancel: Boolean read FCancel;
   end;
@@ -181,11 +184,11 @@ implementation
 
 uses
   System.TypInfo, WinAPI.ShellAPI, WinAPI.CommCtrl, System.UITypes, Vcl.Graphics, Math, DateUtils, ClipBrd,
-  SyncObjs, ActiveX, Settings, SettingsForm, IndexingLog, About, StatisticForm;
+  SyncObjs, ActiveX, Settings, SettingsForm, {IndexingLog,} About, StatisticForm;
 
 {$R *.dfm}
 
-
+// builds string representation of file size adds suffixes KB, MB, GB depending of the value
 function MakeSizeStr(Size: UInt64): string;
 begin
   case AppSettings.SizeFormat of
@@ -302,6 +305,11 @@ begin
   StatusBar1.Panels[3].Text := Format('Items loaded: %s (%d%%)', [ThousandSep(cnt), FFileInfoMessagesCount*100 div cnt]);
 end;
 
+procedure TMainForm.OnRestoreFormRemote(var Msg: TMessage);
+begin
+  RestoreMainForm;
+end;
+
 procedure TMainForm.Openfilefolder1Click(Sender: TObject);
 begin
   ListView1DblClick(nil);
@@ -360,12 +368,17 @@ begin
   AlertPanel1.Visible := DaysBetween(Now(), TFSC.Instance.IndexFileSaveDate) >= 14;
 end;
 
-procedure TMainForm.TrayIcon1DblClick(Sender: TObject);
+procedure TMainForm.RestoreMainForm();
 begin
    // show the window, setting its state property to wsNormal.
   Show();
   WindowState := wsNormal;
   Application.BringToFront();
+end;
+
+procedure TMainForm.TrayIcon1DblClick(Sender: TObject);
+begin
+   RestoreMainForm;
 end;
 
 procedure TMainForm.MakeSearch();
