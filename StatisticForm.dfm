@@ -1,7 +1,7 @@
 object StatisticForm1: TStatisticForm1
   Left = 0
   Top = 0
-  Caption = 'File System Statistic'
+  Caption = 'FinderX - Statistic'
   ClientHeight = 504
   ClientWidth = 993
   Color = clBtnFace
@@ -3187,13 +3187,16 @@ object StatisticForm1: TStatisticForm1
     0000000000000000000000000000000000000000000000000080010000800300
     00C0070000}
   Position = poMainFormCenter
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnShow = FormShow
   TextHeight = 15
   object PageControl1: TPageControl
     Left = 0
     Top = 0
     Width = 993
     Height = 504
-    ActivePage = TabSheet3
+    ActivePage = TabSheet1
     Align = alClient
     TabOrder = 0
     object TabSheet1: TTabSheet
@@ -3219,7 +3222,7 @@ object StatisticForm1: TStatisticForm1
         Title.Font.Color = clBlack
         Title.Font.Height = -13
         Title.Text.Strings = (
-          'Top 10 Largest Folders')
+          'Top 10 Largest Folders For')
         View3DOptions.Elevation = 315
         View3DOptions.Orthogonal = False
         View3DOptions.Perspective = 0
@@ -3229,6 +3232,15 @@ object StatisticForm1: TStatisticForm1
         TabOrder = 0
         DefaultCanvas = 'TGDIPlusCanvas'
         ColorPaletteIndex = 6
+        object TopFoldersComboBox: TComboBox
+          Left = 512
+          Top = 6
+          Width = 73
+          Height = 23
+          Style = csDropDownList
+          TabOrder = 0
+          OnChange = TopFoldersComboBoxChange
+        end
         object Series1: TPieSeries
           HoverElement = []
           Marks.Frame.Visible = False
@@ -3297,6 +3309,15 @@ object StatisticForm1: TStatisticForm1
         TabOrder = 0
         DefaultCanvas = 'TGDIPlusCanvas'
         ColorPaletteIndex = 6
+        object TopFilesComboBox: TComboBox
+          Left = 496
+          Top = 8
+          Width = 73
+          Height = 23
+          Style = csDropDownList
+          TabOrder = 0
+          OnChange = TopFilesComboBoxChange
+        end
         object PieSeries1: TPieSeries
           HoverElement = []
           Marks.Frame.Visible = False
@@ -3373,6 +3394,15 @@ object StatisticForm1: TStatisticForm1
         TabOrder = 0
         DefaultCanvas = 'TGDIPlusCanvas'
         ColorPaletteIndex = 6
+        object CategoriesComboBox: TComboBox
+          Left = 560
+          Top = 4
+          Width = 73
+          Height = 23
+          Style = csDropDownList
+          TabOrder = 0
+          OnChange = CategoriesComboBoxChange
+        end
         object PieSeries2: TBarSeries
           HoverElement = []
           BarBrush.Gradient.EndColor = 16728319

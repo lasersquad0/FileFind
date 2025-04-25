@@ -4,11 +4,11 @@
         <ProjectVersion>20.1</ProjectVersion>
         <FrameworkType>VCL</FrameworkType>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <Platform Condition="'$(Platform)'==''">Win64</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
-        <MainSource>FileFind.dpr</MainSource>
+        <MainSource>FinderX.dpr</MainSource>
         <ProjectName Condition="'$(ProjectName)'==''">FileFind</ProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
@@ -70,9 +70,9 @@
         <Icon_MainIcon>$(BDS)\bin\delphi_PROJECTICON.ico</Icon_MainIcon>
         <UWP_DelphiLogo44>$(BDS)\bin\Artwork\Windows\UWP\delphi_UwpDefault_44.png</UWP_DelphiLogo44>
         <UWP_DelphiLogo150>$(BDS)\bin\Artwork\Windows\UWP\delphi_UwpDefault_150.png</UWP_DelphiLogo150>
-        <SanitizedProjectName>FileFind</SanitizedProjectName>
+        <SanitizedProjectName>FinderX</SanitizedProjectName>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.1.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.55;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=Probably the best application for file search</VerInfo_Keys>
         <DCC_ShowGeneralMessages>true</DCC_ShowGeneralMessages>
         <DCC_MinStackSize>4048576</DCC_MinStackSize>
         <DCC_MaxStackSize>4048576</DCC_MaxStackSize>
@@ -83,12 +83,12 @@
         <DCC_IMPLICIT_CONVERSION_LOSS>true</DCC_IMPLICIT_CONVERSION_LOSS>
         <DCC_UNSAFE_TYPE>true</DCC_UNSAFE_TYPE>
         <DCC_UNSAFE_CAST>true</DCC_UNSAFE_CAST>
-        <DCC_UnitSearchPath>..\DA\dynamicarrays\src\Delphi;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_DcpOutput>.\$(Platform)\$(Config)</DCC_DcpOutput>
         <DCC_BplOutput>.\$(Platform)\$(Config)</DCC_BplOutput>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
-        <VerInfo_Release>1</VerInfo_Release>
         <VerInfo_AutoIncVersion>true</VerInfo_AutoIncVersion>
+        <VerInfo_MinorVer>1</VerInfo_MinorVer>
+        <VerInfo_Build>55</VerInfo_Build>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <DCC_UsePackage>vclwinx;DataSnapServer;fmx;emshosting;vclie;DbxCommonDriver;bindengine;VCLRESTComponents;DBXMSSQLDriver;FireDACCommonODBC;emsclient;FireDACCommonDriver;appanalytics;vclx;dbxcds;vcledge;bindcompvclwinx;emsedge;bindcompfmx;DBXFirebirdDriver;inetdb;FireDACSqliteDriver;DbxClientDriver;FireDACASADriver;vclactnband;fmxFireDAC;dbexpress;FireDACInfxDriver;DBXMySQLDriver;VclSmp;inet;DataSnapCommon;fmxase;vcltouch;DBXOdbcDriver;dbrtl;FireDACDBXDriver;FireDACOracleDriver;fmxdae;FireDACMSAccDriver;CustomIPTransport;FireDACMSSQLDriver;DataSnapIndy10ServerTransport;DataSnapConnectors;vcldsnap;DBXInterBaseDriver;FireDACMongoDBDriver;FireDACTDataDriver;vcldb;vclFireDAC;bindcomp;FireDACCommon;DataSnapServerMidas;FireDACODBCDriver;emsserverresource;RESTBackendComponents;bindcompdbx;rtl;FireDACMySQLDriver;FireDACADSDriver;RESTComponents;DBXSqliteDriver;vcl;dsnapcon;DataSnapClient;adortl;DataSnapProviderClient;DBXSybaseASEDriver;DBXDb2Driver;vclimg;DataSnapFireDAC;emsclientfiredac;FireDACPgDriver;FireDAC;inetdbxpress;FireDACDSDriver;xmlrtl;tethering;bindcompvcl;dsnap;CloudService;DBXSybaseASADriver;DBXOracleDriver;FireDACDb2Driver;DBXInformixDriver;fmxobj;bindcompvclsmp;DataSnapNativeClient;DatasnapConnectorsFreePascal;soaprtl;FireDACIBDriver;$(DCC_UsePackage)</DCC_UsePackage>
@@ -123,54 +123,58 @@
         <DCC_RemoteDebug>true</DCC_RemoteDebug>
         <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
         <DCC_RangeChecking>true</DCC_RangeChecking>
-        <VerInfo_MinorVer>1</VerInfo_MinorVer>
-        <VerInfo_Release>0</VerInfo_Release>
+        <VerInfo_Build>0</VerInfo_Build>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=</VerInfo_Keys>
+        <DCC_DUPLICATE_CTOR_DTOR>false</DCC_DUPLICATE_CTOR_DTOR>
+        <DCC_UNSAFE_CAST>false</DCC_UNSAFE_CAST>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <DCC_RemoteDebug>false</DCC_RemoteDebug>
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
         <DCC_Define>PROFILE;$(DCC_Define)</DCC_Define>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <Icon_MainIcon>Images\AppIcon.ico</Icon_MainIcon>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.1.33;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.62;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=FinderX;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=Probably the best application for file search</VerInfo_Keys>
         <Icon_MainIcon>Images\Uwp_logo44.ico</Icon_MainIcon>
-        <VerInfo_Build>33</VerInfo_Build>
+        <VerInfo_Build>62</VerInfo_Build>
         <DCC_DynamicBase>false</DCC_DynamicBase>
         <DCC_HighEntropyVa>false</DCC_HighEntropyVa>
+        <DCC_DUPLICATE_CTOR_DTOR>false</DCC_DUPLICATE_CTOR_DTOR>
+        <DCC_UNSAFE_CAST>false</DCC_UNSAFE_CAST>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
         <DCC_Define>RELEASE;FFDEBUG;$(DCC_Define)</DCC_Define>
         <DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
         <DCC_DebugInformation>0</DCC_DebugInformation>
-        <VerInfo_MinorVer>1</VerInfo_MinorVer>
-        <VerInfo_Release>0</VerInfo_Release>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=</VerInfo_Keys>
+        <VerInfo_Build>0</VerInfo_Build>
+        <DCC_UNSAFE_CAST>false</DCC_UNSAFE_CAST>
+        <DCC_DUPLICATE_CTOR_DTOR>false</DCC_DUPLICATE_CTOR_DTOR>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <Icon_MainIcon>Images\AppIcon.ico</Icon_MainIcon>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
         <Icon_MainIcon>Images\AppIcon.ico</Icon_MainIcon>
         <UWP_DelphiLogo44>Images\logo64x64.png</UWP_DelphiLogo44>
         <UWP_DelphiLogo150>Images\logo64x64.png</UWP_DelphiLogo150>
-        <VerInfo_Build>14</VerInfo_Build>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.1.14;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=</VerInfo_Keys>
+        <VerInfo_Build>32</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.32;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.1.0.0;Comments=Probably the best file search application</VerInfo_Keys>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="FileFindMain.pas">
+        <DCCReference Include="FinderXMain.pas">
             <Form>MainForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="..\DA\dynamicarrays\src\Delphi\DynamicArray.pas"/>
         <DCCReference Include="LoadFSThread.pas"/>
         <DCCReference Include="SettingsForm.pas">
             <Form>SettingsForm1</Form>
@@ -178,23 +182,24 @@
         <DCCReference Include="Settings.pas"/>
         <DCCReference Include="IndexingLog.pas">
             <Form>IndexingLogForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="Functions.pas"/>
         <DCCReference Include="About.pas">
             <Form>AboutBox</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="StatisticForm.pas">
             <Form>StatisticForm1</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="MaskSearch.pas"/>
         <DCCReference Include="HistoryEdit.pas"/>
         <DCCReference Include="FileCache.pas"/>
-        <DCCReference Include="..\DA\dynamicarrays\src\Delphi\DynamicArrays.pas"/>
         <DCCReference Include="ObjectsCache.pas"/>
-        <None Include="FileFind.todo"/>
+        <DCCReference Include="..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas"/>
+        <DCCReference Include="..\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas"/>
+        <DCCReference Include="..\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas"/>
+        <DCCReference Include="..\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas"/>
+        <DCCReference Include="..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas"/>
+        <None Include="FinderX.todo"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -213,7 +218,7 @@
         <BorlandProject>
             <Delphi.Personality>
                 <Source>
-                    <Source Name="MainSource">FileFind.dpr</Source>
+                    <Source Name="MainSource">FinderX.dpr</Source>
                 </Source>
                 <Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dclBindCompFireDAC290.bpl">LiveBinding Expression Components FireDac</Excluded_Packages>
@@ -238,33 +243,27 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="Win32\Debug\FileFind.exe" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="Win32\Debug\FinderX.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
-                        <RemoteName>FileFind.exe</RemoteName>
+                        <RemoteName>FinderX.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="Win32\Release\FileFind.exe" Configuration="Release" Class="ProjectOutput">
+                <DeployFile LocalName="Win32\Release\FinderX.exe" Configuration="Release" Class="ProjectOutput">
                     <Platform Name="Win32">
-                        <RemoteName>FileFind.exe</RemoteName>
+                        <RemoteName>FinderX.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="Win64\Debug\FileFind.exe" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="Win64\Debug\FinderX.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win64">
-                        <RemoteName>FileFind.exe</RemoteName>
+                        <RemoteName>FinderX.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="Win64\Debug\FileFind.rsm" Configuration="Debug" Class="DebugSymbols">
+                <DeployFile LocalName="Win64\Release\FinderX.exe" Configuration="Release" Class="ProjectOutput">
                     <Platform Name="Win64">
-                        <RemoteName>FileFind.rsm</RemoteName>
-                        <Overwrite>true</Overwrite>
-                    </Platform>
-                </DeployFile>
-                <DeployFile LocalName="Win64\Release\FileFind.exe" Configuration="Release" Class="ProjectOutput">
-                    <Platform Name="Win64">
-                        <RemoteName>FileFind.exe</RemoteName>
+                        <RemoteName>FinderX.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

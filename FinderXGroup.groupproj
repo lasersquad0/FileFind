@@ -3,7 +3,7 @@
         <ProjectGuid>{169826AB-644D-4498-A561-C93B248191A8}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
-        <Projects Include="FileFind.dproj">
+        <Projects Include="FinderX.dproj">
             <Dependencies/>
         </Projects>
     </ItemGroup>
@@ -14,23 +14,23 @@
             <Default.Personality/>
         </BorlandProject>
     </ProjectExtensions>
-    <Target Name="FileFind">
-        <MSBuild Projects="FileFind.dproj"/>
+    <Target Name="FinderX">
+        <MSBuild Projects="FinderX.dproj"/>
     </Target>
-    <Target Name="FileFind:Clean">
-        <MSBuild Projects="FileFind.dproj" Targets="Clean"/>
+    <Target Name="FinderX:Clean">
+        <MSBuild Projects="FinderX.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="FileFind:Make">
-        <MSBuild Projects="FileFind.dproj" Targets="Make"/>
+    <Target Name="FinderX:Make">
+        <MSBuild Projects="FinderX.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="FileFind"/>
+        <CallTarget Targets="FinderX"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="FileFind:Clean"/>
+        <CallTarget Targets="FinderX:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="FileFind:Make"/>
+        <CallTarget Targets="FinderX:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

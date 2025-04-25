@@ -1,6 +1,65 @@
 
+FinderX version 1.1.0
 
-FileFind version 1.1.0
+Improvements:
+
+- Application has renamed to FinderX
+
+- Single running copy of FinderX application.
+  When you run second copy of application, first copy just activated. Main application window brings to front.   
+
+- Possibility to run FinderX as administrator. This feature is configured in settings.
+  Application asks for standard windows conformation to run as administrator.
+  If you tun on this setting, it will apply only after application restart.
+
+- Icon in system tray. FinderX icon will appear in tray.
+  in addition you can select "Minimize to tray" option.
+  FinderX main window will disappear when minimized but application will be still running and accessible from system tray.
+  Dbl click by FinderX icon in system tray will restore application.
+
+- Search as you type setting
+  Search will start automatically once you typed specified number of symbols (3 by default).
+  Search starts only when more than 0.5 seconds has elapsed since last typed symbol.
+  This allows to quickly type entire search text without starting search process.    
+
+- Search term is marked bold in search results. Can be turned on or off in settings. 
+  If you turn on this setting, searched part of filename text in column Name will be marked with bold font.
+
+- If you have several volumes on your PC all of them can be indexed (which volumes will be indexed can be configured in settings)
+
+- Ability to change visibility and order of columns. 
+  Width and columns order is saved and restored next application run.
+
+- Automatic discovering non-indexed volumes.
+  New volumes are discovered and added into list of volumes on Settings/Indexing screen. 
+  Which volumes are automatically added depends on these settings: 
+    Automatically include new fixed volumes 
+    Automatically include new removeable volumes 
+    Automatically remove offline volumes
+
+- Search history suggestion drop down window.
+  When you start entering your search text - small popup window appears with history of your searches.
+  You can select your previous search using Up and Down keyboard keys.  
+  This behaviour can be turned on or off in settings.
+
+- List of folders to be excluded from indexing.
+  You can define a list of folders which content will not be indexed.
+  Excluded folder names will be searchable, but their content - not.
+  By default this list is filled by some predefined list of folders for your convenience.
+
+- Size format: auto, Bytes, KB, MB.
+  Bytes - all sizes will be shown in bytes with thousands delimiters 
+  KB -  all sizes will be shown in kilobytes. Please note that if file size is small (e.g. 100bytes) it will be shown as "0 KB".
+  MB -  all sizes will be shown in megabytes. Please note that if file size is relativaly small (e.g. 300 KB) it will be shown as "0 MB".
+  auto - special mode when file size will be shown in Bytes, KB, MB, GB depending on its size.
+
+- Do not show folders sizes setting (useful when you need to find files by size)
+
+- Loading file/folder icons in background (significantly improves search speed)
+
+---------------------------------------------------
+
+FileFind version 1.0.1
 
 Improvements:
 

@@ -11,12 +11,21 @@ type
     flag: Boolean;
   end;
 
+ type
+  TTernary = class
+    class function IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T; 
+  end;
+
    // thread for background filling IconIndex, FileType string, and DisplayName fields in TCacheItem(s)
    // for each item we need make a call to ShGetFileInfo API function. It takes too much time and slows down search process.
    // it is possible to make searches during this bg process, but they will work a bit slowly because ShGetFileInfo will be called for search result item
-const WM_FileShellInfo_MSG = WM_APP + 1;
+const
+  WM_FileShellInfo_MSG = WM_APP + 1;
+  WM_SearchResultsShellInfo_MSG = WM_APP + 2;
+  WM_RESTORE_MAINFORM_MSG = WM_APP + 3;
 
-type
+{type
+
   TFileShellInfoThread = class(TThread)
   private
     FBegin: Cardinal;
@@ -29,29 +38,50 @@ type
     procedure Start(WinHandle: THandle; CancelFlag: PBoolean; lvStart: Cardinal = 0; lvEnd: Cardinal = 0); overload;
     class procedure RunGetShellInfoBgThread(WinHandle: THandle; CancelFlag: PBoolean);
   end;
+ }
 
   function  MillisecToStr(ms: Cardinal): string;
   function  GetLocalTime(ftm: TFileTime): string;
+  function  StringListToArray(Strings: TStrings): TArray<string>;
+  procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
   // split string to array of strings using Delim as delimiter
   procedure StringToArray(const str: string; var arr:THArrayG<string>; const Delim:Char {= '\n'});
   // splits string to array of strings using Delim as delimiter
   procedure StringToArrayAccum(const str:string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+  procedure WriteStringToStream(OStream: TStream; str: string);
+  function  ReadStringFromStream(IStream: TStream): string;
   function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
   function  FileTimeToDateTime(FileTime: TFileTime): TDateTime;
   function  DateTimeToFileTime(FileTime: TDateTime): TFileTime;
   function  ThousandSep(Num: UInt64): string;
   // the same as Pos() but does case INsensitive search
-  function XPos(const cSubStr, cString: string; Offset: Integer = 1): Integer;
+  function  XPos(const cSubStr, cString: string; Offset: Integer = 1): Integer;
   procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
-  function GetFileShellInfo(FileName: TFileName; Item: TCacheItem): Boolean;
+  function  AttrStr(Attr: DWORD): string;
+  function  AttrStr2(Attr: DWORD): string;
+  function  GetLogicalDrives: TArray<string>;
+  function  IsDriveRemovable(drive: string): Boolean;
+  function  GetFileShellInfo(FullFileName: TFileName; Item: TCacheItem): Boolean;
 
-  {$IFDEF FFDEBUG} procedure LogMessage(Msg: string);{$ENDIF}
+  function IsAppRunningAsAdminMode(): Boolean;
+  function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; IsMember: PLongBool): LongBool; stdcall;
+
+  procedure LogMessage(Msg: string);
 
 
 implementation
 
 uses
-  WinAPI.ShellAPI, StrUtils, SyncObjs, Math;
+  WinAPI.ShellAPI, StrUtils, SyncObjs, Math, Hash;
+
+function CheckTokenMembership; external 'advapi32.dll' name 'CheckTokenMembership';
+
+class function TTernary.IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T;
+begin
+  if Cond
+    then Result := ValueTrue
+    else Result := ValueFalse;
+end;
 
 function MillisecToStr(ms: Cardinal): string;
 var
@@ -74,6 +104,21 @@ begin
     Result := Format('%u sec %u ms', [seconds, milliseconds]);
 end;
 
+procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
+var
+  i, sz: Integer;
+begin
+  sz := Length(Arr);
+  for i := 0 to sz - 1 do Strings.Add(Arr[i]);
+end;
+
+function StringListToArray(Strings: TStrings): TArray<string>;
+var
+  i: Integer;
+begin
+  SetLength(Result, Strings.Count);
+  for i := 0 to Strings.Count - 1 do Result[i] := Strings[i];
+end;
 
 // split string to array of strings using Delim as delimiter
 procedure StringToArray(const str: string; var arr:THArrayG<string>; const Delim:Char {= '\n'});
@@ -120,8 +165,26 @@ begin
   if Length(s) > 0 then arr.AddValue(s);
 end;
 
+procedure WriteStringToStream(OStream: TStream; str: string);
+var
+  lenBytes: Integer;
+begin
+  lenBytes := ByteLength(str);
+  OStream.WriteData<Integer>(lenBytes);
+  OStream.Write(str[1], lenBytes);
+end;
 
-function GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
+function ReadStringFromStream(IStream: TStream): string;
+var
+  lenBytes: Cardinal;
+begin
+  IStream.ReadData<Cardinal>(lenBytes);
+  SetLength(Result, lenBytes div sizeof(Result[1]));
+  IStream.Read(Result[1], lenBytes);
+end;
+
+
+function GetErrorMessageText(LastError: Cardinal; const ErrorPlace: string): string;
 var
   buf: string;
 begin
@@ -130,7 +193,7 @@ begin
   Winapi.Windows.FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM OR FORMAT_MESSAGE_IGNORE_INSERTS,
           nil, lastError, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), PChar(buf), 1000, nil);
 
-  Result := Format('%s failed with error code %d as follows:\n%s', [errorPlace, lastError, buf]);
+  Result := Format('%s failed with error code %d as follows:\n%s', [ErrorPlace, LastError, buf]);
   //Windows.StringCchPrintf(PChar(buf2), Length(buf2), '%s failed with error code %d as follows:\n%s', PChar(errorPlace), lastError, pChar(buf));
 end;
 
@@ -289,11 +352,73 @@ begin
   end;
 end;
 
+// returns a string with file attributes (DRSH)
+function AttrStr(Attr: DWORD): string;
+begin
+  Result := '';
+  if (Attr AND FILE_ATTRIBUTE_ARCHIVE)    > 0 then Result := Result + 'A';
+  if (Attr AND FILE_ATTRIBUTE_DIRECTORY)  > 0 then Result := Result + 'D';
+  if (Attr AND FILE_ATTRIBUTE_READONLY)   > 0 then Result := Result + 'R';
+  if (Attr AND FILE_ATTRIBUTE_SYSTEM)     > 0 then Result := Result + 'S';
+  if (Attr AND FILE_ATTRIBUTE_HIDDEN)     > 0 then Result := Result + 'H';
+  if (Attr AND FILE_ATTRIBUTE_COMPRESSED) > 0 then Result := Result + 'C';
+  if (Attr AND FILE_ATTRIBUTE_TEMPORARY)  > 0 then Result := Result + 'T';
+  if (Attr AND FILE_ATTRIBUTE_ENCRYPTED)  > 0 then Result := Result + 'E';
+end;
+
+
+// returns a string with file attributes in fixed format
+function AttrStr2(Attr: DWORD): string;
+begin
+  Result := '--------';
+  if (Attr AND FILE_ATTRIBUTE_ARCHIVE)    > 0 then Result[2] := 'A';
+  if (Attr AND FILE_ATTRIBUTE_DIRECTORY)  > 0 then Result[1] := 'D';
+  if (Attr AND FILE_ATTRIBUTE_READONLY)   > 0 then Result[3] := 'R';
+  if (Attr AND FILE_ATTRIBUTE_SYSTEM)     > 0 then Result[4] := 'S';
+  if (Attr AND FILE_ATTRIBUTE_HIDDEN)     > 0 then Result[5] := 'H';
+  if (Attr AND FILE_ATTRIBUTE_COMPRESSED) > 0 then Result[6] := 'C';
+  if (Attr AND FILE_ATTRIBUTE_TEMPORARY)  > 0 then Result[7] := 'T';
+  if (Attr AND FILE_ATTRIBUTE_ENCRYPTED)  > 0 then Result[8] := 'E';
+end;
+
+function ZStrArrayToDelphiArray(ZStrings: PChar): TArray<string>;
+begin
+  SetLength(Result, 0);
+  while (True) do begin
+    if ZStrings[0] = #0 then break;
+    Insert(ZStrings, Result, Length(Result));
+    ZStrings := ZStrings + Strlen(ZStrings) + 1;
+  end;
+end;
+
+function GetLogicalDrives: TArray<string>;
+var
+  Names: string;
+  Len: Cardinal;
+begin
+  Len := MAX_PATH * 3; // allocate enough storage for list of drives
+  SetLength(Names, Len);
+  GetLogicalDriveStrings(Len, PChar(Names));
+
+  Result := ZStrArrayToDelphiArray(PChar(Names));
+end;
+
+function  IsDriveRemovable(drive: string): Boolean;
+var
+  dt: Cardinal;
+begin
+  dt := GetDriveType(PChar(drive));
+  Result := (dt = DRIVE_REMOVABLE) OR (dt = DRIVE_CDROM);
+end;
+
+
+var ErrorStringIDs: THash<Cardinal, string>; // mapping some error codes to string error IDs for better understanding
+
+
 // FileName - must be full path to existing file or folder
 // or relative path to existing file/folder
-
 {$WRITEABLECONST ON}   // needed for CallsCount static variable
-function GetFileShellInfo(FileName: TFileName; Item: TCacheItem): Boolean;
+function GetFileShellInfo(FullFileName: TFileName; Item: TCacheItem): Boolean;
 const
   CallsCount: Cardinal = 0;
 var
@@ -304,26 +429,26 @@ begin
   ZeroMemory(@ShFileInfo, SizeOf(ShFileInfo));
 
   // Get Windows file name, system file type string and icon index
-  var Res := ShGetFileInfo(PChar(FileName), 0 {Item.FFileData.dwFileAttributes}, ShFileInfo, SizeOf(ShFileInfo),
+  var Res := ShGetFileInfo(PChar(FullFileName), 0 {Item.FFileData.dwFileAttributes}, ShFileInfo, SizeOf(ShFileInfo),
   {SHGFI_USEFILEATTRIBUTES OR} SHGFI_TYPENAME OR SHGFI_DISPLAYNAME OR SHGFI_SYSICONINDEX OR SHGFI_SMALLICON { OR SHGFI_ICON } );
 
   if Res = 0 then begin // looks like file not found or some other error occurred
-    Item.FDisplayName := ExtractFileName(FileName);
-    Item.FIconIndex := 0; // ShFileInfo.IIcon;
+    Item.FDisplayName := ExtractFileName(FullFileName);
+    Item.FIconIndex := 0;
     Item.FDenied := True; // mark such items with red icon too
 
     var err := GetLastError();
-    if err = ERROR_FILE_NOT_FOUND then begin // file not found error
+    if (err = ERROR_FILE_NOT_FOUND) OR (err = ERROR_PATH_NOT_FOUND) then begin // file not found error
       Item.FFileType := 'File not found (probably deleted)';
     end else begin
       Item.FFileType := 'Unknown file type';
     end;
-    LogMessage(Format('Error %d returned by ShGetFileInfo("%s")', [err, FileName]));
+    LogMessage(Format('Error %s(%d) returned by ShGetFileInfo("%s")', [IfThen(ErrorStringIds.GetValuePointer(err)=nil, 'UNKNOWN' , ErrorStringIds[err]), err, FullFileName]));
   end
   else
   begin
     //Item.FDenied := False;
-    Item.FDisplayName := IfThen(ShFileInfo.szDisplayName[0] = #0, ExtractFileName(FileName), ShFileInfo.szDisplayName); // Set the item caption
+    Item.FDisplayName := IfThen(ShFileInfo.szDisplayName[0] = #0, ExtractFileName(FullFileName), ShFileInfo.szDisplayName); // Set the item caption
     Item.FIconIndex := ShFileInfo.IIcon;  // Set file icon index from system image list
     Item.FFileType := ShFileInfo.szTypeName;
   end;
@@ -332,8 +457,68 @@ begin
 end;
 {$WRITEABLECONST OFF}
 
-{ TFileShellInfoThread }
+function IsAppRunningAsAdminMode(): Boolean;
+type
+  TArr = array[0..5] of Byte;
+const
+  SECURITY_BUILTIN_DOMAIN_RID = $00000020;
+  DOMAIN_ALIAS_RID_ADMINS = $00000220;
+  //SECURITY_NT_AUTHORITY: array[0..5] of Byte = (0,0,0,0,0,5);
+var
+  fIsRunAsAdmin: LongBool;
+  dwError: DWORD;
+  pAdministratorsGroup: PSID;
+  NtAuthority: SID_IDENTIFIER_AUTHORITY;
 
+label Cleanup;
+begin
+  fIsRunAsAdmin := FALSE;
+  dwError := ERROR_SUCCESS;
+  pAdministratorsGroup := nil;
+
+  // Allocate and initialize a SID of the administrators group.
+  NtAuthority.Value[0] := 0; //SECURITY_NT_AUTHORITY;
+  NtAuthority.Value[1] := 0;
+  NtAuthority.Value[2] := 0;
+  NtAuthority.Value[3] := 0;
+  NtAuthority.Value[4] := 0;
+  NtAuthority.Value[5] := 5;
+
+  if NOT AllocateAndInitializeSid(
+        &NtAuthority,
+        2,
+        SECURITY_BUILTIN_DOMAIN_RID,
+        DOMAIN_ALIAS_RID_ADMINS,
+        0, 0, 0, 0, 0, 0,
+        &pAdministratorsGroup)
+  then begin
+    dwError := GetLastError();
+    goto Cleanup;
+  end;
+
+  // Determine whether the SID of administrators group is enabled in
+  // the primary access token of the process.
+  if NOT CheckTokenMembership(0, pAdministratorsGroup, @fIsRunAsAdmin) then begin
+    dwError := GetLastError();
+    goto Cleanup;
+  end;
+
+Cleanup:
+    // Centralized cleanup for all allocated resources.
+  if Assigned(pAdministratorsGroup) then begin
+    FreeSid(pAdministratorsGroup);
+    pAdministratorsGroup := nil;
+  end;
+
+    // Throw the error if something failed in the function.
+  if ERROR_SUCCESS <> dwError then raise Exception.Create('dwError:' + dwError.ToString);
+
+  Result := fIsRunAsAdmin;
+end;
+
+
+{ TFileShellInfoThread }
+ {
 procedure TFileShellInfoThread.Execute;
 var
   i, j: Cardinal;
@@ -378,10 +563,9 @@ begin
   FileShellInfoThread.FreeOnTerminate := True;
   FileShellInfoThread.Start(WinHandle, CancelFlag, 0, TFSC.Instance.Levels - 1);
 end;
+  }
 
-
-{$IFDEF FFDEBUG}
-const LogFileName = 'FileFind_debug.log';
+const LogFileName = 'FinderX_debug.log';
 var FileH: THandle = 0;
 
 procedure LogMessage(Msg: string);
@@ -390,19 +574,26 @@ var
   bytesWritten: DWORD;
 begin
   if FileH = 0
-    then FileH := CreateFile(PChar(LogFileName), GENERIC_WRITE OR GENERIC_READ, FILE_SHARE_READ, nil, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+    then FileH := CreateFile(PChar(LogFileName), GENERIC_WRITE OR GENERIC_READ, FILE_SHARE_READ OR FILE_SHARE_WRITE, nil, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
 
-  if FileH = INVALID_HANDLE_VALUE then raise Exception.CreateFmt('Cannot open/create file : %s', [LogFileName]);
+  if FileH = INVALID_HANDLE_VALUE then begin
+    raise Exception.CreateFmt('Cannot open/create file (' + GetLastError.ToString + '): %s', [LogFileName]);
+  end;
 
    SetFilePointer(FileH, 0, nil, FILE_END);
-   MsgA := AnsiString(Msg) + sLineBreak; // use AnsiString here to be able to easily view log file in any file viewer.
+   MsgA := AnsiString(DateTimeToStr(Now) + ' ' + Msg) + sLineBreak; // use AnsiString here to be able to easily view log file in any file viewer.
    WriteFile(FileH, PAnsiChar(MsgA)^, DWORD(Length(MsgA)), bytesWritten, nil);
 end;
 
 initialization
    FileH := 0;
+   ErrorStringIDs := THash<Cardinal, string>.Create;
+   ErrorStringIDs[ERROR_FILE_NOT_FOUND] := 'ERROR_FILE_NOT_FOUND'; //3
+   ErrorStringIDs[ERROR_PATH_NOT_FOUND] := 'ERROR_PATH_NOT_FOUND'; //5
+   ErrorStringIDs[ERROR_MORE_DATA]      := 'ERROR_MORE_DATA'; //234
+   ErrorStringIDs[ERROR_NO_TOKEN]       := 'ERROR_NO_TOKEN'; //1008
+   ErrorStringIDs[ERROR_NO_MORE_ITEMS]  := 'ERROR_NO_MORE_ITEMS'; //259
 finalization
    CloseHandle(FileH);
-{$ENDIF}
-
+   FreeAndNil(ErrorStringIDs);
 end.

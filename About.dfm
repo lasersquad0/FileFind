@@ -61,7 +61,7 @@ object AboutBox: TAboutBox
       Top = 16
       Width = 36
       Height = 13
-      Caption = 'FileFind'
+      Caption = 'FinderX'
       IsControl = True
     end
     object Version: TLabel
