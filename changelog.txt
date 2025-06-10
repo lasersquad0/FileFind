@@ -1,4 +1,16 @@
 
+FinderX version 1.2.0
+
+Improvements:
+
+- If search string is in a double quotes (e.g. "myfilename") then file with exact name "myfilename" (without quotes) is searched.
+  That helps to find exact files with name that included into many other file names like "win" or "system".
+- Index DB location path is shown on Settings form now (as read only). Index DB location path is stored into registry together with other application settings.
+- Added tiny line progress bar that shows progress of loading file icons in background.
+ 
+
+---------------------------------------------------
+
 FinderX version 1.1.0
 
 Improvements:
