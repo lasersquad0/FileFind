@@ -80,6 +80,7 @@ type
     //StartFrom: string;
     SearchStr: string;
     SearchStrUpper: string; // optimization for case insensitive search
+    ExactSearch: Boolean;
     CaseSensitive: Boolean;
     SearchByFileSize: Boolean;
     FileSize: UInt64;
@@ -198,6 +199,7 @@ type
    procedure Clear(Volume: string); overload;  // clears specified volume only
    function  VolumesCount: Cardinal;
    function  GetVolume(Volume: string): TVolumeCache;
+   function  VolumePresent(Volume: string): TVolumeCache;
    function  GetVolumes: TArray<string>;
    function  GetOrCreateVolume(Volume: string): TVolumeCache;
    function  GetExecData: TArray<TVolumeExecData>;
@@ -219,7 +221,7 @@ type
 
   function IsDirectory(Item: TCacheItem): Boolean; overload;
   function IsDirectory(var FileData: TWin32FindData): Boolean; overload;
-  function IsSymLink(var FileData: TWin32FindData): Boolean;
+  function IsReparse(var FileData: TWin32FindData): Boolean;
 
 var
   FileTypeNames: TFileTypeNames = ('File', 'Directory', 'Temporary', 'Archive', 'ReadOnly', 'Hidden', 'System', 'Device',
@@ -426,8 +428,9 @@ begin
     if NOT IS_DOT_DIR(fileData.cFileName) then begin
       var itemRef := AddItem(parent.ItemIndex, fileData, Parent.ItemLevel + 1);
 
-      if IsDirectory(fileData)
-        then DirSize := ReadDirectory(CurrDir + '\' + fileData.cFileName, itemRef, False)
+      if IsDirectory(fileData) then begin
+        if NOT IsReparse(fileData) then DirSize := ReadDirectory(CurrDir + '\' + fileData.cFileName, itemRef, False);
+      end
         else DirSize := MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
     end;
 
@@ -445,8 +448,9 @@ begin
 
         var itemRef := AddItem(parent.ItemIndex, fileData, Parent.ItemLevel + 1);
 
-        if IsDirectory(fileData)
-          then DirSize := DirSize + ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, False)
+        if IsDirectory(fileData) then begin
+          if NOT IsReparse(fileData) then DirSize := DirSize + ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, False);
+        end
           else DirSize := DirSize + MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow)
       end
       else
@@ -673,12 +677,17 @@ end;
 function CheckForFileName(var Filter: TSearchFilter; GrepList: TStringList; FileName, FileNameUpper: string): Boolean;
 begin
   if GrepList = nil then begin
-    if Filter.CaseSensitive
-      then Result := Pos(Filter.SearchStr, FileName) > 0
-      else Result := Pos(Filter.SearchStrUpper, FileNameUpper) > 0;
+    if Filter.ExactSearch then // look for full name instead of substr
+      if Filter.CaseSensitive
+        then Result := Filter.SearchStr = FileName
+        else Result := Filter.SearchStrUpper = FileNameUpper
+    else
+      if Filter.CaseSensitive   // look for substr
+        then Result := Pos(Filter.SearchStr, FileName) > 0
+        else Result := Pos(Filter.SearchStrUpper, FileNameUpper) > 0;
   end
   else
-  begin
+  begin   // use mask search
     if Filter.CaseSensitive
       then Result := cmpmask(FileName, GrepList)
       else Result := cmpmask(FileNameUpper, GrepList);
@@ -707,9 +716,9 @@ begin
   IsDirectory := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0;
 end;
 
-function IsSymLink(var FileData: TWin32FindData): Boolean;
+function IsReparse(var FileData: TWin32FindData): Boolean;
 begin
-  IsSymLink := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT) > 0;
+  IsReparse := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT) > 0;
 end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
@@ -739,11 +748,18 @@ var
 begin
   if FCacheData.Count = 0 then Exit(srNoIndexData);
 
+  if (Filter.SearchStr[1] = '"') AND (Filter.SearchStr[Length(Filter.SearchStr)] = '"')  then begin
+    Filter.ExactSearch := True;
+    Filter.SearchStr := Copy(Filter.SearchStr, 2, Length(Filter.SearchStr) - 2);
+  end
+  else
+    Filter.ExactSearch := False;
+
   Filter.SearchStrUpper := AnsiUpperCase(Filter.SearchStr);
   //Found := False;
 
   //startArray := THArrayG<string>.Create;
-  GrepList := nil; // substr search by default
+  GrepList := nil;
   try
 
     //check if filter str has wildcards
@@ -1359,13 +1375,13 @@ begin
   end;
 end;
 
-procedure TCache.DeserializeFrom(const fileName: string);
+procedure TCache.DeserializeFrom(const FileName: string);
 var
   msin: TMemoryStream;
 begin
   msin := TMemoryStream.Create;
   try
-    if FileExists(FileName) then begin
+    if FileExists(fileName) then begin
       msin.LoadFromFile(FileName);
       Deserialize(msin);
     end;
@@ -1384,7 +1400,7 @@ begin
   for i := 1 to FVolumeData.Count do FVolumeData.GetPair(i - 1).Second.Serialize(OStream);
 end;
 
-procedure TCache.SerializeTo(const fileName: string);
+procedure TCache.SerializeTo(const FileName: string);
 var
   mout: TMemoryStream;
 begin
@@ -1404,6 +1420,15 @@ begin
   FreeAndNil(FProgressListeners);
 
   inherited;
+end;
+
+function TCache.VolumePresent(Volume: string): TVolumeCache;
+var
+  p: ^TVolumeCache;
+begin
+   Result := nil;
+   p := FVolumeData.GetValuePointer(Volume);
+   if Assigned(p) then Result := p^;
 end;
 
 function TCache.VolumesCount: Cardinal;
