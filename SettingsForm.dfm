@@ -63,7 +63,7 @@ object SettingsForm1: TSettingsForm1
     Top = 10
     Width = 339
     Height = 297
-    ActiveCard = Card1
+    ActiveCard = Card4
     BevelInner = bvRaised
     BevelOuter = bvLowered
     Caption = 'SettingsPanels'
@@ -317,6 +317,13 @@ object SettingsForm1: TSettingsForm1
       ShowCaption = True
       TabOrder = 3
       VerticalAlignment = taAlignTop
+      object Label2: TLabel
+        Left = 8
+        Top = 216
+        Width = 74
+        Height = 15
+        Caption = 'Index location'
+      end
       object IncludeNewFixedDrivesCheckBox: TCheckBox
         Left = 8
         Top = 28
@@ -358,6 +365,17 @@ object SettingsForm1: TSettingsForm1
         Caption = 'Remove'
         TabOrder = 4
         OnClick = RemoveDriveButtonClick
+      end
+      object IndexLocationEdit: TEdit
+        Left = 8
+        Top = 237
+        Width = 321
+        Height = 23
+        TabStop = False
+        Color = clBtnFace
+        ReadOnly = True
+        TabOrder = 5
+        Text = '\\location'
       end
     end
     object Card5: TCard
