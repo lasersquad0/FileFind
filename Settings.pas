@@ -46,6 +46,7 @@ type
     SearchHistory: TStringList;
     ColumnInfos: TColumnInfos;
     MainWindow: TRect;
+    IndexFileName: string;
 
     constructor Create;
     destructor Destroy; override;
@@ -67,6 +68,9 @@ implementation
 
 uses
   System.SysUtils, WinAPI.Windows, Vcl.Dialogs, Registry, Functions;
+
+const
+  INDEX_FILENAME = 'FinderXIndexDB.idx'; // default file name for FinderX index database
 
 var
   DefColumnInfos: TColumnInfos = ((ColType:fiName;       Visible:True; Width:300),
@@ -103,14 +107,15 @@ begin
   IncludeNewRemovableVolumes := False;
   RemoveOfflineVolumes := True;
   ExcludeFolders := False;
+  //ExcludeFoldersList; - initialised by default as empty list
   SizeFormat := sfAuto;
   SearchAfterSymbols := 3;
   MaxFoundItems := 20000;
   Insert('C:\', VolumesToIndex, 0); // add one volume by default
-  //ExcludeFoldersList; - initialised by default as empty list
   SearchHistory := TStringList.Create(dupIgnore, True, False); // important to have these values in Create for proper work of history fill/update;
   ColumnInfos := DefColumnInfos;
-  MainWindow := TRect.Create(300, 300, 300+ 1300, 300 + 500);
+  MainWindow := TRect.Create(300, 300, 300 + 1300, 300 + 500);
+  IndexFileName := ExpandFileName(INDEX_FILENAME);
 end;
 
 destructor TSettings.Destroy;
@@ -139,25 +144,27 @@ begin
        if reg.ValueExists('HideFoldersSize')           then HideFoldersSize        := reg.ReadBool('HideFoldersSize');
        if reg.ValueExists('EnableSearchHistory')       then EnableSearchHistory    := reg.ReadBool('EnableSearchHistory');
        if reg.ValueExists('FoldersOnTop')              then FoldersOnTop           := reg.ReadBool('FoldersOnTop');
-       if reg.ValueExists('MaxFoundItems')             then MaxFoundItems          := Cardinal(reg.ReadInteger('MaxFoundItems'));
-       if reg.ValueExists('VolumesToIndex')            then VolumesToIndex         := reg.ReadMultiString('VolumesToIndex');
        if reg.ValueExists('SearchAsYouType')           then SearchAsYouType        := reg.ReadBool('SearchAsYouType');
        if reg.ValueExists('ShowTrayIcon')              then ShowTrayIcon           := reg.ReadBool('ShowTrayIcon');
        if reg.ValueExists('MinimizeToTray')            then MinimizeToTray         := reg.ReadBool('MinimizeToTray');
-       if reg.ValueExists('SearchAfterSymbols')        then SearchAfterSymbols     := reg.ReadInteger('SearchAfterSymbols');
        if reg.ValueExists('RunAsAdmin')                then RunAsAdmin             := reg.ReadBool('RunAsAdmin');
        if reg.ValueExists('HighlightSearchTerms')      then HighlightSearchTerms   := reg.ReadBool('HighlightSearchTerms');
        if reg.ValueExists('ShowRowMouseover')          then ShowRowMouseover       := reg.ReadBool('ShowRowMouseover');
        if reg.ValueExists('StartAppWithSystem')        then StartAppWithSystem     := reg.ReadBool('StartAppWithSystem');
        if reg.ValueExists('IncludeNewFixedVolumes')    then IncludeNewFixedVolumes := reg.ReadBool('IncludeNewFixedVolumes');
        if reg.ValueExists('IncludeNewRemovableVolumes')then IncludeNewRemovableVolumes := reg.ReadBool('IncludeNewRemovableVolumes');
-       if reg.ValueExists('RemoveOfflineVolumes')      then RemoveOfflineVolumes    := reg.ReadBool('RemoveOfflineVolumes');
-       if reg.ValueExists('ExcludeFolders')            then ExcludeFolders          := reg.ReadBool('ExcludeFolders');
-       if reg.ValueExists('ExcludeFoldersList')        then ExcludeFoldersList      := reg.ReadMultiString('ExcludeFoldersList');
-       if reg.ValueExists('SizeFormat')                then SizeFormat              := TSizeFormat(reg.ReadInteger('SizeFormat'));
+       if reg.ValueExists('RemoveOfflineVolumes')      then RemoveOfflineVolumes   := reg.ReadBool('RemoveOfflineVolumes');
+       if reg.ValueExists('ExcludeFolders')            then ExcludeFolders         := reg.ReadBool('ExcludeFolders');
+       if reg.ValueExists('ExcludeFoldersList')        then ExcludeFoldersList     := reg.ReadMultiString('ExcludeFoldersList');
+       if reg.ValueExists('SizeFormat')                then SizeFormat             := TSizeFormat(reg.ReadInteger('SizeFormat'));
+       if reg.ValueExists('SearchAfterSymbols')        then SearchAfterSymbols     := reg.ReadInteger('SearchAfterSymbols');
+       if reg.ValueExists('MaxFoundItems')             then MaxFoundItems          := Cardinal(reg.ReadInteger('MaxFoundItems'));
+       if reg.ValueExists('VolumesToIndex')            then VolumesToIndex         := reg.ReadMultiString('VolumesToIndex');
+       if reg.ValueExists('IndexFileName')             then IndexFileName          := reg.ReadString('IndexFileName');
      end;
      reg.CloseKey;
 
+     // loading Search History items
      if reg.OpenKeyReadOnly(HISTORYKEY) then begin
        reg.GetValueNames(list);
        SearchHistory.Clear;
@@ -165,6 +172,7 @@ begin
      end;
      reg.CloseKey;
 
+     // loading Main Window position
      if reg.OpenKeyReadOnly(MAINWINDOWKEY) then begin
        for i := 0 to High(ColumnInfos) do begin
          str := 'Col' + i.ToString;
@@ -234,12 +242,9 @@ begin
        reg.WriteBool('HideFoldersSize', HideFoldersSize);
        reg.WriteBool('EnableSearchHistory', EnableSearchHistory);
        reg.WriteBool('FoldersOnTop', FoldersOnTop);
-       reg.WriteInteger('MaxFoundItems', Integer(MaxFoundItems));
-       reg.WriteMultiString('VolumesToIndex', VolumesToIndex);
        reg.WriteBool('SearchAsYouType', SearchAsYouType);
        reg.WriteBool('ShowTrayIcon', ShowTrayIcon);
        reg.WriteBool('MinimizeToTray', MinimizeToTray);
-       reg.WriteInteger('SearchAfterSymbols', SearchAfterSymbols);
        reg.WriteBool('RunAsAdmin', RunAsAdmin);
        reg.WriteBool('HighlightSearchTerms', HighlightSearchTerms);
        reg.WriteBool('ShowRowMouseover', ShowRowMouseover);
@@ -250,16 +255,22 @@ begin
        reg.WriteBool('ExcludeFolders', ExcludeFolders);
        reg.WriteMultiString('ExcludeFoldersList', ExcludeFoldersList);
        reg.WriteInteger('SizeFormat', Integer(SizeFormat));
+       reg.WriteInteger('SearchAfterSymbols', SearchAfterSymbols);
+       reg.WriteInteger('MaxFoundItems', Integer(MaxFoundItems));
+       reg.WriteMultiString('VolumesToIndex', VolumesToIndex);
+       reg.WriteString('IndexFileName', IndexFileName);
 
      end;
      reg.CloseKey;
 
+     // store Search history
      reg.DeleteKey(HISTORYKEY); // remove old search history
      if reg.OpenKey(HISTORYKEY, True) then begin
        for i := 1 to SearchHistory.Count do reg.WriteString(i.ToString, SearchHistory[i - 1]);
      end;
      reg.CloseKey;
 
+     // store Main Window position
      reg.DeleteKey(MAINWINDOWKEY); // remove old search history
      if reg.OpenKey(MAINWINDOWKEY, True) then begin
        for i := 0 to High(ColumnInfos) do begin
