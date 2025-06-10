@@ -5,10 +5,14 @@ uses Classes, SysUtils, Windows, ShellAPI;
 
 //function GetTimeModified(a:tfiletime):string;
 
-// File Search utility
-procedure SetFilters(a: string; GrepList: TStringList{; FindFile:boolean; MatchCase: Boolean});
-function cmpmask(a: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean}): Boolean;
-function cmpfile(FileName: string; GrepList: TStringList{; MatchCase: Boolean}): Boolean;
+// fills the GrepList with the parts of 'a' (divided by ',' or ';')
+procedure SetFilters(MaskStr: string; GrepList: TStringList{; FindFile:boolean; MatchCase: Boolean});
+
+// main mask search function.
+// tests whether the string 'a' fits to the search masks in GrepList
+function CmpMask(SearchStr: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean}): Boolean;
+
+function CmpFile(FileName: string; GrepList: TStringList{; MatchCase: Boolean}): Boolean;
 
 implementation
 
@@ -49,35 +53,40 @@ end;
 //
 // Original File Search Routine by Marcus Stephany
 //
-procedure SetFilters(a: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean});
-// fills the grep_list with the parts of 'a' (divided by ',' or ';')
+procedure SetFilters(MaskStr: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean});
+// fills the GrepList with the parts of MaskStr (divided by ',' or ';')
 // findfile describes whether to use for find files or text in files
 // + aml modified : Match Case
 var
   ct: Integer;
+  grepItem: string;
 begin
+     if not Assigned(GrepList) then exit;
+
      GrepList.Clear;
      GrepList.Sorted := False;
-     if a = '' then begin
+     if MaskStr = '' then begin
         GrepList.add('*');
         exit;
      end;
 
      // replace all ',' by ';'
-     ct := Pos(',', a);
+     ct := Pos(',', MaskStr);
      while ct > 0 do begin
-       a[ct] := ';';
-       ct := Pos(',', a);
+       MaskStr[ct] := ';';
+       ct := Pos(',', MaskStr);
      end;
 
-     if a[length(a)] <> ';' then a := a + ';';
+     if MaskStr[length(MaskStr)] <> ';' then MaskStr := MaskStr + ';';
 
      // divide the string
-     ct := Pos(';', a);
+     ct := Pos(';', MaskStr);
      while ct > 0 do begin
-       GrepList.Add(Trim(Copy(a, 1, ct - 1) {CaseAware(Trim(Copy(a, 1, ct - 1)), MatchCase}));
-       a := Copy(a, ct + 1, MaxInt);
-       ct := Pos(';', a);
+       grepItem := Trim(Copy(MaskStr, 1, ct - 1));
+       if grepItem <> '' then GrepList.Add(grepItem); // do not add empty strings
+       //GrepList.Add(Trim(Copy(MaskStr, 1, ct - 1) {CaseAware(Trim(Copy(a, 1, ct - 1)), MatchCase}));
+       MaskStr := Copy(MaskStr, ct + 1, MaxInt);
+       ct := Pos(';', MaskStr);
      end;
 
      // replace a 'xxx' term (without a '.') with '*xxx*' (for compatibility
@@ -97,8 +106,8 @@ begin
      GrepList.Duplicates := dupIgnore;
 end;
 
-function cmpmask1(a, b: string{; FindFile: Boolean}): Boolean;
 // tests whether the string 'a' fits to the search mask in 'b'
+function cmpmask1(a, b: string{; FindFile: Boolean}): Boolean;
 var sr             : string;
     ps1,ps2,ps3    : Integer;
     dontcare       : Boolean;
@@ -145,7 +154,7 @@ begin
            sr := tmp_list[ps1];
            if sr = '?' then begin
               Inc(ps2, 1);
-              if ps2 > Length(a) then Exit;
+              if ps2 > Length(a) then break;//Exit;
            end else
            if sr = '*' then
               dontcare := True
@@ -169,23 +178,24 @@ begin
      end;
 end;
 
-function cmpmask(a: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean}): Boolean;
-// tests whether the string 'a' fits to the search masks in grep_list
+// tests whether the string SearchStr fits to the search masks in GrepList
+// If mask is empty (Greplist is empty), we consider that any search string fits such mask
+// Empty search string may NOT fit the mask e.g. when mask = '?'
+function CmpMask(SearchStr: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean}): Boolean;
 var ct : Integer;
 begin
      Result := True;
-     if a = '' then exit; // if no search string, the always return TRUE
+     //if SearchStr = '' then exit; // if no search string, the always return TRUE
      //a := CaseAware(a, MatchCase);
-     Result := False;
      if (GrepList = nil) or (GrepList.Count < 1) then Exit;
      Result := True;
      for ct := 0 to Pred(GrepList.Count) do
-         if cmpmask1(a, GrepList[ct]{, FindFile}) then Exit; // compare with the whole grep_list until one fits
+         if cmpmask1(SearchStr, GrepList[ct]{, FindFile}) then Exit; // compare with the whole GrepList until one fits
      Result := False;
 end;
 
-function cmpfile(FileName: string; GrepList: TStringList{; MatchCase: Boolean}): Boolean;
 // tests whether a file's contents fit to the specified mask;
+function cmpfile(FileName: string; GrepList: TStringList{; MatchCase: Boolean}): Boolean;
 var
    fl: string;
    ts: TFileStream;
