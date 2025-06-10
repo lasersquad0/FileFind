@@ -92,6 +92,7 @@ type
     MenuItem9: TMenuItem;
     MenuItem10: TMenuItem;
     ApplicationEvents1: TApplicationEvents;
+    ProgressBarFileInfo: TProgressBar;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -150,7 +151,9 @@ type
     function CompareData(arr : THArrayG<TSearchResultsItem>; i, j: Cardinal): Integer;
     function CompareData2(item1, item2: TSearchResultsItem): Integer;
    // function GetValue(item: TSearchResultsItem; ColID: Integer): string;
-    procedure UpdateStatusBar(ExecData: TArray<TVolumeExecData>);
+    procedure UpdateStatusBarX(FoundItems, Percent: Cardinal);
+    procedure UpdateStatusBarXX(FoundItems, SearchTime: Cardinal);
+    procedure UpdateStatusBarXXX(ExecData: TArray<TVolumeExecData>);
     function OnFileFound(FullPath: string; Item: TCacheItem): Boolean;
     function GetFileSizeOp(): TFileSizeCompare;
     function GetFileSizeFactor(): Cardinal;
@@ -284,25 +287,35 @@ var
   cnt, index: Cardinal;
 begin
   index := Cardinal(Msg.LParam);
-  TmpItem := TCacheItem(Msg.WParam);
+  TmpItem := TCacheItem(Msg.WParam); // can be nil only for the last message
 
-  if index < FSearchResults.Count then begin
-    // LogMessage('[OnSearchResultsShellInfo] GetItem('+ IntToStr(TmpItem.FLevel) + ', '+ IntToStr(Msg.LParam) + ')');
-    resItem := FSearchResults[index];
+  if Assigned(TmpItem) then begin
+    if index < FSearchResults.Count then begin
+      // LogMessage('[OnSearchResultsShellInfo] GetItem('+ IntToStr(TmpItem.FLevel) + ', '+ IntToStr(Msg.LParam) + ')');
+      resItem := FSearchResults[index];
 
-    resItem.Item.FDisplayName := TmpItem.FDisplayName;
-    resItem.Item.FFileType := TmpItem.FFileType;
-    resItem.Item.FIconIndex := TmpITem.FIconIndex;
-    resItem.Item.FDenied := TmpITem.FDenied;
+      resItem.Item.FDisplayName := TmpItem.FDisplayName;
+      resItem.Item.FFileType := TmpItem.FFileType;
+      resItem.Item.FIconIndex := TmpITem.FIconIndex;
+      resItem.Item.FDenied := TmpITem.FDenied;
+    end;
 
+    TmpItem.Free;
+
+    cnt := FSearchResults.Count;
+    cnt := IfThen(cnt = 0, 1, cnt); // to avoid division by zero
+    Inc(FFileInfoMessagesCount);
+    ProgressBarFileInfo.Position := index*100 div cnt;
+    //TODO: do something with this status bar text section
+    UpdateStatusBarX(cnt, FFileInfoMessagesCount*100 div cnt);
+    //StatusBar1.Panels[3].Text := Format('Items loaded: %s (%d%%)', [ThousandSep(cnt), FFileInfoMessagesCount*100 div cnt]);
+  end
+  else
+  begin
+    ProgressBarFileInfo.Position := ProgressBarFileInfo.Max;
+    Application.ProcessMessages; // chance to show 100% progress
+    ProgressBarFileInfo.Visible := False;
   end;
-
-  TmpItem.Free;
-
-  cnt := FSearchResults.Count;
-  cnt := IfThen(cnt = 0, 1, cnt);
-  Inc(FFileInfoMessagesCount);
-  StatusBar1.Panels[3].Text := Format('Items loaded: %s (%d%%)', [ThousandSep(cnt), FFileInfoMessagesCount*100 div cnt]);
 end;
 
 procedure TMainForm.OnRestoreFormRemote(var Msg: TMessage);
@@ -358,14 +371,14 @@ begin
 end;
 
 procedure TMainForm.Timer2Timer(Sender: TObject); //TODO: remove it since we will be refreshing index automatically
-//var
-//  iFileDate: TDateTime;
-//  Days: Integer;
+var
+  iFileDate: TDateTime;
+  Days: Integer;
 begin
   // after 14 days we ask to refresh index (if not done)
-  //iFileDate := TFSC.Instance.IndexFileDate;
-  //days := DaysBetween(Now(), iFileDate);
-  AlertPanel1.Visible := DaysBetween(Now(), TFSC.Instance.IndexFileSaveDate) >= 14;
+  iFileDate := TFSC.Instance.IndexFileSaveDate;
+  days := DaysBetween(Now(), iFileDate);
+  AlertPanel1.Visible := days >= 14;
 end;
 
 procedure TMainForm.RestoreMainForm();
@@ -425,13 +438,16 @@ begin
     if (SearchResult = srOK) OR (SearchResult = srCancelled) then begin
       if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.Free; // free previous instance of bg thread
       FFileInfoMessagesCount := 0;
+      ProgressBarFileInfo.Position := 0;
+      ProgressBarFileInfo.Visible := True;
       //TInterlocked.Exchange(FCancelSearchResultsFileInfo, False); // reset stop flag
       FSearchResultsFileInfoThread := TSearchResultsShellInfoThread.CreateAndRun(); // start getting File infos after search
     end;
 
     var stop := GetTickCount;
-    StatusBar1.Panels[0].Text := Format('  Found items: %u', [ListView1.Items.Count]);
-    StatusBar1.Panels[1].Text := Format('Search time: %s', [MillisecToStr(stop - start)]);
+    UpdateStatusBarXX(ListView1.Items.Count, stop - start);
+    //StatusBar1.Panels[0].Text := Format('  Found items: %u', [ListView1.Items.Count]);
+    //StatusBar1.Panels[1].Text := Format('Search time: %s', [MillisecToStr(stop - start)]);
 
     //if SearchResult = srWrongPath then MessageDlg('Search folder ''' + Filter.StartFrom + ''' is not in search index. Please rebuild index that includes required search folder.', TMsgDlgType.mtWarning, [mbOK], 0);
 
@@ -540,7 +556,7 @@ begin
 
   if Stage = cdPostPaint then begin
 
-   srchStr := SearchEdit.Text;
+   srchStr := Trim(SearchEdit.Text);
    SplitByString(Item.Caption, srchStr, SplitArray);
    if SplitArray.Count = 0 then Exit;  // SplitArray.Count can be =0 when we doing search with wildcards.
 
@@ -753,8 +769,8 @@ begin
     TFSC.Swap; // if there is no search results we can successfully do Swap here
 
     IndexingBitBtn.Hint := BuildIndexingBtnHint;
-    TFSC.Instance.SerializeTo(INDEX_FILENAME); // save loaded data into .idx file
-    UpdateStatusBar(FIndexingThread.ExecData);
+    TFSC.Instance.SerializeTo(AppSettings.IndexFileName); // save loaded data into .idx file
+    UpdateStatusBarXXX(FIndexingThread.ExecData);
 
     // repeat search on refreshed data
     if ListView1.Items.Count > 0 then MakeSearch;
@@ -836,24 +852,40 @@ begin
     IndexingBitBtn.Hint := BuildIndexingBtnHint;
     SearchEdit.ACEnabled := AppSettings.EnableSearchHistory;
     TrayIcon1.Visible := AppSettings.ShowTrayIcon;
-    UpdateStatusBar(TFSC.Instance.GetExecData);
+    UpdateStatusBarXXX(TFSC.Instance.GetExecData);
   end;
 end;
 
-procedure TMainForm.UpdateStatusBar(ExecData: TArray<TVolumeExecData>);
+// updates panels 2,3,4 only
+procedure TMainForm.UpdateStatusBarXXX(ExecData: TArray<TVolumeExecData>);
 var
   i: Cardinal;
   VolSize, LoadTime, ItemsCnt: string;
 begin
   for i := 1 to Length(ExecData) do begin
      LoadTime := LoadTime + Format('%s %s ', [ExcludeTrailingPathDelimiter(ExecData[i - 1].VolumeName), MillisecToStr(ExecData[i - 1].ExecTime)]);
-     ItemsCnt := ItemsCnt + Format('%s %s ', [ExcludeTrailingPathDelimiter(ExecData[i - 1].VolumeName), ThousandSep(ExecData[i - 1].ItemsCount)]);
-     VolSize  := VolSize  + Format('%s %s ', [ExcludeTrailingPathDelimiter(ExecData[i - 1].VolumeName), MakeSizeStr(ExecData[i - 1].VolSize)]);
+     ItemsCnt := ItemsCnt + Format('%s %s  ', [ExcludeTrailingPathDelimiter(ExecData[i - 1].VolumeName), ThousandSep(ExecData[i - 1].ItemsCount)]);
+     VolSize  := VolSize  + Format('%s %s  ', [ExcludeTrailingPathDelimiter(ExecData[i - 1].VolumeName), MakeSizeStr(ExecData[i - 1].VolSize)]);
   end;
 
-  StatusBar1.Panels[2].Text := 'Load time: ' + LoadTime;
+  StatusBar1.Panels[2].Text := 'Load: ' + LoadTime;
   StatusBar1.Panels[3].Text := 'Items: ' + ItemsCnt;
-  StatusBar1.Panels[4].Text := 'Folder size: ' + VolSize;
+  StatusBar1.Panels[4].Text := 'Size: ' + VolSize;
+end;
+
+// updates panels 0, 1 only.
+// SearchTime should be in milliseconds
+procedure TMainForm.UpdateStatusBarXX(FoundItems, SearchTime: Cardinal);
+begin
+  StatusBar1.Panels[0].Text := Format('  Found: %s', [ThousandSep(FoundItems)]);
+  StatusBar1.Panels[1].Text := Format('Search time: %s', [MillisecToStr(SearchTime)]);
+end;
+
+// updates panels 0 only with extra info.
+// SearchTime should be in milliseconds
+procedure TMainForm.UpdateStatusBarX(FoundItems, Percent: Cardinal);
+begin
+  StatusBar1.Panels[0].Text := Format('  Found: %s (%u%%)', [ThousandSep(FoundItems), Percent]);
 end;
 
 procedure TMainForm.SearchBtnClick(Sender: TObject);
@@ -947,7 +979,7 @@ begin
   MsgDlgIcons[mtConfirmation] := TMsgDlgIcon.mdiShield;
 
 //  var start := GetTickCount;
-  TFSC.Instance.DeserializeFrom(INDEX_FILENAME);
+  TFSC.Instance.DeserializeFrom(AppSettings.IndexFileName);
 
   Timer2Timer(nil); // show yellow warning immediately after app start if IndexDB is old or absent.
 
@@ -957,6 +989,7 @@ begin
   FSearchResults := THArrayG<TSearchResultsItem>.Create(AppSettings.MaxFoundItems + 1);  // default capacity (+1 just in case)
   FSearchResultsCache := TObjectsCache<TSearchResultsItem>.Create(AppSettings.MaxFoundItems + 1, False);
   FSearchResultsFileInfoThread := nil;
+  ProgressBarFileInfo.Visible := False;
 
   SearchByFileSizeClick(SearchByFileSize); // disable search controls by default
   SearchByModifiedDateClick(SearchByModifiedDate);
@@ -997,7 +1030,7 @@ begin
     // UpdateStatusBar(TFSC.Instance.GetExecData);
   // end;
 
-  UpdateStatusBar(TFSC.Instance.GetExecData);
+  UpdateStatusBarXXX(TFSC.Instance.GetExecData);
 
   //ListView_SetTextBkColor(ListView1.Handle, CLR_NONE); // I donot know how it works but it needed to properly repaint listview rows when active row is changes
 end;
@@ -1068,7 +1101,7 @@ begin
 {$IFNDEF PROFILING}
   // auto save index data only if data was modified (e.g. re-loaded from file system)
   if TFSC.Instance.Modified then
-    TFSC.Instance.SerializeTo(INDEX_FILENAME); //TODO: loaded data is saved into index file right after loading. perhaps we do not need these 3 lines any more.
+    TFSC.Instance.SerializeTo(AppSettings.IndexFileName); //TODO: loaded data is saved into index file right after loading. perhaps we do not need these 3 lines any more.
   ClearSearchResults;
 {$ENDIF}
 
@@ -1171,6 +1204,7 @@ end;
 
  { TSearchResultsShellInfoThread }
 
+ // load file icons in background
 procedure TSearchResultsShellInfoThread.Execute;
 var
   i: Cardinal;
@@ -1191,7 +1225,7 @@ begin
     end;
 
     for i := 1 to MainForm.FSearchResults.Count do begin
-      if ((i mod 100) = 0) then begin
+      if ((i mod 100) = 0) then begin // repaint list of items after every 100 loaded icons
         MainForm.ListView1.Invalidate;
         if Terminated then begin
           LogMessage(LogPrefix + ' Terminated = True detected');
@@ -1204,12 +1238,14 @@ begin
       if resItem.Item.FFileType = '' then begin
         TmpI := TCacheItem.Create;
         TmpI.Assign(resItem.Item);
-        GetFileShellInfo(resItem.Path, TmpI);
+        GetFileShellInfo(resItem.Path, TmpI); // we do not need to check function return value here
         PostMessage(MainForm.Handle, WM_SearchResultsShellInfo_MSG, WPARAM(TmpI), LPARAM(i - 1));
       end;
 
     end;
   finally
+    // sending "notification" message that work has finished
+    PostMessage(MainForm.Handle, WM_SearchResultsShellInfo_MSG, WPARAM(nil), LPARAM(MainForm.FSearchResults.Count));
     MainForm.ListView1.Invalidate;
     CoUninitialize;
     LogMessage(LogPrefix + ' FINISHED. Time spent: ' + MillisecToStr(GetTickCount - start));

@@ -460,7 +460,7 @@ object MainForm: TMainForm
     Left = 0
     Top = 68
     Width = 1296
-    Height = 405
+    Height = 402
     Align = alClient
     Columns = <
       item
@@ -516,6 +516,7 @@ object MainForm: TMainForm
     OnContextPopup = ListView1ContextPopup
     OnData = ListView1Data
     OnDblClick = ListView1DblClick
+    ExplicitHeight = 365
   end
   object ProgressBar1: TProgressBar
     Left = 890
@@ -596,6 +597,16 @@ object MainForm: TMainForm
         8001684F2034ACB64D7E16D6FF06E32540AD72C1D59A0000000049454E44AE42
         6082}
     end
+  end
+  object ProgressBarFileInfo: TProgressBar
+    Left = 0
+    Top = 470
+    Width = 1296
+    Height = 3
+    Align = alBottom
+    Position = 50
+    TabOrder = 5
+    ExplicitTop = 469
   end
   object Timer1: TTimer
     Enabled = False
