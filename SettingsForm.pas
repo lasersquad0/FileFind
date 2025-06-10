@@ -54,6 +54,8 @@ type
     LogFileCheckBox: TCheckBox;
     LogFileEdit: TEdit;
     LogFileLabel: TLabel;
+    Label2: TLabel;
+    IndexLocationEdit: TEdit;
     procedure OKButtonClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -97,9 +99,6 @@ type
 
 var
   SettingsForm1: TSettingsForm1;
-
-const
-  INDEX_FILENAME = 'FinderXIndexDB.idx';
 
 implementation
 
@@ -292,6 +291,7 @@ begin
   RemoveOfflineDrivesCheckBox.Checked   := AppSettings.RemoveOfflineVolumes;
   ExcludeFoldersCheckBox.Checked        := AppSettings.ExcludeFolders;
   SizeFormatComboBox.ItemIndex          := Integer(AppSettings.SizeFormat);
+  IndexLocationEdit.Text                := AppSettings.IndexFileName; // read only for now
 
   ExcludeFoldersListBox.Clear;
   ArrayToStringList(AppSettings.ExcludeFoldersList, ExcludeFoldersListBox.Items);
@@ -330,7 +330,8 @@ begin
     VolName2 := PChar(VolName);
     if VolName2 = '' then VolName2 := '<noname>';
 
-    str := VolName2 + IfThen(Length(VolName2) > 9, ' ', #9) + CurrVol {+ #9} + GetDriveTypeString(CurrVol) +#9+ DateToStr(TFSC.Instance.GetVolume(CurrVol).IndexedDateTime);
+    str := VolName2 + IfThen(Length(VolName2) > 9, ' ', #9) + CurrVol {+ #9} + GetDriveTypeString(CurrVol) + #9;
+    if TFSC.Instance.VolumePresent(CurrVol) <> nil then str := str + DateToStr(TFSC.Instance.GetVolume(CurrVol).IndexedDateTime);
     VolumesListBox.Items.Add(str);
     VolName := '';
   end;
