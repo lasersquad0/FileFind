@@ -13,7 +13,7 @@ type
 
  type
   TTernary = class
-    class function IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T; 
+    class function IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T;
   end;
 
    // thread for background filling IconIndex, FileType string, and DisplayName fields in TCacheItem(s)
@@ -423,6 +423,7 @@ const
   CallsCount: Cardinal = 0;
 var
   ShFileInfo: TShFileInfo;
+  errStr: string;
 begin
   Inc(CallsCount);
 
@@ -443,12 +444,20 @@ begin
     end else begin
       Item.FFileType := 'Unknown file type';
     end;
-    LogMessage(Format('Error %s(%d) returned by ShGetFileInfo("%s")', [IfThen(ErrorStringIds.GetValuePointer(err)=nil, 'UNKNOWN' , ErrorStringIds[err]), err, FullFileName]));
+
+    if ErrorStringIds.GetValuePointer(err) = nil
+      then errStr := 'UNKNOWN'
+      else errStr := ErrorStringIds[err];
+
+    LogMessage(Format('Error %s (errocode: %d) returned by ShGetFileInfo("%s")', [errStr, err, FullFileName]));
   end
   else
   begin
     //Item.FDenied := False;
-    Item.FDisplayName := IfThen(ShFileInfo.szDisplayName[0] = #0, ExtractFileName(FullFileName), ShFileInfo.szDisplayName); // Set the item caption
+    if ShFileInfo.szDisplayName[0] = #0
+      then Item.FDisplayName := ExtractFileName(FullFileName)
+      else Item.FDisplayName := ShFileInfo.szDisplayName;
+    //Item.FDisplayName := IfThen(ShFileInfo.szDisplayName[0] = #0, ExtractFileName(FullFileName), ShFileInfo.szDisplayName); // Set the item caption
     Item.FIconIndex := ShFileInfo.IIcon;  // Set file icon index from system image list
     Item.FFileType := ShFileInfo.szTypeName;
   end;
