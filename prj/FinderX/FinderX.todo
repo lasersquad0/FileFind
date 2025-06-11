@@ -1,0 +1,5 @@
+{DONE : highlight search term with bold in the search results list}
+{DONE : Can we have index file containing info about both c:\ and d:\ filesystems?}
+{TODO : think of reading filesystem in bg mode during app startup}
+{DONE : check Save and Load indexed data to speed up things}
+{DONE : sort by Size does not work well dor directories}

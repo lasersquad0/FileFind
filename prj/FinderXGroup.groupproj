@@ -1,0 +1,36 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{169826AB-644D-4498-A561-C93B248191A8}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="FinderX\FinderX.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="FinderX">
+        <MSBuild Projects="FinderX\FinderX.dproj"/>
+    </Target>
+    <Target Name="FinderX:Clean">
+        <MSBuild Projects="FinderX\FinderX.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="FinderX:Make">
+        <MSBuild Projects="FinderX\FinderX.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="FinderX"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="FinderX:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="FinderX:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
