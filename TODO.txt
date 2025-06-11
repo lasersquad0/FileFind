@@ -12,8 +12,11 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
-- if search term is in quotes then search it as a separate word in filename. (Roma's idea)
-- Turn on or off writing log file
+- create proper workaround if index file name read from registry is incorrect or app cannot create file there.
+- MaskSearch optimization: parse mask one time and use it many times for applying to search strings
+- get rid of TWin32FindData in TCacheItem class
+- [DONE] if search term is in quotes then search it as a separate word in filename. (Roma's idea)
+- [DONE] Turn on or off writing log file
 - Eliminate dependency from DynamicArrayS.pas
 - Refresh Index in bachground.
 - [DONE] Implement option start FinderX on system startup
@@ -21,9 +24,9 @@ TO DO
 - Add detailed hints to all settings on settings form
 - [DONE] Option to run app ad admin to index more files
 - [DONE] Select search text on mouse click (in search edit box)
-- may be usefull option to find files that have hardlinks and also .symlink files.
-- add column: file/folder Owner, num of child folders, num of files inside dir, % of parent allocated, length of path in chars
-- statistics: "interesting facts about your filesystem":
+- May be usefull option to find files that have hardlinks and also .symlink files.
+- Add column: file/folder Owner, num of child folders, num of files inside dir, % of parent allocated, length of path in chars
+- Statistics: "interesting facts about your filesystem":
     number of empty directories
     2 folders that have biggest number of items
     2 longest path(s)
@@ -50,15 +53,15 @@ TO DO
    etc.
 
 - [FIXED] BUG: show yellow warning immediately after start if IndexDb not found
-- THINK OF: possibility to open several search windows (related to minimize to system tray feature)
+- Think of possibility to open several search windows (related to minimize to system tray feature)
 - [DONE] minimize to system tray
 - [DONE] search as you type option in settings (ON by default)
-- looks like wildcards search with '?' wildcard does not work well
+- [FIXED] looks like wildcards search with '?' wildcard does not work well. Do not forget that ? means single symbol.
 - [DONE] possibility to make search while FS is being indexed in background
 - Option to specify IndexDB location
 - [DONE] Search history in edit box
 - GUI: show row mouse over
-- Match whole word option. When search term should have word separators in both sides 
+- [DONE] Match whole word option. When search term should have word separators in both sides. include search term in quotes.  
 - Add possibility to search for composite folders e.g. 'source\repos'
 - [DONE] Highlight search term in search results list
 - [DONE] "Denied" folders mark with special icon in the list
