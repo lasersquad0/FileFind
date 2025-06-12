@@ -410,11 +410,12 @@ end;
 function GetLogicalDrives: TArray<string>;
 var
   Names: string;
-  Len: Cardinal;
+  Len, Res: Cardinal;
 begin
   Len := MAX_PATH * 3; // allocate enough storage for list of drives
   SetLength(Names, Len);
-  GetLogicalDriveStrings(Len, PChar(Names)); //TODO: add error handing here?
+  Res := GetLogicalDriveStrings(Len, PChar(Names));
+  if Res = 0 then Logger.Log('GetLogicalDriveStrings returned error: ' + GetLastError.ToString);
 
   Result := ZStrArrayToDelphiArray(PChar(Names));
 end;
