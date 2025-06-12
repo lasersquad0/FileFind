@@ -63,7 +63,7 @@ object SettingsForm1: TSettingsForm1
     Top = 10
     Width = 339
     Height = 297
-    ActiveCard = Card1
+    ActiveCard = Card5
     BevelInner = bvRaised
     BevelOuter = bvLowered
     Caption = 'SettingsPanels'

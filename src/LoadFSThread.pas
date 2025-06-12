@@ -60,6 +60,7 @@ uses SysUtils, System.UITypes, Vcl.Dialogs, Windows, Functions;
 
 { TLoadFSThread }
 
+// ExclusionsList array is empty here when "exclude folders" option is off in settings
 constructor TLoadFSThread.Create(Volumes: TArray<string>; ExclusionsList: TArray<string>);
 var
   i: Cardinal;

@@ -60,6 +60,7 @@ type
     APPKEY = 'SOFTWARE\NotepadCo\FinderX';
     HISTORYKEY = APPKEY + '\SearchHistory';
     MAINWINDOWKEY = APPKEY + '\MainWindow';
+    INDEX_FILENAME = 'FinderXIndexDB.idx'; // default file name for FinderX index database
   end;
 
 var
@@ -71,8 +72,7 @@ implementation
 uses
   System.SysUtils, WinAPI.Windows, Vcl.Dialogs, Registry, Functions;
 
-const
-  INDEX_FILENAME = 'FinderXIndexDB.idx'; // default file name for FinderX index database
+
 
 var
   DefColumnInfos: TColumnInfos = ((ColType:fiName;       Visible:True; Width:300),

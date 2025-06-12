@@ -228,6 +228,7 @@ begin
   AddFolderButton.Enabled := Enbld;
   EditFolderButton.Enabled := Enbld;
   RemoveFolderButton.Enabled := Enbld;
+  ResetToDefaultButton.Enabled := Enbld;
 end;
 
 procedure TSettingsForm1.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
