@@ -246,15 +246,15 @@ begin
      ResultsItem.SizeStr := MakeSizeStr(ResultsItem.Size); //ThousandSep(ResultsItem.Size);
    end;
 
-   Item.FDisplayName := Item.FFileData.cFileName;
+   Item.FDisplayName := Item.FFileName;
    //Item.FIconIndex := 1; // default icon until proper icon is loaded via GetFileShellInfo
 
    ResultsItem.Item := Item;
 
-   ResultsItem.ModifiedStr := GetLocalTime(Item.FFileData.ftLastWriteTime);
-   ResultsItem.LastAccessStr := GetLocalTime(Item.FFileData.ftLastAccessTime);
-   ResultsItem.CreatedStr := GetLocalTime(Item.FFileData.ftCreationTime);
-   ResultsItem.AttrStr := AttrStr2(Item.FFileData.dwFileAttributes);
+   ResultsItem.ModifiedStr := GetLocalTime(Item.FLastWriteTime);
+   ResultsItem.LastAccessStr := GetLocalTime(Item.FLastAccessTime);
+   ResultsItem.CreatedStr := GetLocalTime(Item.FCreationTime);
+   ResultsItem.AttrStr := AttrStr2(Item.FFileAttrs);
    ResultsItem.Path := FullPath;
 
    FSearchResults.AddValue(ResultsItem);
@@ -656,7 +656,7 @@ end;
 
 function TSearchResultsItem.IsDirectory: Boolean;
 begin
-   IsDirectory := Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY > 0;
+   IsDirectory := Item.FFileAttrs AND FILE_ATTRIBUTE_DIRECTORY > 0;
 end;
 
 function TMainForm.CompareData(arr: THArrayG<TSearchResultsItem>; i, j: Cardinal): Integer;
@@ -684,9 +684,9 @@ begin
             fiSize: if item1.Size > item2.Size then Result := 1
                      else if item1.Size < item2.Size then Result := -1;
             fiType: Result := CompareStr(item1.Item.FFileType, item2.Item.FFileType);
-            fiModified: Result := CompareFileTime(item1.Item.FFileData.ftLastWriteTime, item2.Item.FFileData.ftLastWriteTime);
-            fiLastAccess: Result := CompareFileTime(item1.Item.FFileData.ftLastAccessTime, item2.Item.FFileData.ftLastAccessTime);
-            fiCreated: Result := CompareFileTime(item1.Item.FFileData.ftCreationTime, item2.Item.FFileData.ftCreationTime);
+            fiModified: Result := CompareFileTime(item1.Item.FLastWriteTime, item2.Item.FLastWriteTime);
+            fiLastAccess: Result := CompareFileTime(item1.Item.FLastAccessTime, item2.Item.FLastAccessTime);
+            fiCreated: Result := CompareFileTime(item1.Item.FCreationTime, item2.Item.FCreationTime);
             fiAttributes: Result := CompareStr(item1.AttrStr, item2.AttrStr);
             fiPath: Result := CompareStr(item1.Path, item2.Path);
             // else Result := 'UNKNOWN';
@@ -697,9 +697,9 @@ begin
             fiSize: if item1.Size > item2.Size then Result := 1
                  else if item1.Size < item2.Size then Result := -1;
             fiType: Result := CompareText(item1.Item.FFileType, item2.Item.FFileType);
-            fiModified: Result := CompareFileTime(item1.Item.FFileData.ftLastWriteTime, item2.Item.FFileData.ftLastWriteTime);
-            fiLastAccess: Result := CompareFileTime(item1.Item.FFileData.ftLastAccessTime, item2.Item.FFileData.ftLastAccessTime);
-            fiCreated: Result := CompareFileTime(item1.Item.FFileData.ftCreationTime, item2.Item.FFileData.ftCreationTime);
+            fiModified: Result := CompareFileTime(item1.Item.FLastWriteTime, item2.Item.FLastWriteTime);
+            fiLastAccess: Result := CompareFileTime(item1.Item.FLastAccessTime, item2.Item.FLastAccessTime);
+            fiCreated: Result := CompareFileTime(item1.Item.FCreationTime, item2.Item.FCreationTime);
             fiAttributes: Result := CompareText(item1.AttrStr, item2.AttrStr);
             fiPath: Result := CompareText(item1.Path, item2.Path);
             // else Result := 'UNKNOWN';
@@ -776,7 +776,27 @@ begin
 
     TFSC.Swap; // if there is no search results we can successfully do Swap here
 
-    TFSC.Instance.SerializeTo(AppSettings.IndexFileName); // save loaded data into .idx file
+    try
+      // protection against incorrect IndexFileName stored earlier in registry
+      // e.g. one of directories in file path might not exist any more
+      TFSC.Instance.SerializeTo(AppSettings.IndexFileName); // save loaded data into .idx file
+    except
+      on E:EFCreateError do begin
+        try
+          // get file name only from path from registry and add current dir to this name
+          var fn := ExpandFileName(ExtractFileName(AppSettings.IndexFileName));
+          TFSC.Instance.SerializeTo(fn);
+          AppSettings.IndexFileName := fn; // update registry setting
+        except
+          on E:EFCreateError do begin
+            // use default file name without path (current FinderX dir will be used)
+            TFSC.Instance.SerializeTo(TSettings.INDEX_FILENAME);
+            AppSettings.IndexFileName := ExpandFileName(TSettings.INDEX_FILENAME); // update registry setting
+          end;
+        end;
+      end;
+    end;
+
     IndexingBitBtn.Hint := BuildIndexingBtnHint;
     UpdateStatusBarXXX(FIndexingThread.ExecData);
 
@@ -993,6 +1013,8 @@ begin
   MsgDlgIcons[mtConfirmation] := TMsgDlgIcon.mdiShield;
 
 //  var start := GetTickCount;
+
+  // This call just exits if index file does not exist
   TFSC.Instance.DeserializeFrom(AppSettings.IndexFileName);
 
   Timer2Timer(nil); // show yellow warning immediately after app start if IndexDB is old or absent.
