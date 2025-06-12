@@ -87,7 +87,7 @@ var
   Volumes: TArray<string>;
 
 begin
-  Volumes := TFSC.Instance.GetVolumes;
+  Volumes := TCache.Instance.GetVolumes;
 
   TopFoldersComboBox.Items.BeginUpdate;
   TopFilesComboBox.Items.BeginUpdate;
@@ -176,7 +176,7 @@ var
   Stat: TFileSystemStatRecord;
   i: Cardinal;
 begin
-  Stat := TFSC.Instance.GetStat(CategoriesComboBox.Text);
+  Stat := TCache.Instance.GetStat(CategoriesComboBox.Text);
   FileByCatChart.Series[0].Clear;
   for i := Low(Stat.Index) to High(Stat.Index) do begin
     if Stat.Index[i] <> ftAll then
@@ -256,7 +256,7 @@ var
   i, j: Cardinal;
   vol: TVolumeCache;
 begin
-  var Cache: TCache := TFSC.Instance;
+  var Cache: TCache := TCache.Instance;
   if Cache.VolumesCount = 0 then Exit;
 
   vol := Cache.GetVolume(Volume); //TODO: make it work with many volumes
@@ -278,7 +278,7 @@ var
   i, j: Cardinal;
   vol: TVolumeCache;
 begin
-  var Cache: TCache := TFSC.Instance;
+  var Cache: TCache := TCache.Instance;
   if Cache.VolumesCount = 0 then Exit;
 
   vol := Cache.GetVolume(Volume);

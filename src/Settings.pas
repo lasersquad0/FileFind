@@ -20,6 +20,23 @@ type
   TSizeFormat = (sfAuto, sfBytes, sfKilobytes, sfMegabytes);
   TSizeFormatLabels = array[TSizeFormat] of string;
 
+
+   TSettingInfo = record
+    Name: string;
+    DefValueB: Boolean;
+    DefValueI: Integer;
+    DefValueS: string;
+  end;
+
+   TSettingNames = (snCaseSensitiveSearch, snCaseSensitiveSort, snHideFoldersSize, snEnableSearchHistory,
+                   snFoldersOnTop, snSearchAsYouType, snSearchAfterSymbols, snShowTrayIcon, snMinimizeToTray,
+                   snRunAsAdmin, snHighlightSearchTerms, snShowRowMouseover, snStartAppWithSystem,
+                   snIncludeNewFixedVolumes, snIncludeNewRemovableVolumes, snRemoveOfflineVolumes, snExcludeFolders,
+                   snExcludeFoldersList, snSizeFormat,  snMaxFoundItems,
+                   snVolumesToIndex, snIndexFileName, snWriteLogFile, snLogFileName);
+
+  TSettingInfos = array [TSettingNames] of TSettingInfo;
+
   TSettings = class
   public
     CaseSensitiveSearch: Boolean;
@@ -55,6 +72,7 @@ type
     procedure Save;
     procedure Load;
     procedure AddRemoveToStartup(Add: Boolean); // make application to start with windows by modifying registry settings
+    class function GetDefaultExcludeFoldersList: TArray<string>;
 
   const
     APPKEY = 'SOFTWARE\NotepadCo\FinderX';
@@ -65,12 +83,12 @@ type
 
 var
   AppSettings: TSettings;
-  SizeLabels: TSizeFormatLabels = ('', 'Bytes', 'KB', 'MB');
+  //SizeLabels: TSizeFormatLabels = ('', 'Bytes', 'KB', 'MB');
 
 implementation
 
 uses
-  System.SysUtils, WinAPI.Windows, Vcl.Dialogs, Registry, Functions;
+  System.SysUtils, WinAPI.Windows, Vcl.Dialogs, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, Registry, Functions;
 
 
 
@@ -86,6 +104,20 @@ var
                                   );
 
 
+  STVL: TSettingInfos = ( (Name:'CaseSensitiveSearch'; DefValueB: False), (Name:'CaseSensitiveSort';   DefValueB: False),
+                          (Name:'HideFoldersSize';     DefValueB: False), (Name:'EnableSearchHistory'; DefValueB: True),
+                          (Name:'FoldersOnTop';        DefValueB: False), (Name:'SearchAsYouType';     DefValueB: True),
+                          (Name:'SearchAfterSymbols';  DefValueI: 3),     (Name:'ShowTrayIcon';        DefValueB: True),
+                          (Name:'MinimizeToTray';      DefValueB: True),  (Name:'RunAsAdmin';          DefValueB: False),
+                          (Name:'HighlightSearchTerms'; DefValueB: True), (Name:'ShowRowMouseover';    DefValueB: True),
+                          (Name:'StartAppWithSystem';  DefValueB: False), (Name:'IcludeNewFixedVolumes'; DefValueB: True),
+                          (Name:'IncludeNewRemovableVolumes'; DefValueB: False), (Name:'RemoveOfflineVolumes'; DefValueB: True),
+                          (Name:'ExcludeFolders';      DefValueB: False), (Name:'ExcludeFoldersList';  DefValueS: ''),
+                          (Name:'SizeFormat';          DefValueI: Ord(sfAuto)), (Name:'MaxFoundItems'; DefValueI: 20_000),
+                          (Name:'VolumesToIndex';      DefValueS: 'C:\'), (Name:'IndexFileName';       DefValueS: TSettings.INDEX_FILENAME),
+                          (Name:'WriteLogFile';        DefValueB: True),  (Name:'LogFileName';         DefValueS: 'FinderX_debug.log')
+                        );
+
 { TSettings }
 
 constructor TSettings.Create;
@@ -93,34 +125,36 @@ begin
   inherited;
 
   // default values for all settings
-  CaseSensitiveSearch := False;
-  CaseSensitiveSort := False;
-  HideFoldersSize := False;
-  EnableSearchHistory := True;
-  FoldersOnTop := False;
-  SearchAsYouType := True;
-  ShowTrayIcon := True;
-  MinimizeToTray := True;
-  RunAsAdmin := False;
-  HighlightSearchTerms := True;
-  ShowRowMouseover := True;
-  StartAppWithSystem := False;
-  IncludeNewFixedVolumes := True;
-  IncludeNewRemovableVolumes := False;
-  RemoveOfflineVolumes := True;
-  ExcludeFolders := False;
-  //ExcludeFoldersList; - initialised by default as empty list
-  SizeFormat := sfAuto;
-  SearchAfterSymbols := 3;
-  MaxFoundItems := 20000;
-  Insert('C:\', VolumesToIndex, 0); // add one volume by default
+  CaseSensitiveSearch        := STVL[snCaseSensitiveSearch].DefValueB;
+  CaseSensitiveSort          := STVL[snCaseSensitiveSort].DefValueB;
+  HideFoldersSize            := STVL[snHideFoldersSize].DefValueB;
+  EnableSearchHistory        := STVL[snEnableSearchHistory].DefValueB;
+  FoldersOnTop               := STVL[snFoldersOnTop].DefValueB;
+  SearchAsYouType            := STVL[snSearchAsYouType].DefValueB;
+  SearchAfterSymbols         := STVL[snSearchAfterSymbols].DefValueI;
+  ShowTrayIcon               := STVL[snShowTrayIcon].DefValueB;
+  MinimizeToTray             := STVL[snMinimizeToTray].DefValueB;
+  RunAsAdmin                 := STVL[snRunAsAdmin].DefValueB;
+  HighlightSearchTerms       := STVL[snHighlightSearchTerms].DefValueB;
+  ShowRowMouseover           := STVL[snShowRowMouseover].DefValueB;
+  StartAppWithSystem         := STVL[snStartAppWithSystem].DefValueB;
+  IncludeNewFixedVolumes     := STVL[snIncludeNewFixedVolumes].DefValueB;
+  IncludeNewRemovableVolumes := STVL[snIncludeNewRemovableVolumes].DefValueB;
+  RemoveOfflineVolumes       := STVL[snRemoveOfflineVolumes].DefValueB;
+  ExcludeFolders             := STVL[snExcludeFolders].DefValueB;
+  SizeFormat                 := TSizeFormat(STVL[snSizeFormat].DefValueI);
+  MaxFoundItems              := STVL[snMaxFoundItems].DefValueI;
+  WriteLogFile               := STVL[snWriteLogFile].DefValueB;
+  LogFileName                := STVL[snLogFileName].DefValueS;
+  IndexFileName              := ExpandFileName(STVL[snIndexFileName].DefValueS);
+
+  ExcludeFoldersList := GetDefaultExcludeFoldersList;
+  Insert(STVL[snVolumesToIndex].DefValueS, VolumesToIndex, 0); // add one volume by default
+
   SearchHistory := TStringList.Create(dupIgnore, True, False); // important to have these values in Create for proper work of history fill/update;
   ColumnInfos := DefColumnInfos;
   MainWindow := TRect.Create(300, 300, 300 + 1300, 300 + 500);
-  IndexFileName := ExpandFileName(INDEX_FILENAME);
-  WriteLogFile := False;
-  LogFileName := 'FinderX_debug.log';
-end;
+  end;
 
 destructor TSettings.Destroy;
 begin
@@ -143,32 +177,36 @@ begin
    try
      reg.RootKey := HKEY_CURRENT_USER;
      if reg.OpenKeyReadOnly(APPKEY) then begin
-       if reg.ValueExists('CaseSensitiveSearch')       then CaseSensitiveSearch    := reg.ReadBool('CaseSensitiveSearch');
-       if reg.ValueExists('CaseSensitiveSort')         then CaseSensitiveSort      := reg.ReadBool('CaseSensitiveSort');
-       if reg.ValueExists('HideFoldersSize')           then HideFoldersSize        := reg.ReadBool('HideFoldersSize');
-       if reg.ValueExists('EnableSearchHistory')       then EnableSearchHistory    := reg.ReadBool('EnableSearchHistory');
-       if reg.ValueExists('FoldersOnTop')              then FoldersOnTop           := reg.ReadBool('FoldersOnTop');
-       if reg.ValueExists('SearchAsYouType')           then SearchAsYouType        := reg.ReadBool('SearchAsYouType');
-       if reg.ValueExists('ShowTrayIcon')              then ShowTrayIcon           := reg.ReadBool('ShowTrayIcon');
-       if reg.ValueExists('MinimizeToTray')            then MinimizeToTray         := reg.ReadBool('MinimizeToTray');
-       if reg.ValueExists('RunAsAdmin')                then RunAsAdmin             := reg.ReadBool('RunAsAdmin');
-       if reg.ValueExists('HighlightSearchTerms')      then HighlightSearchTerms   := reg.ReadBool('HighlightSearchTerms');
-       if reg.ValueExists('ShowRowMouseover')          then ShowRowMouseover       := reg.ReadBool('ShowRowMouseover');
-       if reg.ValueExists('StartAppWithSystem')        then StartAppWithSystem     := reg.ReadBool('StartAppWithSystem');
-       if reg.ValueExists('IncludeNewFixedVolumes')    then IncludeNewFixedVolumes := reg.ReadBool('IncludeNewFixedVolumes');
-       if reg.ValueExists('IncludeNewRemovableVolumes')then IncludeNewRemovableVolumes := reg.ReadBool('IncludeNewRemovableVolumes');
-       if reg.ValueExists('RemoveOfflineVolumes')      then RemoveOfflineVolumes   := reg.ReadBool('RemoveOfflineVolumes');
-       if reg.ValueExists('ExcludeFolders')            then ExcludeFolders         := reg.ReadBool('ExcludeFolders');
-       if reg.ValueExists('ExcludeFoldersList')        then ExcludeFoldersList     := reg.ReadMultiString('ExcludeFoldersList');
-       if reg.ValueExists('SizeFormat')                then SizeFormat             := TSizeFormat(reg.ReadInteger('SizeFormat'));
-       if reg.ValueExists('SearchAfterSymbols')        then SearchAfterSymbols     := reg.ReadInteger('SearchAfterSymbols');
-       if reg.ValueExists('MaxFoundItems')             then MaxFoundItems          := Cardinal(reg.ReadInteger('MaxFoundItems'));
-       if reg.ValueExists('VolumesToIndex')            then VolumesToIndex         := reg.ReadMultiString('VolumesToIndex');
-       if reg.ValueExists('IndexFileName')             then IndexFileName          := reg.ReadString('IndexFileName');
-       if reg.ValueExists('WriteLogFile')              then WriteLogFile           := reg.ReadBool('WriteLogFile');
-       if reg.ValueExists('LogFileName')               then LogFileName            := reg.ReadString('LogFileName');
+       if reg.ValueExists(STVL[snCaseSensitiveSearch].Name)       then CaseSensitiveSearch    := reg.ReadBool(STVL[snCaseSensitiveSearch].Name);
+       if reg.ValueExists(STVL[snCaseSensitiveSort].Name)         then CaseSensitiveSort      := reg.ReadBool(STVL[snCaseSensitiveSort].Name);
+       if reg.ValueExists(STVL[snHideFoldersSize].Name)           then HideFoldersSize        := reg.ReadBool(STVL[snHideFoldersSize].Name);
+       if reg.ValueExists(STVL[snEnableSearchHistory].Name)       then EnableSearchHistory    := reg.ReadBool(STVL[snEnableSearchHistory].Name);
+       if reg.ValueExists(STVL[snFoldersOnTop].Name)              then FoldersOnTop           := reg.ReadBool(STVL[snFoldersOnTop].Name);
+       if reg.ValueExists(STVL[snSearchAsYouType].Name)           then SearchAsYouType        := reg.ReadBool(STVL[snSearchAsYouType].Name);
+       if reg.ValueExists(STVL[snShowTrayIcon].Name)              then ShowTrayIcon           := reg.ReadBool(STVL[snShowTrayIcon].Name);
+       if reg.ValueExists(STVL[snMinimizeToTray].Name)            then MinimizeToTray         := reg.ReadBool(STVL[snMinimizeToTray].Name);
+       if reg.ValueExists(STVL[snRunAsAdmin].Name)                then RunAsAdmin             := reg.ReadBool(STVL[snRunAsAdmin].Name);
+       if reg.ValueExists(STVL[snHighlightSearchTerms].Name)      then HighlightSearchTerms   := reg.ReadBool(STVL[snHighlightSearchTerms].Name);
+       if reg.ValueExists(STVL[snShowRowMouseover].Name)          then ShowRowMouseover       := reg.ReadBool(STVL[snShowRowMouseover].Name);
+       if reg.ValueExists(STVL[snStartAppWithSystem].Name)        then StartAppWithSystem     := reg.ReadBool(STVL[snStartAppWithSystem].Name);
+       if reg.ValueExists(STVL[snIncludeNewFixedVolumes].Name)    then IncludeNewFixedVolumes := reg.ReadBool(STVL[snIncludeNewFixedVolumes].Name);
+       if reg.ValueExists(STVL[snIncludeNewRemovableVolumes].Name)then IncludeNewRemovableVolumes := reg.ReadBool(STVL[snIncludeNewRemovableVolumes].Name);
+       if reg.ValueExists(STVL[snRemoveOfflineVolumes].Name)      then RemoveOfflineVolumes   := reg.ReadBool(STVL[snRemoveOfflineVolumes].Name);
+       if reg.ValueExists(STVL[snExcludeFolders].Name)            then ExcludeFolders         := reg.ReadBool(STVL[snExcludeFolders].Name);
+       if reg.ValueExists(STVL[snExcludeFoldersList].Name)        then ExcludeFoldersList     := reg.ReadMultiString(STVL[snExcludeFoldersList].Name);
+       if reg.ValueExists(STVL[snSizeFormat].Name)                then SizeFormat             := TSizeFormat(reg.ReadInteger(STVL[snSizeFormat].Name));
+       if reg.ValueExists(STVL[snSearchAfterSymbols].Name)        then SearchAfterSymbols     := reg.ReadInteger(STVL[snSearchAfterSymbols].Name);
+       if reg.ValueExists(STVL[snMaxFoundItems].Name)             then MaxFoundItems          := Cardinal(reg.ReadInteger(STVL[snMaxFoundItems].Name));
+       if reg.ValueExists(STVL[snVolumesToIndex].Name)            then VolumesToIndex         := reg.ReadMultiString(STVL[snVolumesToIndex].Name);
+       if reg.ValueExists(STVL[snIndexFileName].Name)             then IndexFileName          := reg.ReadString(STVL[snIndexFileName].Name);
+       if reg.ValueExists(STVL[snWriteLogFile].Name)              then WriteLogFile           := reg.ReadBool(STVL[snWriteLogFile].Name);
+       if reg.ValueExists(STVL[snLogFileName].Name)               then LogFileName            := reg.ReadString(STVL[snLogFileName].Name);
      end;
      reg.CloseKey;
+
+     if Length(ExcludeFoldersList) = 0 // fill with default values if empty
+       then ExcludeFoldersList := GetDefaultExcludeFoldersList;
+
 
      // loading Search History items
      if reg.OpenKeyReadOnly(HISTORYKEY) then begin
@@ -244,30 +282,30 @@ begin
    try
      reg.RootKey := HKEY_CURRENT_USER;
      if reg.OpenKey(APPKEY, True) then begin
-       reg.WriteBool('CaseSensitiveSearch', CaseSensitiveSearch);
-       reg.WriteBool('CaseSensitiveSort', CaseSensitiveSort);
-       reg.WriteBool('HideFoldersSize', HideFoldersSize);
-       reg.WriteBool('EnableSearchHistory', EnableSearchHistory);
-       reg.WriteBool('FoldersOnTop', FoldersOnTop);
-       reg.WriteBool('SearchAsYouType', SearchAsYouType);
-       reg.WriteBool('ShowTrayIcon', ShowTrayIcon);
-       reg.WriteBool('MinimizeToTray', MinimizeToTray);
-       reg.WriteBool('RunAsAdmin', RunAsAdmin);
-       reg.WriteBool('HighlightSearchTerms', HighlightSearchTerms);
-       reg.WriteBool('ShowRowMouseover', ShowRowMouseover);
-       reg.WriteBool('StartAppWithSystem', StartAppWithSystem);
-       reg.WriteBool('IncludeNewFixedVolumes', IncludeNewFixedVolumes);
-       reg.WriteBool('IncludeNewRemovableVolumes', IncludeNewRemovableVolumes);
-       reg.WriteBool('RemoveOfflineVolumes', RemoveOfflineVolumes);
-       reg.WriteBool('ExcludeFolders', ExcludeFolders);
-       reg.WriteMultiString('ExcludeFoldersList', ExcludeFoldersList);
-       reg.WriteInteger('SizeFormat', Integer(SizeFormat));
-       reg.WriteInteger('SearchAfterSymbols', SearchAfterSymbols);
-       reg.WriteInteger('MaxFoundItems', Integer(MaxFoundItems));
-       reg.WriteMultiString('VolumesToIndex', VolumesToIndex);
-       reg.WriteString('IndexFileName', IndexFileName);
-       reg.WriteBool('WriteLogFile', WriteLogFile);
-       reg.WriteString('LogFileName', LogFileName);
+       reg.WriteBool(STVL[snCaseSensitiveSearch].Name, CaseSensitiveSearch);
+       reg.WriteBool(STVL[snCaseSensitiveSort].Name, CaseSensitiveSort);
+       reg.WriteBool(STVL[snHideFoldersSize].Name, HideFoldersSize);
+       reg.WriteBool(STVL[snEnableSearchHistory].Name, EnableSearchHistory);
+       reg.WriteBool(STVL[snFoldersOnTop].Name, FoldersOnTop);
+       reg.WriteBool(STVL[snSearchAsYouType].Name, SearchAsYouType);
+       reg.WriteBool(STVL[snShowTrayIcon].Name, ShowTrayIcon);
+       reg.WriteBool(STVL[snMinimizeToTray].Name, MinimizeToTray);
+       reg.WriteBool(STVL[snRunAsAdmin].Name, RunAsAdmin);
+       reg.WriteBool(STVL[snHighlightSearchTerms].Name, HighlightSearchTerms);
+       reg.WriteBool(STVL[snShowRowMouseover].Name, ShowRowMouseover);
+       reg.WriteBool(STVL[snStartAppWithSystem].Name, StartAppWithSystem);
+       reg.WriteBool(STVL[snIncludeNewFixedVolumes].Name, IncludeNewFixedVolumes);
+       reg.WriteBool(STVL[snIncludeNewRemovableVolumes].Name, IncludeNewRemovableVolumes);
+       reg.WriteBool(STVL[snRemoveOfflineVolumes].Name, RemoveOfflineVolumes);
+       reg.WriteBool(STVL[snExcludeFolders].Name, ExcludeFolders);
+       reg.WriteMultiString(STVL[snExcludeFoldersList].Name, ExcludeFoldersList);
+       reg.WriteInteger(STVL[snSizeFormat].Name, Integer(SizeFormat));
+       reg.WriteInteger(STVL[snSearchAfterSymbols].Name, SearchAfterSymbols);
+       reg.WriteInteger(STVL[snMaxFoundItems].Name, Integer(MaxFoundItems));
+       reg.WriteMultiString(STVL[snVolumesToIndex].Name, VolumesToIndex);
+       reg.WriteString(STVL[snIndexFileName].Name, IndexFileName);
+       reg.WriteBool(STVL[snWriteLogFile].Name, WriteLogFile);
+       reg.WriteString(STVL[snLogFileName].Name, LogFileName);
      end;
      reg.CloseKey;
 
@@ -301,6 +339,42 @@ begin
      reg.Free;
    end;
 
+end;
+
+class function TSettings.GetDefaultExcludeFoldersList: TArray<string>;
+var
+  TmpFolder: PChar;
+begin
+  if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppData.');
+  Insert(TmpFolder + '\Temp', Result, Length(Result));
+  CoTaskMemFree(TmpFolder);
+
+  if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppDataLow, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppDataLow.');
+  Insert(TmpFolder + '\Temp', Result, Length(Result));
+  CoTaskMemFree(TmpFolder);
+
+  if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramFilesX86.');
+  Insert(TmpFolder + '\Microsoft\Temp', Result, Length(Result));
+  Insert(TmpFolder + '\Google\Temp', Result, Length(Result));
+  CoTaskMemFree(TmpFolder);
+
+  if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramData.');
+  Insert(TmpFolder + '\Microsoft\Search\Data\Temp', Result, Length(Result));
+  CoTaskMemFree(TmpFolder);
+
+  if S_OK <> SHGetKnownFolderPath(FOLDERID_Windows, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
+    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_Windows.');
+  Insert(TmpFolder + '\Temp', Result, Length(Result));
+  Insert(TmpFolder + '\WinSyS\Temp', Result, Length(Result));
+  Insert(TmpFolder + '\assembly\Temp', Result, Length(Result));
+  Insert(TmpFolder + '\assembly\tmp', Result, Length(Result));
+  Insert(TmpFolder + '\System32\DriversStore\Temp', Result, Length(Result));
+  Insert(TmpFolder + '\Microsoft Antimalware\Tmp', Result, Length(Result));
+  CoTaskMemFree(TmpFolder);
 end;
 
 procedure TSettings.AddRemoveToStartup(Add: Boolean);

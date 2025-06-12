@@ -97,9 +97,9 @@ begin
   SetReturnValue(0); // mark that thread didnt finish successfully
 
   try
-    if TFSC.HasNewInstance then TFSC.FreeInst2;
+    if TCache.HasNewInstance then TCache.FreeInst2;
 
-    inst2 := TFSC.NewInstance;
+    inst2 := TCache.NewInstance;
     inst2.AddProgressListener(FListener);
 
     for i := Low(ExecData) to High(ExecData) do begin

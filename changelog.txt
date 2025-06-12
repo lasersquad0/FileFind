@@ -1,3 +1,11 @@
+FinderX version 1.3.0
+
+Improvements:
+
+* Improved work with settings
+
+
+---------------------------------------------------
 
 FinderX version 1.2.0
 

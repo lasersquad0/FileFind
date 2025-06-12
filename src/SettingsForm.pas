@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ComCtrls, Vcl.Buttons, Vcl.ExtCtrls, Vcl.NumberBox,
- { LoadFSThread,} System.ImageList, Vcl.ImgList, FileCache, Vcl.WinXPanels;
+  System.ImageList, Vcl.ImgList, FileCache, Vcl.WinXPanels;
 
 type
 
@@ -58,7 +58,6 @@ type
     IndexLocationEdit: TEdit;
     procedure OKButtonClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
-    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure SearchAsYouTypeCheckBoxClick(Sender: TObject);
     procedure ShowTrayIconCheckBoxClick(Sender: TObject);
     procedure SectionsClick(Sender: TObject);
@@ -71,31 +70,9 @@ type
     procedure ResetToDefaultButtonClick(Sender: TObject);
     procedure LogFileCheckBoxClick(Sender: TObject);
   private
-  //  FIndexingThread: TLoadFSThread;
-//    FProgressListener: IIndexingProgress;
-//    FCancel: Boolean;
     FVolumes: TArray<string>;
-
-    function  GetDefaultTempFoldersList: TArray<string>;
-  public
-//    ExecData: TVolumeExecData;
-//    property Cancel: Boolean read FCancel;
   end;
 
-  {
- TSettingsFormIndexingProgress = class(IIndexingProgress)
- private
-   FMaxValue: Integer;
-   FThread: TLoadFSThread;
-   FErrors: TStrings;
- public
-   constructor Create(Thread: TLoadFSThread; Output: TStrings);
-   procedure Start(P100: Integer; Notes: string); override; // define Max value for progress. -1 means that value for 100% progress is unknown
-   procedure Finish; override;
-   function  Progress(Prgress: Integer): Boolean; override; // allows to stop process if indexing takes too long time
-   procedure ReportError(ErrorStr: string); override;
- end;
-   }
 
 var
   SettingsForm1: TSettingsForm1;
@@ -198,7 +175,7 @@ end;
 procedure TSettingsForm1.ResetToDefaultButtonClick(Sender: TObject);
 begin
   ExcludeFoldersListBox.Clear;
-  ArrayToStringList(GetDefaultTempFoldersList, ExcludeFoldersListBox.Items);
+  ArrayToStringList(TSettings.GetDefaultExcludeFoldersList, ExcludeFoldersListBox.Items);
 end;
 
 procedure TSettingsForm1.AddFolderButtonClick(Sender: TObject);
@@ -229,16 +206,6 @@ begin
   EditFolderButton.Enabled := Enbld;
   RemoveFolderButton.Enabled := Enbld;
   ResetToDefaultButton.Enabled := Enbld;
-end;
-
-procedure TSettingsForm1.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
-begin
-//  if Assigned(FProgressListener) then begin
-//    FCancel := mrYes = MessageDlg('Indexing is in progress. Are you sure you want to cancel indexing and close Settings dialog?', TMsgDlgType.mtWarning, [mbYes, mbNo], 0, mbYes);
-//    while FCancel do begin TThread.Sleep(200); Application.ProcessMessages; end; //waiting till thread finishes
-//  end;
-
-//  CanClose := NOT Assigned(FProgressListener);
 end;
 
 procedure TSettingsForm1.FormCreate(Sender: TObject);
@@ -298,6 +265,7 @@ begin
   LogFileCheckBox.Checked               := AppSettings.WriteLogFile;
   LogFileEdit.Text                      := AppSettings.LogFileName;
 
+  // AppSettings.ExcludeFoldersList is filled with default values during AppSettings.Load
   ExcludeFoldersListBox.Clear;
   ArrayToStringList(AppSettings.ExcludeFoldersList, ExcludeFoldersListBox.Items);
 
@@ -307,14 +275,14 @@ begin
   ShowTrayIconCheckBoxClick(self);
 
   // exclude folders: if list from registry is empty then populate it with default values.
-  if(ExcludeFoldersListBox.Items.Count = 0) then begin
+ { if(ExcludeFoldersListBox.Items.Count = 0) then begin
     ExcludeFoldersListBox.Clear;
     TmpFolders := GetDefaultTempFoldersList;
     for i := 1 to Length(TmpFolders) do begin
       ExcludeFoldersListBox.Items.Add(TmpFolders[i - 1]);
     end;
   end;
-
+    }
   MaxNumFoundBox.Hint := Format('Enter value between %u and %u', [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
 
   { AppSettings.VolumesToIndex already contains list of volumes read from registry and merged with volumes present on current PC
@@ -339,7 +307,7 @@ begin
     if VolName2 = '' then VolName2 := '<noname>';
 
     str := VolName2 + IfThen(Length(VolName2) > 9, ' ', #9) + CurrVol {+ #9} + GetDriveTypeString(CurrVol) + #9;
-    var vol := TFSC.Instance.VolumePresent(CurrVol);
+    var vol := TCache.Instance.VolumePresent(CurrVol);
     if vol = nil
       then str := str + '<not indexed>'
       else str := str + DateToStr(vol.IndexedDateTime);
@@ -348,102 +316,11 @@ begin
   end;
 end;
 
-function TSettingsForm1.GetDefaultTempFoldersList: TArray<string>;
-var
-  TmpFolder: PChar;
-begin
-  if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppData.');
-  Insert(TmpFolder + '\Temp', Result, Length(Result));
-  CoTaskMemFree(TmpFolder);
-
-  if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppDataLow, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppDataLow.');
-  Insert(TmpFolder + '\Temp', Result, Length(Result));
-  CoTaskMemFree(TmpFolder);
-
-  if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramFilesX86.');
-  Insert(TmpFolder + '\Microsoft\Temp', Result, Length(Result));
-  Insert(TmpFolder + '\Google\Temp', Result, Length(Result));
-  CoTaskMemFree(TmpFolder);
-
-  if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramData.');
-  Insert(TmpFolder + '\Microsoft\Search\Data\Temp', Result, Length(Result));
-  CoTaskMemFree(TmpFolder);
-
-  if S_OK <> SHGetKnownFolderPath(FOLDERID_Windows, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_Windows.');
-  Insert(TmpFolder + '\Temp', Result, Length(Result));
-  Insert(TmpFolder + '\WinSyS\Temp', Result, Length(Result));
-  Insert(TmpFolder + '\assembly\Temp', Result, Length(Result));
-  Insert(TmpFolder + '\assembly\tmp', Result, Length(Result));
-  Insert(TmpFolder + '\System32\DriversStore\Temp', Result, Length(Result));
-  Insert(TmpFolder + '\Microsoft Antimalware\Tmp', Result, Length(Result));
-  CoTaskMemFree(TmpFolder);
-end;
-
 procedure TSettingsForm1.LogFileCheckBoxClick(Sender: TObject);
 begin
   LogFileLabel.Enabled := LogFileCheckBox.Checked;
   LogFileEdit.Enabled := LogFileCheckBox.Checked;
 end;
 
-{ TSettingsFormIndexingProgress }
- {
-constructor TSettingsFormIndexingProgress.Create(Thread: TLoadFSThread; Output: TStrings);
-begin
-  inherited Create;
-  FThread := Thread;
-  FErrors := Output;
-end;
-
-procedure TSettingsFormIndexingProgress.Finish;
-begin
-   TLoadFSThread.Synchronize(FThread,
-   procedure
-   begin
-      if Assigned(FErrors) then FERrors.Add('Finished Indexing');
-   end
-   );
-end;
-
-function TSettingsFormIndexingProgress.Progress(Prgress: Integer): Boolean;
-var
-  b: Boolean;
-begin
-   TLoadFSThread.Synchronize(FThread,
-   procedure
-   begin
-     // logrithmic progress since we do not know total progress value
-      SettingsForm1.ProgressBar1.Position := SettingsForm1.ProgressBar1.Position + (SettingsForm1.ProgressBar1.Max - SettingsForm1.ProgressBar1.Position) div 20;
-      b := NOT SettingsForm1.Cancel;
-   end
-   );
-  Result := b;
-end;
-
-procedure TSettingsFormIndexingProgress.ReportError(ErrorStr: string);
-begin
-   TLoadFSThread.Synchronize(FThread,
-   procedure
-   begin
-     if Assigned(FErrors) then FErrors.Add(ErrorStr);
-   end
-   );
-end;
-
-procedure TSettingsFormIndexingProgress.Start(P100: Integer; Notes: string);
-begin
-  FMaxValue := P100;
-  TLoadFSThread.Synchronize(FThread,
-    procedure
-    begin
-      if Assigned(FErrors) then FErrors.Add('Start Indexing ' + Notes);
-    end
-    );
-end;
-     }
-
 end.
+

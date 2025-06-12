@@ -307,9 +307,7 @@ begin
     cnt := IfThen(cnt = 0, 1, cnt); // to avoid division by zero
     Inc(FFileInfoMessagesCount);
     ProgressBarFileInfo.Position := index*100 div cnt;
-    //TODO: do something with this status bar text section
     UpdateStatusBarX(cnt, FFileInfoMessagesCount*100 div cnt);
-    //StatusBar1.Panels[3].Text := Format('Items loaded: %s (%d%%)', [ThousandSep(cnt), FFileInfoMessagesCount*100 div cnt]);
   end
   else
   begin
@@ -371,13 +369,13 @@ begin
   MakeSearch;
 end;
 
-procedure TMainForm.Timer2Timer(Sender: TObject); //TODO: remove it since we will be refreshing index automatically
+procedure TMainForm.Timer2Timer(Sender: TObject);
 var
   iFileDate: TDateTime;
   Days: Integer;
 begin
   // after 14 days we ask to refresh index (if not done)
-  iFileDate := TFSC.Instance.IndexFileSaveDate;
+  iFileDate := TCache.Instance.IndexFileSaveDate;
   days := DaysBetween(Now(), iFileDate);
   AlertPanel1.Visible := days >= 14;
 end;
@@ -429,7 +427,7 @@ begin
     if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.WaitFor; // wait to thread to termnate
     ClearSearchResults; // must be after .WairFor call
 
-    SearchResult := TFSC.Instance.Search(Filter, OnFileFound); // cache is global singleton
+    SearchResult := TCache.Instance.Search(Filter, OnFileFound); // cache is global singleton
 
     DoSort;
 
@@ -503,9 +501,9 @@ begin
      DeleteFile(AppSettings.IndexFileName);
      ListView1.Items.Count := 0; // reset search results to zero
      ClearSearchResults;
-     TFSC.Instance.Clear; // clear all volumes data
+     TCache.Instance.Clear; // clear all volumes data
      IndexingBitBtn.Hint := BuildIndexingBtnHint;
-     UpdateStatusBarXXX(TFSC.Instance.GetExecData);
+     UpdateStatusBarXXX(TCache.Instance.GetExecData);
    end;
 end;
 
@@ -766,30 +764,30 @@ begin
   // need to check HasNewInstance because ThreadTerminate also called when user cancels indexing process
   // when indexing thread finished it work successfully - new instance will present
   // if indexing thread was cancelled then no new instance will be created
-  if TFSC.HasNewInstance then begin
+  if TCache.HasNewInstance then begin
     // need to stop this thread before Swap instances
     if Assigned(FSearchResultsFileInfoThread) then begin
       FSearchResultsFileInfoThread.Terminate;
       FSearchResultsFileInfoThread.WaitFor;
     end;
 
-    TFSC.Swap; // if there is no search results we can successfully do Swap here
+    TCache.Swap; // if there is no search results we can successfully do Swap here
 
     try
       // protection against incorrect IndexFileName stored earlier in registry
       // e.g. one of directories in file path might not exist any more
-      TFSC.Instance.SerializeTo(AppSettings.IndexFileName); // save loaded data into .idx file
+      TCache.Instance.SerializeTo(AppSettings.IndexFileName); // save loaded data into .idx file
     except
       on E:EFCreateError do begin
         try
           // get file name only from path from registry and add current dir to this name
           var fn := ExpandFileName(ExtractFileName(AppSettings.IndexFileName));
-          TFSC.Instance.SerializeTo(fn);
+          TCache.Instance.SerializeTo(fn);
           AppSettings.IndexFileName := fn; // update registry setting
         except
           on E:EFCreateError do begin
             // use default file name without path (current FinderX dir will be used)
-            TFSC.Instance.SerializeTo(TSettings.INDEX_FILENAME);
+            TCache.Instance.SerializeTo(TSettings.INDEX_FILENAME);
             AppSettings.IndexFileName := ExpandFileName(TSettings.INDEX_FILENAME); // update registry setting
           end;
         end;
@@ -823,10 +821,10 @@ end;
 
 procedure TMainForm.CheckIntegrityClick(Sender: TObject);
 begin
-  TFSC.Instance.CheckThatParentIsDirectory;
-  TFSC.Instance.CheckLevelsDataTsCorrect;
-  TFSC.Instance.CheckHangingDirectories; //TODO: it would be great to check returned value as well
-  TFSC.Instance.CheckFileDatesAreCorrect;
+  TCache.Instance.CheckThatParentIsDirectory;
+  TCache.Instance.CheckLevelsDataTsCorrect;
+  TCache.Instance.CheckHangingDirectories; //TODO: it would be great to check returned value as well
+  TCache.Instance.CheckFileDatesAreCorrect;
   ShowMessage('Integrity checks are OK');
 end;
 
@@ -895,7 +893,7 @@ begin
     // apply other settings that mey be changed
     SearchEdit.ACEnabled := AppSettings.EnableSearchHistory;
     TrayIcon1.Visible := AppSettings.ShowTrayIcon;
-    UpdateStatusBarXXX(TFSC.Instance.GetExecData);
+    UpdateStatusBarXXX(TCache.Instance.GetExecData);
   end;
 end;
 
@@ -974,7 +972,7 @@ end;
 
 function TMainForm.BuildIndexingBtnHint: string;
 begin
-  var cache := TFSC.Instance;
+  var cache := TCache.Instance;
   if cache.VolumesCount > 0
     then Result := Format('Index file has volumes %s. Indexing date %s.', [cache.GetVolumeNamesAsString, cache.IndexFileSaveDate.ToString {DateTimeToStr(cache.IndexFileSaveDate)}])
     else Result := 'Index file has not volumes. Press "Refresh Index" button to index volume(s).';
@@ -984,7 +982,7 @@ procedure TMainForm.IndexingBitBtnClick(Sender: TObject);
 var Empty: TArray<string>;
 begin
 {$IFDEF PROFILING}
-  TFSC.Instance.ReadFileSystem(AppSettings.FolderToIndex);
+  TCache.Instance.ReadFileSystem(AppSettings.FolderToIndex);
 {$ELSE}
   //TInterlocked.Exchange(FCancelGetFileInfo, True); // stop GetFileInfo thread if it is running
   //Sleep(200);
@@ -994,7 +992,7 @@ begin
   FIndexingThread.OnTerminate := OnIndexingThreadTerminate;
   FProgressListener := TMainFormIndexingProgress.Create(FIndexingThread);
 
-  //TFSC.Instance.AddProgressListener(FProgressListener);
+  //TCache.Instance.AddProgressListener(FProgressListener);
  // FIndexingThread.FreeOnTerminate := True;
   //FIndexingThread.ProgressBar := ProgressBar1;
 //  FIndexingThread.ExecData.VolumesToIndex := AppSettings.VolumesToIndex;
@@ -1026,7 +1024,7 @@ begin
 //  var start := GetTickCount;
 
   // This call just exits if index file does not exist
-  TFSC.Instance.DeserializeFrom(AppSettings.IndexFileName);
+  TCache.Instance.DeserializeFrom(AppSettings.IndexFileName);
 
   Timer2Timer(nil); // show yellow warning immediately after app start if IndexDB is old or absent.
 
@@ -1067,17 +1065,17 @@ begin
   ProgressLabel.Caption := 'Indexing progress...';
   ProgressLabel.Anchors := [akTop, akRight];
 
- // if TFSC.Instance.VolumesCount > 0 then begin
+ // if TCache.Instance.VolumesCount > 0 then begin
     //FFileInfoMessagesCount := 0;
     //TInterlocked.Exchange(FCancelGetFileInfo, False); // reset flag begore starting bg thread
     //TFileShellInfoThread.RunGetShellInfoBgThread(self.Handle, @FCancelGetFileInfo);
 
     // measure time of all app loading steps here
-    // UpdateStatusBar(GetTickCount - start, TFSC.Instance.Count, TFSC.Instance.GetItem(0, 0).FFullFileSize);
-    // UpdateStatusBar(TFSC.Instance.GetExecData);
+    // UpdateStatusBar(GetTickCount - start, TCache.Instance.Count, TFSC.Instance.GetItem(0, 0).FFullFileSize);
+    // UpdateStatusBar(TCache.Instance.GetExecData);
   // end;
 
-  UpdateStatusBarXXX(TFSC.Instance.GetExecData);
+  UpdateStatusBarXXX(TCache.Instance.GetExecData);
 
   //ListView_SetTextBkColor(ListView1.Handle, CLR_NONE); // I donot know how it works but it needed to properly repaint listview rows when active row is changes
 end;
@@ -1143,14 +1141,7 @@ procedure TMainForm.FormDestroy(Sender: TObject);
 begin
   if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.Terminate;
 
-  //do some useful work (save indexDB) while thread is terminating
 
-{$IFNDEF PROFILING}
-  // auto save index data only if data was modified (e.g. re-loaded from file system)
-  if TFSC.Instance.Modified then
-    TFSC.Instance.SerializeTo(AppSettings.IndexFileName); //TODO: loaded data is saved into index file right after loading. perhaps we do not need these 3 lines any more.
-  ClearSearchResults;
-{$ENDIF}
 
   if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.WaitFor;
 

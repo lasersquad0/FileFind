@@ -1144,14 +1144,14 @@ begin
   if FCount + Cnt > Capacity then GrowTo(FCount + Cnt);
   Result := CalcAddr(FCount);
   //FillChar(PByte(CalcAddr(FCount))^, Cnt * ItemSize, 0);
-  memclr(Result, Cnt*ItemSize);
+  memclr(Result, Cnt*FItemSize);
   FCount := FCount + Cnt;
 end;
 
 procedure THArray.Zero;
 begin
   if FCount = 0 then exit;
-  memclr(FValues, FCount*ItemSize);
+  memclr(FValues, FCount*FItemSize);
   //FillChar(PByte(FValues)^, FCount * ItemSize, 0);
 end;
 

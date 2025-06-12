@@ -7,7 +7,6 @@ uses
   SysUtils,
   About in '..\..\src\About.pas' {AboutBox},
   FileCache in '..\..\src\FileCache.pas',
-  FileNamesCache in '..\..\src\FileNamesCache.pas',
   FinderXMain in '..\..\src\FinderXMain.pas' {MainForm},
   Functions in '..\..\src\Functions.pas',
   HistoryEdit in '..\..\src\HistoryEdit.pas',
