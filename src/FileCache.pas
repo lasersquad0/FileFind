@@ -31,7 +31,6 @@ type
    FPath: string; // full path to directory, filled only for directories
    FIconIndex: Integer;
    FDenied: Boolean;
-   //FFileData: TWin32FindData;  //TODO: get rid of TWin32FindData in this class
 
    constructor Create; overload;
    constructor Create(Volume: TVolumeCache; Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal); overload;
@@ -112,7 +111,6 @@ type
    FName: string;
    FCacheData: THArrayG<TLevelType>;
    FProgressListeners: THArrayG<IIndexingProgress>;
-   FModified: Boolean;
    FIndexedDateTime: TDateTime; // datetime when Volume cache data has been created (indexed).
    FExecTime: Cardinal;
    FExclFolders: THArraySorted<string>;
@@ -140,9 +138,6 @@ type
  public
    constructor Create;
    destructor Destroy; override;
-//   class function Instance: TVolumeCache;
-//   class function NewInstance: TVolumeCache;
-//   class function Swap(NewInstance: TVolumeCache): TVolumeCache;
    procedure SerializeTo(const FileName:string);
    procedure DeserializeFrom(const FileName:string);
    procedure Clear;
@@ -168,8 +163,6 @@ type
    procedure CheckLevelsDataTsCorrect;
    procedure CheckFileDatesAreCorrect;
 
-   //properties
-   property  Modified: Boolean read FModified write FModified;
    property  IndexedDateTime: TDateTime read FIndexedDateTime;
    property  VolName: string read FName;
    property  ExecTime: Cardinal read FExecTime;
@@ -194,10 +187,9 @@ type
    procedure Serialize(OStream: TStream);
    procedure Deserialize(IStream: TStream);
 //   procedure SaveTo(const fileName: string);
-   function GetModified: Boolean;
    constructor CreatePrivate;
    destructor Destroy; override;
-   class procedure FreeInst;
+   class destructor FreeInst; // this will be automatically called by Delphi to free resources
 
  public
    constructor Create; // raises an exception to avoid creating other instances of cache
@@ -230,16 +222,9 @@ type
 
    function  GetStat(Volume: string): TFileSystemStatRecord;
 
-   //properties
-   property  Modified: Boolean read GetModified;
    property  IndexFileSaveDate: TDateTime read FIndexFileSaveDate;
  end;
 
-
-  TFSC = TCache;  // short alias for class name, just for convenience
-
-  function IsDirectory(var FileData: TWin32FindData): Boolean; overload;
-  function IsReparse(var FileData: TWin32FindData): Boolean;
 
 var
   FileTypeNames: TFileTypeNames = ('File', 'Directory', 'Temporary', 'Archive', 'ReadOnly', 'Hidden', 'System', 'Device',
@@ -267,6 +252,16 @@ end;
 function MakeFileSize(hi, lo: Cardinal) : UInt64; inline;
 begin
   Result := (UInt64(hi) shl 32) + UInt64(lo);
+end;
+
+function IsDirectory(var FileData: TWin32FindData): Boolean;
+begin
+  IsDirectory := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0;
+end;
+
+function IsReparse(var FileData: TWin32FindData): Boolean;
+begin
+  IsReparse := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT) > 0;
 end;
 
 ////////////////////////////////////
@@ -691,7 +686,6 @@ begin
   FCacheData.SetCapacity(MAX_LEVELS);
   FProgressListeners := nil; //THArrayG<IIndexingProgress>.Create;
   FExclFolders :=  THArraySorted<string>.Create(TIStringComparer.Ordinal);
-  FModified := False;
   FIndexedDateTime := 0; // default value, because index is not created yet
 end;
 
@@ -699,7 +693,6 @@ destructor TVolumeCache.Destroy;
 begin
   Clear;
   FreeAndNil(FCacheData);
-  //FreeAndNil(FProgressListeners);
   FreeAndNil(FExclFolders);
 end;
 
@@ -750,16 +743,6 @@ end;
 function CheckForAttributes(var Filter: TSearchFilter; FileAttributes: Cardinal): Boolean;
 begin
   Result := (FileAttributes AND Filter.Attributes) > 0;
-end;
-
-function IsDirectory(var FileData: TWin32FindData): Boolean;
-begin
-  IsDirectory := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0;
-end;
-
-function IsReparse(var FileData: TWin32FindData): Boolean;
-begin
-  IsReparse := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT) > 0;
 end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
@@ -874,7 +857,7 @@ begin
     end;
   end;
 
-  FModified := False;
+ // FModified := False;
 end;
 
 procedure TVolumeCache.Deserialize(IStream: TStream);
@@ -891,8 +874,9 @@ begin
   IStream.ReadData<TDateTime>(FIndexedDateTime);
   FName := ReadStringFromStream(IStream);
   IStream.ReadData<Cardinal>(CacheSize);
+  Assert(cacheSize > 0);
   if cacheSize = 0 then begin //TODO: shall we raise an exception here?
-    Logger.LogFmt('[TVolumeCache.Deserialize] cache size read from index file  is zero for volume "%s"!', [FName]);
+    Logger.LogFmt('[TVolumeCache.Deserialize] cache size read from index file is zero for volume "%s"!', [FName]);
     Exit;
   end;
 
@@ -904,7 +888,6 @@ begin
     FCacheData.AddValue(level);
 
     IStream.ReadData<Cardinal>(levelSize);
-    level.SetCapacity(levelSize); //TODO: may we do not need this call because AddFillValues() few lines below
     Assert(levelSize > 0);
 
     level.AddFillValues(levelSize);
@@ -916,7 +899,7 @@ begin
     end;
   end;
 
-  FModified := False; // loading index file does not mean "Modified". Modified=True after updating data from file system
+  //FModified := False; // loading index file does not mean "Modified". Modified=True after updating data from file system
   FExecTime := GetTickCount - start;
 end;
 
@@ -1170,7 +1153,7 @@ begin
   Result := ReadDirectory(Volume, startItemRef, True);
 
   FExecTime := GetTickCount - start;
-  FModified := True;
+  //FModified := True;
   FIndexedDateTime := Now;
 end;
 
@@ -1456,7 +1439,6 @@ constructor TCache.CreatePrivate;
 begin
   FVolumeData := THash<string, TVolumeCache>.Create;
   FProgressListeners := THArrayG<IIndexingProgress>.Create;
-  //FModified := False;
   FIndexFileSaveDate := 0; // default value, because index file is not loaded yet
 end;
 
@@ -1557,6 +1539,7 @@ begin
   end;
 end;
 
+{
 function TCache.GetModified: Boolean;
 var
   i: Cardinal;
@@ -1567,6 +1550,7 @@ begin
     if Result then break;
   end;
 end;
+ }
 
 function TCache.GetStat(Volume: string): TFileSystemStatRecord;
 begin
@@ -1594,7 +1578,7 @@ begin
     Insert(FVolumeData.GetPair(i - 1).Second.VolName, Result, Length(Result));
 end;
 
-class procedure TCache.FreeInst;
+class destructor TCache.FreeInst;
 begin
   if Assigned(GInstance) then FreeAndNil(GInstance);
   if Assigned(GInstance2) then FreeAndNil(GInstance2);
@@ -1685,7 +1669,7 @@ initialization
 
 finalization
   FreeAndNil(GPathCache);
-  TCache.FreeInst; // free cache singlton
+  //TCache.FreeInst; // free cache singlton
 end.
 
 
