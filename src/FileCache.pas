@@ -19,13 +19,19 @@ type
    FVolume: TVolumeCache; // refers to big object root cache object for single volume
    FParent: Cardinal;
    FLevel: Cardinal;
-   FFileData: TWin32FindData;  //TODO: get rid of TWin32FindData in this class
+   FFileAttrs: DWORD;
+   FCreationTime: TFileTime;
+   FLastAccessTime: TFileTime;
+   FLastWriteTime: TFileTime;
    FFullFileSize: UInt64;
-   FUpperCaseName: string; // name of file/dir in upper case. need for search routines
+   FFileName: TFileName;
+   FUpperCaseName: TFileName; // name of file/dir in upper case. need for search routines
    FDisplayName: string;
    FFileType: string;
    FIconIndex: Integer;
    FDenied: Boolean;
+   //FFileData: TWin32FindData;  //TODO: get rid of TWin32FindData in this class
+
    constructor Create; overload;
    constructor Create(Volume: TVolumeCache; Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal); overload;
    procedure Assign(Other: TCacheItem);
@@ -269,7 +275,13 @@ begin
   FVolume := nil;
   FParent := 0;
   FLevel := 0;
-  ZeroMemory(@FFileData, sizeof(TWin32FindData));
+  FFileAttrs := 0;
+  FCreationTime.dwLowDateTime := 0;
+  FCreationTime.dwHighDateTime := 0;
+  FLastAccessTime.dwLowDateTime := 0;
+  FLastAccessTime.dwHighDateTime := 0;
+  FLastWriteTime.dwLowDateTime := 0;
+  FLastWriteTime.dwHighDateTime := 0;
   FFullFileSize := 0;
   FIconIndex := 0;
   FDenied := False;
@@ -278,16 +290,19 @@ end;
 
 procedure TCacheItem.Assign(Other: TCacheItem);
 begin
-  FVolume       := Other.FVolume;
-  FParent       := Other.FParent;
-  FLevel        := Other.FLevel;
-  FFileData     := Other.FFileData;
-  FFullFileSize := Other.FFullFileSize;
-  FUpperCaseName:= Other.FUpperCaseName;
-  FDisplayName  := Other.FDisplayName;
-  FFileType     := Other.FFileType;
-  FIconIndex    := Other.FIconIndex;
-  FDenied       := Other.FDenied;
+  FVolume         := Other.FVolume;
+  FParent         := Other.FParent;
+  FLevel          := Other.FLevel;
+  FFileAttrs      := Other.FFileAttrs;
+  FCreationTime   := Other.FCreationTime;
+  FLastAccessTime := Other.FLastAccessTime;
+  FLastWriteTime  := Other.FLastWriteTime;
+  FFullFileSize   := Other.FFullFileSize;
+  FUpperCaseName  := Other.FUpperCaseName;
+  FDisplayName    := Other.FDisplayName;
+  FFileType       := Other.FFileType;
+  FIconIndex      := Other.FIconIndex;
+  FDenied         := Other.FDenied;
 end;
 
 constructor TCacheItem.Create(Volume: TVolumeCache; Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal);
@@ -296,30 +311,34 @@ begin
   FVolume := Volume;
   FParent := Parent;
   FLevel := Level;
-  FFileData := FileData; // because TWin32FindData is a record, data is copied here to FFileData
+  FFileName := FileData.cFileName;
+  FFileAttrs := FileData.dwFileAttributes;
+  FCreationTime := FileData.ftCreationTime;
+  FLastAccessTime := FileData.ftLastAccessTime;
+  FLastWriteTime := FileData.ftLastWriteTime;
   FFullFileSize := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
   //FDenied := False;
-  FUpperCaseName := AnsiUpperCase(FileData.cFileName);
+  FUpperCaseName := AnsiUpperCase(FFileName);
 end;
 
 procedure TCacheItem.Serialize(OStream: TStream);
 begin
   OStream.WriteData<Cardinal>(FParent);
-  OStream.WriteData<Cardinal>(FFileData.dwFileAttributes);
-  OStream.WriteData<Cardinal>(FFileData.ftCreationTime.dwHighDateTime);
-  OStream.WriteData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
-  OStream.WriteData<Cardinal>(FFileData.ftLastAccessTime.dwHighDateTime);
-  OStream.WriteData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
-  OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwHighDateTime);
-  OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
-  OStream.WriteData<Cardinal>(FFileData.nFileSizeHigh);
-  OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);
+  OStream.WriteData<Cardinal>(FFileAttrs);
+  OStream.WriteData<TFileTime>(FCreationTime);
+  //OStream.WriteData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
+  OStream.WriteData<TFileTime>(FLastAccessTime);
+  //OStream.WriteData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
+  OStream.WriteData<TFileTime>(FLastWriteTime);
+  //OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
+  OStream.WriteData<UInt64>(FFullFileSize);
+  //OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);
   OStream.WriteData<Cardinal>(FLevel);
   OStream.WriteData<Boolean>(FDenied);
-  var lenBytes := ByteLength(FFileData.cFileName); //StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
-  Assert(lenBytes < MAX_PATH * sizeof(FFileData.cFileName[0]));
+  var lenBytes := ByteLength(FFileName); //StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
+  Assert(lenBytes < MAX_PATH * sizeof(FFileName[1]));
   OStream.WriteData<Integer>(lenBytes);
-  OStream.Write(FFileData.cFileName, lenBytes);
+  OStream.Write(FFileName[1], lenBytes);
 end;
 
 procedure TCacheItem.Deserialize(IStream: TStream);
@@ -327,23 +346,24 @@ var
   lenBytes: Cardinal;
 begin
   IStream.ReadData<Cardinal>(FParent);
-  IStream.ReadData<Cardinal>(FFileData.dwFileAttributes);
-  IStream.ReadData<Cardinal>(FFileData.ftCreationTime.dwHighDateTime);
-  IStream.ReadData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
-  IStream.ReadData<Cardinal>(FFileData.ftLastAccessTime.dwHighDateTime);
-  IStream.ReadData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
-  IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwHighDateTime);
-  IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
-  IStream.ReadData<Cardinal>(FFileData.nFileSizeHigh);
-  IStream.ReadData<Cardinal>(FFileData.nFileSizeLow);
-  FFullFileSize := MakeFileSize(FFileData.nFileSizeHigh, FFileData.nFileSizeLow);
+  IStream.ReadData<Cardinal>(FFileAttrs);
+  IStream.ReadData<TFileTime>(FCreationTime);
+  //IStream.ReadData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
+  IStream.ReadData<TFileTime>(FLastAccessTime);
+  //IStream.ReadData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
+  IStream.ReadData<TFileTime>(FLastWriteTime);
+  //IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
+  IStream.ReadData<UInt64>(FFullFileSize);
+  //IStream.ReadData<Cardinal>(FFileData.nFileSizeLow);
+  //FFullFileSize := MakeFileSize(FFileData.nFileSizeHigh, FFileData.nFileSizeLow);
   IStream.ReadData<Cardinal>(FLevel);
   IStream.ReadData<Boolean>(FDenied);
 
   IStream.ReadData<Cardinal>(lenBytes);
-  Assert(lenBytes < MAX_PATH * sizeof(FFileData.cFileName[0]));
-  IStream.Read(FFileData.cFileName, lenBytes);
-  FUpperCaseName := AnsiUpperCase(FFileData.cFileName);
+  Assert(lenBytes < MAX_PATH * sizeof(FFileName[1]));
+  SetLength(FFileName, lenBytes div sizeof(FFileName[1])); // SetLength needs size in characters
+  IStream.Read(FFileName[1], lenBytes);
+  FUpperCaseName := AnsiUpperCase(FFileName);
 
 end;
 
@@ -452,9 +472,9 @@ begin
     end;
 
     var item := GetItem(Parent);
-    tmp.QuadPart := Int64(DirSize);
-    item.FFileData.nFileSizeHigh := DWORD(tmp.HighPart);
-    item.FFileData.nFileSizeLow := DWORD(tmp.LowPart);
+    //tmp.QuadPart := Int64(DirSize);
+    //item.FFileSize := DWORD(tmp.HighPart);
+    //item.FFileData.nFileSizeLow := DWORD(tmp.LowPart);
     item.FFullFileSize := DirSize;
 
   //  FFindHandles.AddValue(hFind);
@@ -478,7 +498,7 @@ begin
   try
     if hf = INVALID_HANDLE_VALUE then begin
       MessageDlg(GetErrorMessageText(GetLastError(), 'Open file') + filePath, mtError, [mbOK], 0);
-      exit;
+      Exit;
     end;
 
     Windows.GetFileTime(hf, @fileData.ftCreationTime, @fileData.ftLastAccessTime, @fileData.ftLastWriteTime);
@@ -493,7 +513,7 @@ end;
 
 function IsReparsePoint(item: TCacheItem): Boolean;
 begin
-  Result := (item.FFileData.dwFileAttributes and FILE_ATTRIBUTE_REPARSE_POINT) > 0;
+  Result := (item.FFileAttrs and FILE_ATTRIBUTE_REPARSE_POINT) > 0;
 end;
 
 function TVolumeCache.CheckHangingDirectories: THArrayG<string>;
@@ -696,7 +716,7 @@ end;
 
 function IsDirectory(Item: TCacheItem): Boolean;
 begin
-  IsDirectory := (Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0;
+  IsDirectory := (Item.FFileAttrs AND FILE_ATTRIBUTE_DIRECTORY) > 0;
 end;
 
 function IsDirectory(var FileData: TWin32FindData): Boolean;
@@ -715,13 +735,13 @@ function ApplyFilter(var Filter: TSearchFilter; GrepList: TStringList; Item: TCa
 begin
   Result := False; //Result=False by default means 'not found'
   if Filter.SearchStr <> '' then
-    if NOT CheckForFileName(Filter, GrepList, Item.FFileData.cFileName, Item.FUpperCaseName) then Exit;
+    if NOT CheckForFileName(Filter, GrepList, Item.FFileName, Item.FUpperCaseName) then Exit;
   if Filter.SearchByFileSize then
     if NOT CheckForFileSize(Filter, Item.FFullFileSize{, IsDirectory(Item)}) then Exit;
   if Filter.SearchByModifiedDate then
-    if NOT CheckForModifiedDate(Filter, item.FFileData.ftLastWriteTime) then Exit;
+    if NOT CheckForModifiedDate(Filter, item.FLastWriteTime) then Exit;
   if Filter.SearchByAttributes then
-    if NOT CheckForAttributes(Filter, item.FFileData.dwFileAttributes) then Exit;
+    if NOT CheckForAttributes(Filter, item.FFileAttrs) then Exit;
 
   Result := True;
 end;
@@ -736,6 +756,7 @@ var
 begin
   if FCacheData.Count = 0 then Exit(srNoIndexData);
 
+  // determine whether we need to make "whole words" search
   Filter.ExactSearch := False;
   len := Length(Filter.SearchStr);
   if len > 2 then begin // check for surrounding double quotes and single quotes
@@ -750,6 +771,7 @@ begin
   //Found := False;
 
   //startArray := THArrayG<string>.Create;
+
   GrepList := nil;
   try
     // check if filter str has wildcards
@@ -923,7 +945,7 @@ begin
   // for root item we always need to do search
   // it is posible to have several root items on level 0
   while i < level.Count do begin
-    if TCacheItem(level.GetAddr(i)).FFileData.cFileName = fileData.cFileName then break;
+    if TCacheItem(level.GetAddr(i)).FFileName = fileData.cFileName then break;
     Inc(i);
   end;
 
@@ -1064,9 +1086,9 @@ begin
           Dec(ii);
         end;
 
-        pathStr := path[path.Count - 1].FFileData.cFileName;
+        pathStr := path[path.Count - 1].FFileName;
         for k := Integer(path.Count) - 2 downto 0 do begin
-          pathStr := pathStr + '\' +  path[Cardinal(k)].FFileData.cFileName;
+          pathStr := pathStr + '\' +  path[Cardinal(k)].FFileName;
         end;
 
         fout.Write(PChar(pathStr)^, ByteLength(pathStr){*sizeof(Char)});
@@ -1095,14 +1117,12 @@ begin
   for i := 1 to Length(ExclusionsList) do begin
     str := ExclusionsList[i - 1];
     if str.StartsWith(Volume) then begin
-      str := ExcludeTrailingPathDelimiter(str);
-      //if str[Length(str)] = '\' then Delete(str, Length(str), 1); // delete trailing backslash for proper comparing in ReadDirectory method
+      str := ExcludeTrailingPathDelimiter(str); // delete trailing backslash for proper comparing in ReadDirectory method
       FExclFolders.AddValue(str);
     end;
   end;
 
-  //if Volume[Length(Volume)] = '\' then Delete(Volume, Length(Volume), 1);
-  ExcludeTrailingPathDelimiter(Volume);
+  Volume := ExcludeTrailingPathDelimiter(Volume);
   var startItemRef := AddFullPath(Volume);
   Result := ReadDirectory(Volume, startItemRef, True);
 
@@ -1152,18 +1172,18 @@ begin
     var item := GetItem(ItemLevel, ItemIndex);
 
     if itemLevel = 0 then begin  // we asked for root level item, return it and exit
-      Result := item.FFileData.cFileName;
+      Result := item.FFileName;
       Exit;
     end;
 
-    GPath.AddValue(item.FFileData.cFileName);
+    GPath.AddValue(PChar(item.FFileName)); //TODO: may be we need change it
 
     var index := item.FParent;
     ii := Integer(ItemLevel - 1); // ii variable needs to be signed Integer
 
     while ii >= 0 do begin
       item := GetItem(Cardinal(ii), index);
-      GPath.AddValue(item.FFileData.cFileName);
+      GPath.AddValue(PCHar(item.FFileName)); //TODO: may be we need change it
       index := item.FParent;
       Dec(ii);
     end;
@@ -1261,22 +1281,22 @@ begin
       item := TCacheItem(lv.GetAddr(j));
       var counted: Boolean := false;
 
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY)    > 0 then begin Inc(Result.Stat[ftDir]);       counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_ARCHIVE)      > 0 then begin Inc(Result.Stat[ftArchive]);   counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_READONLY)     > 0 then begin Inc(Result.Stat[ftReadOnly]);  counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_NORMAL)       > 0 then begin Inc(Result.Stat[ftFile]);      counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_HIDDEN)       > 0 then begin Inc(Result.Stat[ftHidden]);    counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_TEMPORARY)    > 0 then begin Inc(Result.Stat[ftTemp]);      counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_SYSTEM)       > 0 then begin Inc(Result.Stat[ftSystem]);    counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE)       > 0 then begin Inc(Result.Stat[ftDevice]);    counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT)> 0 then begin Inc(Result.Stat[ftSymbolic]);  counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_COMPRESSED)   > 0 then begin Inc(Result.Stat[ftCompressed]);counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_ENCRYPTED)    > 0 then begin Inc(Result.Stat[ftEncrypted]); counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_OFFLINE)      > 0 then begin Inc(Result.Stat[ftOffline]);   counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_SPARSE_FILE)  > 0 then begin Inc(Result.Stat[ftSparse]);    counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_VIRTUAL)      > 0 then begin Inc(Result.Stat[ftVirtual]);   counted := True; end;
-      if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) > 0 then begin Inc(Result.Stat[ftNotIndexed]); counted := True; end;
-      //if (item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_PINNED) > 0 then begin Inc(Result[ftPinned]); counted := true; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_DIRECTORY)    > 0 then begin Inc(Result.Stat[ftDir]);       counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_ARCHIVE)      > 0 then begin Inc(Result.Stat[ftArchive]);   counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_READONLY)     > 0 then begin Inc(Result.Stat[ftReadOnly]);  counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_NORMAL)       > 0 then begin Inc(Result.Stat[ftFile]);      counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_HIDDEN)       > 0 then begin Inc(Result.Stat[ftHidden]);    counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_TEMPORARY)    > 0 then begin Inc(Result.Stat[ftTemp]);      counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_SYSTEM)       > 0 then begin Inc(Result.Stat[ftSystem]);    counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_DEVICE)       > 0 then begin Inc(Result.Stat[ftDevice]);    counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_REPARSE_POINT)> 0 then begin Inc(Result.Stat[ftSymbolic]);  counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_COMPRESSED)   > 0 then begin Inc(Result.Stat[ftCompressed]);counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_ENCRYPTED)    > 0 then begin Inc(Result.Stat[ftEncrypted]); counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_OFFLINE)      > 0 then begin Inc(Result.Stat[ftOffline]);   counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_SPARSE_FILE)  > 0 then begin Inc(Result.Stat[ftSparse]);    counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_VIRTUAL)      > 0 then begin Inc(Result.Stat[ftVirtual]);   counted := True; end;
+      if (item.FFileAttrs AND FILE_ATTRIBUTE_NOT_CONTENT_INDEXED) > 0 then begin Inc(Result.Stat[ftNotIndexed]); counted := True; end;
+      //if (item.FFileData.dwFileAttrs AND FILE_ATTRIBUTE_PINNED) > 0 then begin Inc(Result[ftPinned]); counted := true; end;
       if counted
         then Inc(countedItems)
         else raise Exception.Create('Uncounted file type encontered!'); //list.Add(Format('Missing file attribute : %s : %u', [item.FFileData.cFileName, item.FFileData.dwFileAttributes]));
@@ -1385,6 +1405,8 @@ begin
   end;
 end;
 
+// loads nothing if file does not exist
+//TODO: think of if this function need to raise an exception if file does not exist or not accessible
 procedure TCache.DeserializeFrom(const FileName: string);
 var
   msin: TMemoryStream;
@@ -1525,6 +1547,7 @@ function TCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSear
 var
   i: Cardinal;
 begin
+  Result := srOK;
   for i := 1 to FVolumeData.Count do
     Result := FVolumeData.GetPair(i - 1).Second.Search(Filter, Callback);
 end;

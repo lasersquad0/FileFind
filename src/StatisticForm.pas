@@ -142,7 +142,7 @@ begin
     TopFilesChart.Series[0].Clear;
     for i := 0 to 10-1 do begin
       Item := top.GetItem(i);
-      TopFilesChart.Series[0].Add(Item.FFullFileSize, Item.FFileData.cFileName);
+      TopFilesChart.Series[0].Add(Item.FFullFileSize, Item.FFileName);
     end;
 
   finally
@@ -163,7 +163,7 @@ begin
     TopFoldersChart.Series[0].Clear;
     for i := 0 to 10-1 do begin
       Item := top.GetItem(i);
-      TopFoldersChart.Series[0].Add(Item.FFullFileSize, Item.FFileData.cFileName);
+      TopFoldersChart.Series[0].Add(Item.FFullFileSize, Item.FFileName);
     end;
 
   finally
@@ -287,7 +287,7 @@ begin
     for j := 0 to vol.LevelCount(i) - 1 do begin
       Item := vol.GetItem(i, j); //levelGetAddr(j);
       if NOT (IsDirectory(Item)
-         OR ((Item.FFileData.dwFileAttributes AND FILE_ATTRIBUTE_DEVICE) > 0)) then AddValue(Item);
+         OR ((Item.FFileAttrs AND FILE_ATTRIBUTE_DEVICE) > 0)) then AddValue(Item);
     end;
   end;
 
