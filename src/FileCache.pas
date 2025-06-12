@@ -23,11 +23,12 @@ type
    FCreationTime: TFileTime;
    FLastAccessTime: TFileTime;
    FLastWriteTime: TFileTime;
-   FFullFileSize: UInt64;
+   FFileSize: UInt64;
    FFileName: TFileName;
    FUpperCaseName: TFileName; // name of file/dir in upper case. need for search routines
    FDisplayName: string;
    FFileType: string;
+   FPath: string; // full path to directory, filled only for directories
    FIconIndex: Integer;
    FDenied: Boolean;
    //FFileData: TWin32FindData;  //TODO: get rid of TWin32FindData in this class
@@ -37,6 +38,8 @@ type
    procedure Assign(Other: TCacheItem);
    procedure Serialize(OStream: TStream);
    procedure Deserialize(IStream: TStream);
+   function IsDirectory: Boolean; overload;
+   function IsReparsePoint: Boolean;
  end;
 
  TFileTypes = (ftFile, ftDir, ftTemp, ftArchive, ftReadOnly, ftHidden, ftSystem, ftDevice, ftSymbolic, ftCompressed,
@@ -121,7 +124,7 @@ type
    function  AddLevel(level: Cardinal): TLevelType;
    function  AddRootItem(var fileData: TWin32FindData):TCacheItemRef;
    function  AddItem(parent: Cardinal; var fileData:TWin32FindData; itemLevel: Cardinal; doSearch: Boolean = False): TCacheItemRef;
-   function  AddFullPath(const path: string): TCacheItemRef;
+   function  AddFullPath(const Path: string): TCacheItemRef;
    function  GetItem(itemRef: TCacheItemRef): TCacheItem; overload;
    procedure FillFileData(const filePath: string; var fileData: TWin32FindData);
    function  ReadDirectory(const currDir: TFileName; parent: TCacheItemRef; ShowProgress: Boolean): UInt64;
@@ -163,6 +166,7 @@ type
    procedure CheckThatParentIsDirectory;
    function  CheckHangingDirectories: THArrayG<string>;
    procedure CheckLevelsDataTsCorrect;
+   procedure CheckFileDatesAreCorrect;
 
    //properties
    property  Modified: Boolean read FModified write FModified;
@@ -218,6 +222,12 @@ type
    procedure AddProgressListener(listener: IIndexingProgress);
    procedure RemoveProgressListener(listener: IIndexingProgress);
 
+   // integrity checks procedures
+   function CheckHangingDirectories: THArrayG<string>;
+   procedure CheckThatParentIsDirectory;
+   procedure CheckLevelsDataTsCorrect;
+   procedure CheckFileDatesAreCorrect;
+
    function  GetStat(Volume: string): TFileSystemStatRecord;
 
    //properties
@@ -228,7 +238,6 @@ type
 
   TFSC = TCache;  // short alias for class name, just for convenience
 
-  function IsDirectory(Item: TCacheItem): Boolean; overload;
   function IsDirectory(var FileData: TWin32FindData): Boolean; overload;
   function IsReparse(var FileData: TWin32FindData): Boolean;
 
@@ -282,10 +291,9 @@ begin
   FLastAccessTime.dwHighDateTime := 0;
   FLastWriteTime.dwLowDateTime := 0;
   FLastWriteTime.dwHighDateTime := 0;
-  FFullFileSize := 0;
+  FFileSize := 0;
   FIconIndex := 0;
   FDenied := False;
-//  FUpperCaseName := '';
 end;
 
 procedure TCacheItem.Assign(Other: TCacheItem);
@@ -297,7 +305,7 @@ begin
   FCreationTime   := Other.FCreationTime;
   FLastAccessTime := Other.FLastAccessTime;
   FLastWriteTime  := Other.FLastWriteTime;
-  FFullFileSize   := Other.FFullFileSize;
+  FFileSize       := Other.FFileSize;
   FUpperCaseName  := Other.FUpperCaseName;
   FDisplayName    := Other.FDisplayName;
   FFileType       := Other.FFileType;
@@ -313,11 +321,10 @@ begin
   FLevel := Level;
   FFileName := FileData.cFileName;
   FFileAttrs := FileData.dwFileAttributes;
-  FCreationTime := FileData.ftCreationTime;
+  FCreationTime   := FileData.ftCreationTime;
   FLastAccessTime := FileData.ftLastAccessTime;
-  FLastWriteTime := FileData.ftLastWriteTime;
-  FFullFileSize := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
-  //FDenied := False;
+  FLastWriteTime  := FileData.ftLastWriteTime;
+  FFileSize := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
   FUpperCaseName := AnsiUpperCase(FFileName);
 end;
 
@@ -331,7 +338,7 @@ begin
   //OStream.WriteData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
   OStream.WriteData<TFileTime>(FLastWriteTime);
   //OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
-  OStream.WriteData<UInt64>(FFullFileSize);
+  OStream.WriteData<UInt64>(FFileSize);
   //OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);
   OStream.WriteData<Cardinal>(FLevel);
   OStream.WriteData<Boolean>(FDenied);
@@ -353,7 +360,7 @@ begin
   //IStream.ReadData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
   IStream.ReadData<TFileTime>(FLastWriteTime);
   //IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
-  IStream.ReadData<UInt64>(FFullFileSize);
+  IStream.ReadData<UInt64>(FFileSize);
   //IStream.ReadData<Cardinal>(FFileData.nFileSizeLow);
   //FFullFileSize := MakeFileSize(FFileData.nFileSizeHigh, FFileData.nFileSizeLow);
   IStream.ReadData<Cardinal>(FLevel);
@@ -365,6 +372,16 @@ begin
   IStream.Read(FFileName[1], lenBytes);
   FUpperCaseName := AnsiUpperCase(FFileName);
 
+end;
+
+function TCacheItem.IsDirectory: Boolean;
+begin
+  IsDirectory := (FFileAttrs AND FILE_ATTRIBUTE_DIRECTORY) > 0;
+end;
+
+function TCacheItem.IsReparsePoint: Boolean;
+begin
+  IsReparsePoint := (FFileAttrs and FILE_ATTRIBUTE_REPARSE_POINT) > 0;
 end;
 
 ////////////////////////////////////
@@ -475,7 +492,7 @@ begin
     //tmp.QuadPart := Int64(DirSize);
     //item.FFileSize := DWORD(tmp.HighPart);
     //item.FFileData.nFileSizeLow := DWORD(tmp.LowPart);
-    item.FFullFileSize := DirSize;
+    item.FFileSize := DirSize;
 
   //  FFindHandles.AddValue(hFind);
     Windows.FindClose(hFind); // weird, this call takes too much time for some reason. It is called for each scanned directory.
@@ -486,36 +503,36 @@ begin
 end;
 {$WRITEABLECONST OFF}
 
-procedure TVolumeCache.FillFileData(const filePath: string; var fileData: TWin32FindData);
+//TODO shall we convert procedure to function to be able to return an error?
+procedure TVolumeCache.FillFileData(const FilePath: string; var FileData: TWin32FindData);
 var
   hf: THandle;
   fileSize: LARGE_INTEGER;
 begin
   fileSize.QuadPart := 0;
-  fileData.dwFileAttributes := Windows.GetFileAttributes(PChar(filePath));
+  FileData.dwFileAttributes := Windows.GetFileAttributes(PChar(FilePath));
 
-  hf := Windows.CreateFile(PChar(filePath), GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL OR FILE_FLAG_BACKUP_SEMANTICS, 0);
+  // we need file handle first to get file time and file size
+  hf := Windows.CreateFile(PChar(FilePath), GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL OR FILE_FLAG_BACKUP_SEMANTICS, 0);
   try
     if hf = INVALID_HANDLE_VALUE then begin
-      MessageDlg(GetErrorMessageText(GetLastError(), 'Open file') + filePath, mtError, [mbOK], 0);
+      MessageDlg(GetErrorMessageText(GetLastError(), 'Open file') + FilePath, mtError, [mbOK], 0);
       Exit;
     end;
 
-    Windows.GetFileTime(hf, @fileData.ftCreationTime, @fileData.ftLastAccessTime, @fileData.ftLastWriteTime);
+    Windows.GetFileTime(hf, @FileData.ftCreationTime, @FileData.ftLastAccessTime, @FileData.ftLastWriteTime);
     Windows.GetFileSizeEx(hf, fileSize.QuadPart);
-    fileData.nFileSizeHigh := DWORD(fileSize.HighPart);
-    fileData.nFileSizeLow := DWORD(fileSize.LowPart);
+    FileData.nFileSizeHigh := DWORD(fileSize.HighPart);
+    FileData.nFileSizeLow := DWORD(fileSize.LowPart);
 
   finally
     Windows.CloseHandle(hf);
   end;
 end;
 
-function IsReparsePoint(item: TCacheItem): Boolean;
-begin
-  Result := (item.FFileAttrs and FILE_ATTRIBUTE_REPARSE_POINT) > 0;
-end;
-
+// finds empty dirs - dirs that do not contain any files and subdirs
+// calcs count of empty dirs and finds a directory with max number of files in it.
+// on the way it does some integrity checks
 function TVolumeCache.CheckHangingDirectories: THArrayG<string>;
 var
   i, j : Cardinal;
@@ -531,18 +548,18 @@ begin
       var lv := FCacheData[i];
       for j := 0 to lv.Count - 1 do begin
         item := TCacheItem(lv.GetAddr(j));
-        if item.FDenied then Assert(IsDirectory(item)); // FDenied can be set for directories only
+        if item.FDenied then Assert(item.IsDirectory); // FDenied can be set for directories only
 
         // bypass denied dirs
-        if IsDirectory(item) AND NOT item.FDenied AND NOT IsReparsePoint(item) then begin // bypass symbolic links
+        if item.IsDirectory AND NOT item.FDenied AND NOT item.IsReparsePoint then begin // bypass symbolic links
           pValue := table.GetValuePointer(i, j);
           if pValue = nil then table.SetValue(i, j, 0); // if item is directory then set its links counter to zero
         end;
 
         parent := GetItem(i - 1, item.FParent);
-        Assert(IsDirectory(parent));
+        Assert(parent.IsDirectory);
         pValue := table.GetValuePointer(i - 1, item.FParent);
-        Assert((pValue <> nil) OR IsReparsePoint(parent)); // cannot be nil because we already marked all previous level dirs with zero counter
+        Assert((pValue <> nil) OR parent.IsReparsePoint); // cannot be nil because we have already marked all previous level dirs with zero counter
         if Assigned(pValue) then Inc(pValue^); // increase links counter
       end;
     end;
@@ -586,7 +603,7 @@ begin
       item := TCacheItem(lv.GetAddr(j));
       // Parent of any item must be a directory
       parent := GetItem(i - 1, item.FParent);
-      Assert(IsDirectory(parent));
+      Assert(parent.IsDirectory);
     end;
   end;
 end;
@@ -601,7 +618,28 @@ begin
     var lv := FCacheData[i - 1];
     for j := 1 to lv.Count do begin
       item := TCacheItem(lv.GetAddr(j - 1));
-      Assert(item.FLevel = i);
+      Assert(item.FLevel = i - 1);
+    end;
+  end;
+end;
+
+procedure TVolumeCache.CheckFileDatesAreCorrect;
+var
+  i, j: Cardinal;
+  item: TCacheItem;
+begin
+  // check that each item contain correct date fields.
+  for i := 1 to FCacheData.Count  do begin
+    var lv := FCacheData[i - 1];
+    for j := 1 to lv.Count do begin
+      item := TCacheItem(lv.GetAddr(j - 1));
+      Assert(item.FFileAttrs <> 0);
+      Assert(item.FFileName <> '');
+      Assert(PInt64(@item.FCreationTime)^ <> 0);
+      Assert(PInt64(@item.FLastAccessTime)^ <> 0);
+      Assert(PInt64(@item.FLastWriteTime)^ <> 0);
+      // check size of files only, because directory size is size of all files inside directory
+      if NOT item.IsDirectory then Assert(item.FFileSize < UInt64(100)*1024*1024*1024); // check that all sizes are less than 100G
     end;
   end;
 end;
@@ -714,11 +752,6 @@ begin
   Result := (FileAttributes AND Filter.Attributes) > 0;
 end;
 
-function IsDirectory(Item: TCacheItem): Boolean;
-begin
-  IsDirectory := (Item.FFileAttrs AND FILE_ATTRIBUTE_DIRECTORY) > 0;
-end;
-
 function IsDirectory(var FileData: TWin32FindData): Boolean;
 begin
   IsDirectory := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0;
@@ -737,7 +770,7 @@ begin
   if Filter.SearchStr <> '' then
     if NOT CheckForFileName(Filter, GrepList, Item.FFileName, Item.FUpperCaseName) then Exit;
   if Filter.SearchByFileSize then
-    if NOT CheckForFileSize(Filter, Item.FFullFileSize{, IsDirectory(Item)}) then Exit;
+    if NOT CheckForFileSize(Filter, Item.FFileSize{, IsDirectory(Item)}) then Exit;
   if Filter.SearchByModifiedDate then
     if NOT CheckForModifiedDate(Filter, item.FLastWriteTime) then Exit;
   if Filter.SearchByAttributes then
@@ -805,8 +838,16 @@ begin
       var lv := FCacheData[i];
       for j := 0 to lv.Count - 1 do begin
         item := TCacheItem(lv.GetAddr(j));
-        if ApplyFilter(Filter, GrepList, item) then
-          if NOT Callback(MakePathString(i, j), item) then Exit(srCancelled); //TODO: optimization: cache PathString in the item and use it during next searches
+
+        if ApplyFilter(Filter, GrepList, item) then begin
+          if item.IsDirectory then begin // build PathString only for directories
+            if item.FPath = '' then item.FPath := MakePathString(i, j);
+            if NOT Callback(item.FPath, item) then Exit(srCancelled); //TODO: optimization: cache PathString in the item and use it during next searches
+          end else begin
+           if NOT Callback(MakePathString(i, j), item) then Exit(srCancelled);
+          end;
+        end;
+
       end;
     end;
     Result := srOK;
@@ -979,7 +1020,7 @@ begin
   Result.ItemIndex := level.Count - 1;
 end;
 
-function TVolumeCache.AddFullPath(const path: string): TCacheItemRef;
+function TVolumeCache.AddFullPath(const Path: string): TCacheItemRef;
 var
   pathArray: THArrayG<string>;
   pathArrayAccum: THArrayG<string>;
@@ -991,8 +1032,8 @@ begin
   pathArrayAccum := THArrayG<string>.Create;
 
   try
-    StringToArray(path, pathArray, '\');
-    StringToArrayAccum(path, pathArrayAccum, '\');
+    StringToArray(Path, pathArray, '\');
+    StringToArrayAccum(Path, pathArrayAccum, '\');
 
     ZeroMemory(@fileData, sizeof(fileData));
     lstrcpy(fileData.cFileName, PWideChar(pathArray[0]));
@@ -1035,7 +1076,7 @@ end;
 
 function TVolumeCache.Size: UInt64;
 begin
-  Result := GetItem(0, 0).FFullFileSize;
+  Result := GetItem(0, 0).FFileSize;
 end;
 
 procedure TVolumeCache.DeserializeFrom(const FileName: string);
@@ -1044,9 +1085,11 @@ var
 begin
   msin := TMemoryStream.Create;
   try
-    if FileExists(FileName) then begin
+    if FileExists(FileName) then begin //TODO: shall we raise an exception or return false in case index file is not found?
       msin.LoadFromFile(FileName);
       Deserialize(msin);
+    end else begin
+      Logger.LogFmt('Index file is not found or not accessible ().', [FileName]);
     end;
   finally
     msin.Free;
@@ -1154,15 +1197,15 @@ begin
 end;
 
 
-type
-  TGPath = THArrayG<PChar>;
+//type
+//  TGPath = THArrayG<string>;
 var
-  GPathCache: TObjectsCache<TGPath> = nil; // optimization, global array to hold path items before converting into full path string
+  GPathCache: TObjectsCache<THArrayG<string>> = nil; // optimization, global array to hold path items before converting into full path string
 
 function TVolumeCache.MakePathString(itemLevel, itemIndex: Cardinal): string;
 var
   k, ii: Integer;
-  GPath: TGPath;
+  GPath: THArrayG<string>;
 begin
   GPath := GPathCache.GetItem;
   //GPath.SetCapacity(MAX_DIR_LEVELS); // because of cache memory for capacity will be allocated only once during first call
@@ -1176,14 +1219,14 @@ begin
       Exit;
     end;
 
-    GPath.AddValue(PChar(item.FFileName)); //TODO: may be we need change it
+    GPath.AddValue(item.FFileName); //TODO: may be we need change it
 
     var index := item.FParent;
     ii := Integer(ItemLevel - 1); // ii variable needs to be signed Integer
 
     while ii >= 0 do begin
       item := GetItem(Cardinal(ii), index);
-      GPath.AddValue(PCHar(item.FFileName)); //TODO: may be we need change it
+      GPath.AddValue(item.FFileName); //TODO: may be we need change it
       index := item.FParent;
       Dec(ii);
     end;
@@ -1252,10 +1295,10 @@ begin
     for j := 1 to level.Count do begin
       sitem := TCacheItem(level.GetAddr(j - 1));
 
-      if IsDirectory(sitem) then begin
+      if sitem.IsDirectory then begin
         pathStr := MakePathString(i - 1, j - 1);
 
-        list.Add(Format('%s \t %u', [pathStr, sitem.FFullFileSize]));
+        list.Add(Format('%s \t %u', [pathStr, sitem.FFileSize]));
         //"\t" << FileTimeToString(sitem.FFileData.ftLastWriteTime) << "\t" << FileTimeToString(sitem.FFileData.ftLastAccessTime) << std::endl;
       end;
     end;
@@ -1357,6 +1400,37 @@ end;
 
 
 { TCache }
+
+function TCache.CheckHangingDirectories: THArrayG<string>;
+var
+  i: Integer;
+  emptyDirs: THArrayG<string>;
+begin
+  for i := 1 to FVolumeData.Count do begin
+    emptyDirs := FVolumeData.GetPair(i - 1).Second.CheckHangingDirectories; //TODO: do something useful with emptyDirs info
+  end;
+end;
+
+procedure TCache.CheckLevelsDataTsCorrect;
+var
+  i: Integer;
+begin
+  for i := 1 to FVolumeData.Count do FVolumeData.GetPair(i - 1).Second.CheckLevelsDataTsCorrect;
+end;
+
+procedure TCache.CheckThatParentIsDirectory;
+var
+  i: Integer;
+begin
+  for i := 1 to FVolumeData.Count do FVolumeData.GetPair(i - 1).Second.CheckThatParentIsDirectory;
+end;
+
+procedure TCache.CheckFileDatesAreCorrect;
+var
+  i: Integer;
+begin
+  for i := 1 to FVolumeData.Count do FVolumeData.GetPair(i - 1).Second.CheckFileDatesAreCorrect;
+end;
 
 procedure TCache.Clear(Volume: string);
 begin
@@ -1606,11 +1680,11 @@ end;
 
 
 initialization
-  GPathCache := TObjectsCache<TGPath>.Create(3, True); //we have two threads that will work with this global objects, so 3 items should be enough
+  GPathCache := TObjectsCache<THArrayG<string>>.Create(3, True); //we have two threads that will work with this global objects, so 3 items should be enough
   //GPath.SetCapacity(MAX_DIR_LEVELS);
 
 finalization
-  if GPathCache <> nil then FreeAndNil(GPathCache);
+  FreeAndNil(GPathCache);
   TCache.FreeInst; // free cache singlton
 end.
 
