@@ -63,9 +63,9 @@ const
   function  StringListToArray(Strings: TStrings): TArray<string>;
   procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
   // split string to array of strings using Delim as delimiter
-  procedure StringToArray(const str: string; var arr:THArrayG<string>; const Delim:Char {= '\n'});
+  procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
   // splits string to array of strings using Delim as delimiter
-  procedure StringToArrayAccum(const str:string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+  procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
   procedure WriteStringToStream(OStream: TStream; str: string);
   function  ReadStringFromStream(IStream: TStream): string;
   function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
@@ -84,13 +84,12 @@ const
   function IsAppRunningAsAdminMode(): Boolean;
   function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; IsMember: PLongBool): LongBool; stdcall;
 
-
-
 implementation
 
 uses
   WinAPI.ShellAPI, StrUtils, SyncObjs, Math;
 
+// need for checking if app running with admin rights
 function CheckTokenMembership; external 'advapi32.dll' name 'CheckTokenMembership';
 
 class function TTernary.IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T;
@@ -138,7 +137,7 @@ begin
 end;
 
 // split string to array of strings using Delim as delimiter
-procedure StringToArray(const str: string; var arr:THArrayG<string>; const Delim:Char {= '\n'});
+procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
 var
   i, len: Cardinal;
   s: string;
@@ -163,7 +162,7 @@ begin
 end;
 
 // splits string to array of strings using Delim as delimiter
-procedure StringToArrayAccum(const str:string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
 var
   i, len: Cardinal;
   s:string;
@@ -427,10 +426,6 @@ begin
   dt := GetDriveType(PChar(drive));
   Result := (dt = DRIVE_REMOVABLE) OR (dt = DRIVE_CDROM);
 end;
-
-
-//var ErrorStringIDs: THash<Cardinal, string>; // mapping some error codes to string error IDs for better understanding
-
 
 // FileName - must be full path to existing file or folder
 // or relative path to existing file/folder
