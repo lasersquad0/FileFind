@@ -142,7 +142,7 @@ begin
     TopFilesChart.Series[0].Clear;
     for i := 0 to 10-1 do begin
       Item := top.GetItem(i);
-      TopFilesChart.Series[0].Add(Item.FFullFileSize, Item.FFileName);
+      TopFilesChart.Series[0].Add(Item.FFileSize, Item.FFileName);
     end;
 
   finally
@@ -163,7 +163,7 @@ begin
     TopFoldersChart.Series[0].Clear;
     for i := 0 to 10-1 do begin
       Item := top.GetItem(i);
-      TopFoldersChart.Series[0].Add(Item.FFullFileSize, Item.FFileName);
+      TopFoldersChart.Series[0].Add(Item.FFileSize, Item.FFileName);
     end;
 
   finally
@@ -195,14 +195,14 @@ begin
   if FItems.Count = 0 then exit;
 
   FMax := 0;
-  FMin := FItems[0].FFullFileSize;
+  FMin := FItems[0].FFileSize;
   MinIndex := 0;
   for i := 0 to FItems.Count - 1 do
   begin
     Item := FItems[i];
-    if FMax < item.FFullFileSize then FMax := item.FFullFileSize;
-    if FMin > item.FFullFileSize then begin
-      FMin := item.FFullFileSize;
+    if FMax < item.FFileSize then FMax := item.FFileSize;
+    if FMin > item.FFileSize then begin
+      FMin := item.FFileSize;
       MinIndex := i;
     end;
   end;
@@ -212,8 +212,8 @@ end;
 
 function TTopFolders.CompareProc(Item1, Item2: TCacheItem): Integer;
 begin
-  if Item1.FFullFileSize > Item2.FFullFileSize then Result := 1
-  else if Item1.FFullFileSize < Item2.FFullFileSize then Result := -1
+  if Item1.FFileSize > Item2.FFileSize then Result := 1
+  else if Item1.FFileSize < Item2.FFileSize then Result := -1
   else Result := 0;
 end;
 
@@ -239,10 +239,10 @@ procedure TTopFolders.AddValue(Item: TCacheItem);
 begin
   if FItems.Count < FSize then begin
     FItems.AddValue(Item);
-    if FMax < item.FFullFileSize then FMax := item.FFullFileSize;
-    if FMin > item.FFullFileSize then FMin := item.FFullFileSize;
+    if FMax < item.FFileSize then FMax := item.FFileSize;
+    if FMin > item.FFileSize then FMin := item.FFileSize;
   end else begin
-    if Item.FFullFileSize > FMin then begin
+    if Item.FFileSize > FMin then begin
       FItems.AddValue(Item);
       UpdateMinMaxAndDelete();
     end;
@@ -264,7 +264,7 @@ begin
     //Level := Cache.FCacheData[i];
     for j := 0 to vol.LevelCount(i) - 1 do begin
       Item := vol.GetItem(i, j); //Level.GetAddr(j);
-      if IsDirectory(Item) then AddValue(Item);
+      if Item.IsDirectory then AddValue(Item);
     end;
   end;
 
@@ -286,7 +286,7 @@ begin
     //Level := Cache.FCacheData[i];
     for j := 0 to vol.LevelCount(i) - 1 do begin
       Item := vol.GetItem(i, j); //levelGetAddr(j);
-      if NOT (IsDirectory(Item)
+      if NOT (Item.IsDirectory
          OR ((Item.FFileAttrs AND FILE_ATTRIBUTE_DEVICE) > 0)) then AddValue(Item);
     end;
   end;
