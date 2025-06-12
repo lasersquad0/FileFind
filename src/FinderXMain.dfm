@@ -647,6 +647,10 @@ object MainForm: TMainForm
         Caption = 'About'
         OnClick = AboutMenuItemClick
       end
+      object CheckIntegrity: TMenuItem
+        Caption = 'Check Integrity'
+        OnClick = CheckIntegrityClick
+      end
     end
   end
   object ImageList1: TImageList

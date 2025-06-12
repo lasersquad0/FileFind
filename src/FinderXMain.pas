@@ -94,6 +94,7 @@ type
     ApplicationEvents1: TApplicationEvents;
     ProgressBarFileInfo: TProgressBar;
     DeleteIndex: TMenuItem;
+    CheckIntegrity: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -123,6 +124,7 @@ type
     procedure TrayIcon1DblClick(Sender: TObject);
     procedure ExitAppMenuItemClick(Sender: TObject);
     procedure DeleteIndexClick(Sender: TObject);
+    procedure CheckIntegrityClick(Sender: TObject);
   private
     SearchEdit: TSearchEdit;
     FSortColumnID: Integer;
@@ -166,8 +168,6 @@ type
     //procedure OnFileShellInfo(var Msg: TMessage); message WM_FileShellInfo_MSG;
     procedure OnSearchResultsShellInfo(var Msg: TMessage); message WM_SearchResultsShellInfo_MSG;
     procedure OnRestoreFormRemote(var Msg: TMessage); message WM_RESTORE_MAINFORM_MSG;
-  public
-   // property Cancel: Boolean read FCancel;
   end;
 
 type
@@ -227,7 +227,7 @@ begin
    //if Item.FFileType = '' then  // for each Item GetFileShellInfo will be called only once. Results are cached.
      //GetFileShellInfo(FullPath, Item);  // FullPath contains filename too
 
-   if IsDirectory(Item) then begin
+   if Item.IsDirectory then begin
      if Item.FDenied then begin
        ResultsItem.Size := 0;
        ResultsItem.SizeStr := 'N/A';
@@ -236,13 +236,13 @@ begin
          ResultsItem.Size := 0;
          ResultsItem.SizeStr := '-';
        end else begin
-         ResultsItem.Size := Item.FFullFileSize;
+         ResultsItem.Size := Item.FFileSize;
          ResultsItem.SizeStr := MakeSizeStr(ResultsItem.Size); //ThousandSep(ResultsItem.Size);
          //ResultsItem.Size := (UInt64(Item.FFileData.nFileSizeHigh) shl 32) + UInt64(Item.FFileData.nFileSizeLow);
        end;
      end;
    end else begin // file, not a directory
-     ResultsItem.Size := Item.FFullFileSize;
+     ResultsItem.Size := Item.FFileSize;
      ResultsItem.SizeStr := MakeSizeStr(ResultsItem.Size); //ThousandSep(ResultsItem.Size);
    end;
 
@@ -457,7 +457,6 @@ begin
     ListView1.Repaint;
   end;
 end;
-
 
 procedure TMainForm.MenuItem8Click(Sender: TObject);
 var
@@ -814,9 +813,21 @@ begin
 end;
 
 procedure TMainForm.CancelBtnClick(Sender: TObject);
+var
+  ifCancel: Integer;
 begin
   // because other threads read this variable as a signal to stop execution
-  TInterlocked.Exchange(FCancelIndexing, mrYes = MessageDlg('Are you sure you want to cancel indexing?', TMsgDlgType.mtWarning, [mbYes, mbNo], 0, mbYes));
+  ifCancel := MessageDlg('Are you sure you want to cancel indexing?', TMsgDlgType.mtWarning, [mbYes, mbNo], 0, mbYes);
+  TInterlocked.Exchange(FCancelIndexing, ifCancel = mrYes);
+end;
+
+procedure TMainForm.CheckIntegrityClick(Sender: TObject);
+begin
+  TFSC.Instance.CheckThatParentIsDirectory;
+  TFSC.Instance.CheckLevelsDataTsCorrect;
+  TFSC.Instance.CheckHangingDirectories; //TODO: it would be great to check returned value as well
+  TFSC.Instance.CheckFileDatesAreCorrect;
+  ShowMessage('Integrity checks are OK');
 end;
 
 procedure TMainForm.ClearSearchResults;
