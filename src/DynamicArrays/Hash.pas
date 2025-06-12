@@ -2,29 +2,31 @@ unit Hash;
 
 interface
 
-uses DynamicArray;
+uses DynamicArray, SortedArray;
 
 resourcestring
   SKeyNotFound = 'Element is not found in Hash!';
   SCannotModifyReadOnly  = 'Cannot modify Read-only hash!';
 
-(************************************************************************************************************)
-(*  THash
-(* THash class stores pairs of values Key (K) (can be any type) and Value (V) (can be any type too)
-(* Values can be accessed by Key or also by integer Index (like usual array).
-(* Indexes of Values (not Keys) are not preserved and may change depending on which pairs Key:Value are stored in the hash
-(* Comparator Cmp used to order Keys in THash for fater search (binary search used to find keys)
-(************************************************************************************************************)
+{************************************************************************************************************
+ *  THash
+ * THash class stores pairs of values Key (K) (can be any type) and Value (V) (can be any type too)
+ * Values can be accessed by Key or also by integer Index (like usual array).
+ * Indexes of Values (not Keys) are not preserved and may change depending on which pairs Key:Value are stored in the hash
+ * Comparator Cmp used to order Keys in THash for fater search (binary search used to find keys)
+ ************************************************************************************************************}
 
  type
-  THash<K; V> = class
+  THash<K:constructor; V> = class //TODO shall we add comparator type to THash?
   public type
-   PointerV = THArrayG<V>.PointerT; // just new name of existing type for better understanding
+   TKeysArray = THArraySorted<K>;
+   TValuesArray = THArrayG<V>;
+   PointerV = TValuesArray.PointerT; // just new name of existing type for better understanding
    Pair = record First: K; Second: V; end;
   protected
    FReadOnly: Boolean;
-   FAIndexes: THArrayG<K>;  //TODO: is it better to have THArraySorted here for fast IndexOf?
-   FAValues : THArrayG<V>;
+   FAIndexes: TKeysArray;
+   FAValues : TValuesArray;
    function GetKey(Index: Cardinal): K;
    function GetCount: Cardinal;
   public
@@ -73,8 +75,8 @@ resourcestring
    property Values[Key: K]: V read GetValue write SetValue; default;
 
    // two properties: list of Keys and list of Values as an arrays
-   property AIndexes: THArrayG<K> read FAIndexes;
-   property AValues: THArrayG<V> read FAValues;
+   property AIndexes: TKeysArray   read FAIndexes;
+   property AValues:  TValuesArray read FAValues;
   end;
 
 implementation
@@ -85,8 +87,8 @@ constructor THash<K,V>.Create;
 begin
   inherited Create;
   FReadOnly := False;
-  FAIndexes := THArrayG<K>.Create;
-  FAValues  := THArrayG<V>.Create;
+  FAIndexes := TKeysArray.Create;
+  FAValues  := TValuesArray.Create;
 end;
 
 {
