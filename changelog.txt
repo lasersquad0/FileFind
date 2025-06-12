@@ -3,12 +3,15 @@ FinderX version 1.2.0
 
 Improvements:
 
-* If search string is in a double quotes (e.g. "myfilename") then file with exact name "myfilename" (without quotes) is searched.
+* If search string is in a quotes (e.g. "myfilename" or 'myfilename') then file with exact name "myfilename" (without quotes) is searched.
   That helps to find exact files with name that included into many other file names like "win" or "system".
 + Index DB location path is shown on Settings form now (as read only). Index DB location path is stored into registry together with other application settings.
+* Improved FinderX work with system tray and Run asAdmin mode.
 + Added tiny line progress bar that shows progress of loading file icons in background.
 + Added "Delete index file" main menu item.
-+ Added "Write diagnostic info into log file" option to settings. 
++ Added "Write diagnostic info into log file" option to settings. When this option is on, useful diagnostic info is written into specified log file.
+* Significanly reduced memory usage by application (in 2.5 times in average) due to internal data optimizations.
+* Increased search speed. More to go.
  
 
 ---------------------------------------------------

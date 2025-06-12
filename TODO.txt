@@ -12,9 +12,15 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
-- create proper workaround if index file name read from registry is incorrect or app cannot create file there.
+- Improve filter by date (Date Between) - add combo box with three dates: Modified, Last Access, Created. 
+- [DONE] create proper workaround if index file name read from registry is incorrect or app cannot create file there.
 - MaskSearch optimization: parse mask one time and use it many times for applying to search strings
-- get rid of TWin32FindData in TCacheItem class
+- Option to specify IndexDB location
+- GUI: show row mouse over
+- Add possibility to search for composite folders e.g. 'source\repos'
+- Add possibility to select a subfolder to make search to. Subfolder inside of existing index top folder.
+- Think of possibility to open several search windows (related to minimize to system tray feature)
+- [DONE] get rid of TWin32FindData in TCacheItem class
 - [DONE] if search term is in quotes then search it as a separate word in filename. (Roma's idea)
 - [DONE] Turn on or off writing log file
 - Eliminate dependency from DynamicArrayS.pas
@@ -38,34 +44,29 @@ TO DO
     2-5 files with unusual attributes:  encrypted, sparse, etc.
     
 - [DONE] make standard list of folder exceptions which will not be indexed (various Temp folders):
-   Windows\Temp
-   Users\<user>\AppData\Local\Temp
-   Users\<user>\AppData\LocalLow\Temp
-   C:\ProgramData\Microsoft\Search\Data\Temp
-   C:\Program Files (x86)\Microsoft\Temp
-   C:\Windows\WinSxS\Temp
-   C:\Windows\assembly\temp
-   C:\Windows\assembly\tmp 
-   c:\Program Files (x86)\Google\Temp
-   c:\Windows\System32\DriverStore\Temp
-   c:\Program Files\Git\tmp
-   c:\Windows\Microsoft Antimalware\Tmp
-   etc.
+      Windows\Temp
+      Users\<user>\AppData\Local\Temp
+      Users\<user>\AppData\LocalLow\Temp
+      C:\ProgramData\Microsoft\Search\Data\Temp
+      C:\Program Files (x86)\Microsoft\Temp
+      C:\Windows\WinSxS\Temp 
+      C:\Windows\assembly\temp
+      C:\Windows\assembly\tmp 
+      c:\Program Files (x86)\Google\Temp
+      c:\Windows\System32\DriverStore\Temp
+      c:\Program Files\Git\tmp
+      c:\Windows\Microsoft Antimalware\Tmp
+      etc.
 
 - [FIXED] BUG: show yellow warning immediately after start if IndexDb not found
-- Think of possibility to open several search windows (related to minimize to system tray feature)
 - [DONE] minimize to system tray
 - [DONE] search as you type option in settings (ON by default)
 - [FIXED] looks like wildcards search with '?' wildcard does not work well. Do not forget that ? means single symbol.
 - [DONE] possibility to make search while FS is being indexed in background
-- Option to specify IndexDB location
 - [DONE] Search history in edit box
-- GUI: show row mouse over
 - [DONE] Match whole word option. When search term should have word separators in both sides. include search term in quotes.  
-- Add possibility to search for composite folders e.g. 'source\repos'
 - [DONE] Highlight search term in search results list
 - [DONE] "Denied" folders mark with special icon in the list
-- Add possibility to select a subfolder to make search to. Subfolder inside of existing index top folder.
 - [DONE] Add reminder if Index is outdated (14 days reminder)
 - [DONE] Add notification to select folder if user presses Build Index on main form during first run
 - [DONE] Do we need possibility to select two and more folders for indexing? Now you can select only one folder on entire disk (C: and D:)
