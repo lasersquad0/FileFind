@@ -22,7 +22,7 @@ type
    FFileAttrs: DWORD;
    FCreationTime: TFileTime;
    FLastAccessTime: TFileTime;
-   FLastWriteTime: TFileTime;
+   FModifiedTime: TFileTime;
    FFileSize: UInt64;
    FFileName: TFileName;
    FUpperCaseName: TFileName; // name of file/dir in upper case. need for search routines
@@ -84,6 +84,10 @@ type
   TSearchResult = (srOK, srWrongPath, srNoIndexData, srCancelled);
   TFileSizeCompare = (fscEquals, fscMore, fscLess);
 
+
+   TSearchDateType = (sdNone, sdCreated, sdModified, sdLastAccess);
+
+
   TSearchFilter = record
     //StartFrom: string;
     SearchStr: string;
@@ -93,9 +97,10 @@ type
     SearchByFileSize: Boolean;
     FileSize: UInt64;
     FileSizeCmpType: TFileSizeCompare;
-    SearchByModifiedDate: Boolean;
-    ModifiedDateFrom: TFileTime;
-    ModifiedDateTo: TFileTime;
+    //SearchByModifiedDate: Boolean;
+    SearchByDateType: TSearchDateType;
+    DateFrom: TFileTime;
+    DateTo: TFileTime;
     SearchByAttributes: Boolean;
     Attributes: Cardinal;
   end;
@@ -284,8 +289,8 @@ begin
   FCreationTime.dwHighDateTime := 0;
   FLastAccessTime.dwLowDateTime := 0;
   FLastAccessTime.dwHighDateTime := 0;
-  FLastWriteTime.dwLowDateTime := 0;
-  FLastWriteTime.dwHighDateTime := 0;
+  FModifiedTime.dwLowDateTime := 0;
+  FModifiedTime.dwHighDateTime := 0;
   FFileSize := 0;
   FIconIndex := 0;
   FDenied := False;
@@ -299,7 +304,7 @@ begin
   FFileAttrs      := Other.FFileAttrs;
   FCreationTime   := Other.FCreationTime;
   FLastAccessTime := Other.FLastAccessTime;
-  FLastWriteTime  := Other.FLastWriteTime;
+  FModifiedTime  := Other.FModifiedTime;
   FFileSize       := Other.FFileSize;
   FUpperCaseName  := Other.FUpperCaseName;
   FDisplayName    := Other.FDisplayName;
@@ -318,7 +323,7 @@ begin
   FFileAttrs := FileData.dwFileAttributes;
   FCreationTime   := FileData.ftCreationTime;
   FLastAccessTime := FileData.ftLastAccessTime;
-  FLastWriteTime  := FileData.ftLastWriteTime;
+  FModifiedTime  := FileData.ftLastWriteTime;
   FFileSize := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
   FUpperCaseName := AnsiUpperCase(FFileName);
 end;
@@ -331,7 +336,7 @@ begin
   //OStream.WriteData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
   OStream.WriteData<TFileTime>(FLastAccessTime);
   //OStream.WriteData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
-  OStream.WriteData<TFileTime>(FLastWriteTime);
+  OStream.WriteData<TFileTime>(FModifiedTime);
   //OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
   OStream.WriteData<UInt64>(FFileSize);
   //OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);
@@ -353,7 +358,7 @@ begin
   //IStream.ReadData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
   IStream.ReadData<TFileTime>(FLastAccessTime);
   //IStream.ReadData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
-  IStream.ReadData<TFileTime>(FLastWriteTime);
+  IStream.ReadData<TFileTime>(FModifiedTime);
   //IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
   IStream.ReadData<UInt64>(FFileSize);
   //IStream.ReadData<Cardinal>(FFileData.nFileSizeLow);
@@ -632,7 +637,7 @@ begin
       Assert(item.FFileName <> '');
       Assert(PInt64(@item.FCreationTime)^ <> 0);
       Assert(PInt64(@item.FLastAccessTime)^ <> 0);
-      Assert(PInt64(@item.FLastWriteTime)^ <> 0);
+      Assert(PInt64(@item.FModifiedTime)^ <> 0);
       // check size of files only, because directory size is size of all files inside directory
       if NOT item.IsDirectory then Assert(item.FFileSize < UInt64(100)*1024*1024*1024); // check that all sizes are less than 100G
     end;
@@ -734,9 +739,14 @@ begin
 end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
-function CheckForModifiedDate(var Filter: TSearchFilter; ModifiedDate: TFileTime): Boolean;
+function CheckForDate(var Filter: TSearchFilter; item: TCacheItem): Boolean;
 begin
-  Result := (CompareFileTime(ModifiedDate, Filter.ModifiedDateFrom) >= 0) AND (CompareFileTime(ModifiedDate, Filter.ModifiedDateTo) <= 0);
+  case Filter.SearchByDateType of
+    sdModified:   Result := (CompareFileTime(item.FModifiedTime, Filter.DateFrom)  >= 0) AND (CompareFileTime(item.FModifiedTime, Filter.DateTo) <= 0);
+    sdCreated:    Result := (CompareFileTime(item.FCreationTime, Filter.DateFrom)   >= 0) AND (CompareFileTime(item.FCreationTime, Filter.DateTo) <= 0);
+    sdLastAccess: Result := (CompareFileTime(item.FLastAccessTime, Filter.DateFrom) >= 0) AND (CompareFileTime(item.FLastAccessTime, Filter.DateTo) <= 0);
+    sdNone:       Result := False;
+  end;
 end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
@@ -754,8 +764,8 @@ begin
     if NOT CheckForFileName(Filter, GrepList, Item.FFileName, Item.FUpperCaseName) then Exit;
   if Filter.SearchByFileSize then
     if NOT CheckForFileSize(Filter, Item.FFileSize{, IsDirectory(Item)}) then Exit;
-  if Filter.SearchByModifiedDate then
-    if NOT CheckForModifiedDate(Filter, item.FLastWriteTime) then Exit;
+  if Filter.SearchByDateType <> sdNone then
+    if NOT CheckForDate(Filter, item) then Exit;
   if Filter.SearchByAttributes then
     if NOT CheckForAttributes(Filter, item.FFileAttrs) then Exit;
 

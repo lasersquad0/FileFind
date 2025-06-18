@@ -56,7 +56,6 @@ type
     SearchByModifiedDate: TCheckBox;
     DateTimePickerFrom: TDateTimePicker;
     DateTimePickerTo: TDateTimePicker;
-    LabelAnd: TLabel;
     SearchByAttributes: TCheckBox;
     AttrArchive: TCheckBox;
     AttrHidden: TCheckBox;
@@ -95,6 +94,8 @@ type
     ProgressBarFileInfo: TProgressBar;
     DeleteIndex: TMenuItem;
     CheckIntegrity: TMenuItem;
+    DateTypeComboBox: TComboBox;
+    Label1: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -251,7 +252,7 @@ begin
 
    ResultsItem.Item := Item;
 
-   ResultsItem.ModifiedStr := GetLocalTime(Item.FLastWriteTime);
+   ResultsItem.ModifiedStr := GetLocalTime(Item.FModifiedTime);
    ResultsItem.LastAccessStr := GetLocalTime(Item.FLastAccessTime);
    ResultsItem.CreatedStr := GetLocalTime(Item.FCreationTime);
    ResultsItem.AttrStr := AttrStr2(Item.FFileAttrs);
@@ -413,14 +414,17 @@ begin
     //ClearSorting; //FSortColumnID := -1;  // reset sorting column
     //FInvertSort := False;
     //Filter.StartFrom := Trim(StartSearchFolder.Text);
+
+    // fields ExactSearch and SearchStrUpper  are filled in TCache.Instance.Search() function
     Filter.SearchStr := Trim(SearchEdit.Text);
     Filter.CaseSensitive := AppSettings.CaseSensitiveSearch;
     Filter.SearchByFileSize := SearchByFileSize.Checked;
     Filter.FileSize := UInt64(SearchFileSize.ValueInt) * UInt64(GetFileSizeFactor());
     Filter.FileSizeCmpType := GetFileSizeOp();
-    Filter.SearchByModifiedDate := SearchByModifiedDate.Checked;
-    Filter.ModifiedDateFrom := DateTimeToFileTime(DateTimePickerFrom.DateTime);
-    Filter.ModifiedDateTo := DateTimeToFileTime(DateTimePickerTo.DateTime);
+    //Filter.SearchByModifiedDate := SearchByModifiedDate.Checked;
+    Filter.SearchByDateType := TSearchDateType(DateTypeComboBox.ItemIndex);
+    Filter.DateFrom := DateTimeToFileTime(DateTimePickerFrom.DateTime);
+    Filter.DateTo := DateTimeToFileTime(DateTimePickerTo.DateTime);
     Filter.SearchByAttributes := SearchByAttributes.Checked;
     Filter.Attributes := GetAttributes();
 
@@ -681,7 +685,7 @@ begin
             fiSize: if item1.Size > item2.Size then Result := 1
                      else if item1.Size < item2.Size then Result := -1;
             fiType: Result := CompareStr(item1.Item.FFileType, item2.Item.FFileType);
-            fiModified: Result := CompareFileTime(item1.Item.FLastWriteTime, item2.Item.FLastWriteTime);
+            fiModified: Result := CompareFileTime(item1.Item.FModifiedTime, item2.Item.FModifiedTime);
             fiLastAccess: Result := CompareFileTime(item1.Item.FLastAccessTime, item2.Item.FLastAccessTime);
             fiCreated: Result := CompareFileTime(item1.Item.FCreationTime, item2.Item.FCreationTime);
             fiAttributes: Result := CompareStr(item1.AttrStr, item2.AttrStr);
@@ -694,7 +698,7 @@ begin
             fiSize: if item1.Size > item2.Size then Result := 1
                  else if item1.Size < item2.Size then Result := -1;
             fiType: Result := CompareText(item1.Item.FFileType, item2.Item.FFileType);
-            fiModified: Result := CompareFileTime(item1.Item.FLastWriteTime, item2.Item.FLastWriteTime);
+            fiModified: Result := CompareFileTime(item1.Item.FModifiedTime, item2.Item.FModifiedTime);
             fiLastAccess: Result := CompareFileTime(item1.Item.FLastAccessTime, item2.Item.FLastAccessTime);
             fiCreated: Result := CompareFileTime(item1.Item.FCreationTime, item2.Item.FCreationTime);
             fiAttributes: Result := CompareText(item1.AttrStr, item2.AttrStr);
@@ -753,7 +757,10 @@ begin
     then path := item.Path // this is directory
     else path := ExtractFilePath(item.Path); // this is file, open its directory
 
-  res := ShellExecute(Handle, 'explore', PChar(path), nil, nil, SW_SHOWNORMAL);
+
+  res := ShellExecute(Handle, 'open', PChar('explorer.exe'), PChar('/select,' + item.path), nil, SW_SHOWNORMAL);
+
+  //res := ShellExecute(Handle, 'explore', PChar(path), nil, nil, SW_SHOWNORMAL);
   if res < 33 then MessageDlg('ShellExecute error: ' + res.ToString, TMsgDlgType.mtError, [mbOK], 0);
 end;
 
@@ -857,9 +864,8 @@ end;
 
 procedure TMainForm.SearchByModifiedDateClick(Sender: TObject);
 begin
-  DateTimePickerFrom.Enabled := SearchByModifiedDate.Checked;
-  DateTimePickerTo.Enabled   := SearchByModifiedDate.Checked;
-  LabelAnd.Enabled := SearchByModifiedDate.Checked;
+  DateTimePickerFrom.Enabled := DateTypeComboBox.ItemIndex > 0; //SearchByModifiedDate.Checked;
+  DateTimePickerTo.Enabled   := DateTypeComboBox.ItemIndex > 0; //SearchByModifiedDate.Checked;
 end;
 
 procedure TMainForm.SearchEditEnter(Sender: TObject);
@@ -953,7 +959,8 @@ begin
     AdvancedSearchButton.ImageIndex := 0;
     SearchPanel.Height := SearchPanel.Height * 2 div 7;
     SearchByFileSize.Checked := False;  // uncheck (make inactive) all search critetias to avoid misunderstanding
-    SearchByModifiedDate.Checked := False;
+    //SearchByModifiedDate.Checked := False;
+    DateTypeComboBox.ItemIndex := 0; // means "there is no search by date"
     SearchByAttributes.Checked := False;
   end;
 end;

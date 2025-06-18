@@ -257,12 +257,12 @@ object MainForm: TMainForm
       Layout = blGlyphRight
       OnClick = AdvancedSearchButtonClick
     end
-    object LabelAnd: TLabel
-      Left = 270
-      Top = 105
-      Width = 20
+    object Label1: TLabel
+      Left = 94
+      Top = 77
+      Width = 71
       Height = 15
-      Caption = 'and'
+      Caption = 'date between'
     end
     object SearchByFileSize: TCheckBox
       Left = 11
@@ -310,7 +310,7 @@ object MainForm: TMainForm
         'Gigabytes')
     end
     object SearchByModifiedDate: TCheckBox
-      Left = 11
+      Left = 624
       Top = 76
       Width = 97
       Height = 17
@@ -319,23 +319,23 @@ object MainForm: TMainForm
       OnClick = SearchByModifiedDateClick
     end
     object DateTimePickerFrom: TDateTimePicker
-      Left = 114
+      Left = 174
       Top = 72
       Width = 150
       Height = 23
-      Date = 45491.000000000000000000
-      Time = 45491.000000000000000000
+      Date = 45444.000000000000000000
+      Time = 45444.000000000000000000
       Checked = False
       Kind = dtkDateTime
       TabOrder = 5
     end
     object DateTimePickerTo: TDateTimePicker
-      Left = 296
+      Left = 336
       Top = 72
       Width = 150
       Height = 23
-      Date = 45491.000000000000000000
-      Time = 45491.000000000000000000
+      Date = 45444.000000000000000000
+      Time = 45444.000000000000000000
       Kind = dtkDateTime
       TabOrder = 6
     end
@@ -397,7 +397,7 @@ object MainForm: TMainForm
       TabOrder = 13
     end
     object AttrSystem: TCheckBox
-      Left = 273
+      Left = 272
       Top = 108
       Width = 59
       Height = 17
@@ -427,6 +427,22 @@ object MainForm: TMainForm
       ShowHint = True
       TabOrder = 16
       OnClick = IndexingBitBtnClick
+    end
+    object DateTypeComboBox: TComboBox
+      Left = 11
+      Top = 72
+      Width = 78
+      Height = 23
+      Style = csDropDownList
+      ItemIndex = 0
+      TabOrder = 17
+      Text = '<none>'
+      OnChange = SearchByModifiedDateClick
+      Items.Strings = (
+        '<none>'
+        'Creation'
+        'Modified'
+        'Last access')
     end
   end
   object StatusBar1: TStatusBar
