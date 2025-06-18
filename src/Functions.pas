@@ -87,7 +87,7 @@ const
 implementation
 
 uses
-  WinAPI.ShellAPI, StrUtils, SyncObjs, Math;
+  WinAPI.ShellAPI, StrUtils, IOUtils, SyncObjs, Math;
 
 // need for checking if app running with admin rights
 function CheckTokenMembership; external 'advapi32.dll' name 'CheckTokenMembership';
@@ -610,16 +610,22 @@ begin
 end;
 
 class procedure Logger.Init(const LogFileName: string);
+var tdir: TDirectory;
 begin
-// do nothing if logfilename has not changed
+  // do nothing if logfilename has not changed
   if (FFileH <> INVALID_HANDLE_VALUE) AND (CompareText(FLogFileName, LogFileName) = 0) then Exit;
 
   CloseHandle(FFileH); // close old log file
-  FLogFileName := LogFileName;
+
+  // check whether LogFileName contains path or not (contains file name only)
+  if TPath.GetDirectoryName(LogFileName) = ''
+    then FLogFileName := TPath.GetAppPath + '\' + LogFileName
+    else FLogFileName := LogFileName;
 
   FFileH := CreateFile(PChar(FLogFileName), GENERIC_WRITE OR GENERIC_READ, FILE_SHARE_READ OR FILE_SHARE_WRITE, nil, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
+
   if FFileH = INVALID_HANDLE_VALUE then begin
-    raise Exception.CreateFmt('Cannot open/create file (' + GetLastError.ToString + '): %s', [FLogFileName]);
+    raise EFOpenError.CreateFmt('Cannot open log file (' + GetLastError.ToString + '): %s', [FLogFileName]);
   end;
 end;
 
