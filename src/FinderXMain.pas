@@ -155,6 +155,7 @@ type
     function CompareData(arr : THArrayG<TSearchResultsItem>; i, j: Cardinal): Integer;
     function CompareData2(item1, item2: TSearchResultsItem): Integer;
    // function GetValue(item: TSearchResultsItem; ColID: Integer): string;
+    procedure UpdateStatusBarPanelsWidth;
     procedure UpdateStatusBarX(FoundItems, Percent: Cardinal);
     procedure UpdateStatusBarXX(FoundItems, SearchTime: Cardinal);
     procedure UpdateStatusBarXXX(ExecData: TArray<TVolumeExecData>);
@@ -211,7 +212,7 @@ begin
 
 end;
 
-/// <summary>During search FileNamesCache call this callback function only for items that successfully passed filter.</summary>
+/// <summary>During search FileCache calls this callback function only for items that successfully passed filter.</summary>
 /// <remarks>Define this method to add filtered items into ListView. TCacheItem is a class therefore passed by reference.
 /// If you modify Item's fields, new data be stored and available for next searches. </remarks>
 ///  <param name="FullPath">Full path that includes file name of the file being added</param>
@@ -252,7 +253,7 @@ begin
 
    ResultsItem.Item := Item;
 
-   ResultsItem.ModifiedStr := GetLocalTime(Item.FModifiedTime);
+   ResultsItem.ModifiedStr := GetLocalTime(Item.FModifiedTime); //TODO: calc and store local time in TCacheItem for performance puporses
    ResultsItem.LastAccessStr := GetLocalTime(Item.FLastAccessTime);
    ResultsItem.CreatedStr := GetLocalTime(Item.FCreationTime);
    ResultsItem.AttrStr := AttrStr2(Item.FFileAttrs);
@@ -282,14 +283,16 @@ begin
   StatusBar1.Panels[3].Text := Format('Items loaded: %s (%d%%)', [ThousandSep(cnt), FFileInfoMessagesCount*100 div cnt]);
 end;
    }
+
+// processes WM_SearchResultsShellInfo_MSG messages received from another thread.
 procedure TMainForm.OnSearchResultsShellInfo(var Msg: TMessage);
 var
   TmpItem: TCacheItem;
   resItem: TSearchResultsItem;
   cnt, index: Cardinal;
 begin
-  index := Cardinal(Msg.LParam);
-  TmpItem := TCacheItem(Msg.WParam); // can be nil only for the last message
+  index := Cardinal(Msg.LParam); // index of item in current FSearchResults
+  TmpItem := TCacheItem(Msg.WParam); // can be nil for the last message only
 
   if Assigned(TmpItem) then begin
     if index < FSearchResults.Count then begin
@@ -903,6 +906,16 @@ begin
   end;
 end;
 
+procedure TMainForm.UpdateStatusBarPanelsWidth;
+var
+  w2, w3: Integer;
+begin
+  w2 := StatusBar1.Canvas.TextWidth(StatusBar1.Panels[2].Text);
+  w3 := StatusBar1.Canvas.TextWidth(StatusBar1.Panels[3].Text);
+  if w2 > StatusBar1.Panels[2].Width then StatusBar1.Panels[2].Width := Round(w2*1.05); // +5% extra width
+  if w3 > StatusBar1.Panels[3].Width then StatusBar1.Panels[3].Width := Round(w3*1.05);
+end;
+
 // updates panels 2,3,4 only
 procedure TMainForm.UpdateStatusBarXXX(ExecData: TArray<TVolumeExecData>);
 var
@@ -918,6 +931,8 @@ begin
   StatusBar1.Panels[2].Text := 'Load: ' + LoadTime;
   StatusBar1.Panels[3].Text := 'Items: ' + ItemsCnt;
   StatusBar1.Panels[4].Text := 'Size: ' + VolSize;
+
+  UpdateStatusBarPanelsWidth;
 end;
 
 // updates panels 0, 1 only.
@@ -929,10 +944,10 @@ begin
 end;
 
 // updates panels 0 only with extra info.
-// SearchTime should be in milliseconds
 procedure TMainForm.UpdateStatusBarX(FoundItems, Percent: Cardinal);
 begin
   StatusBar1.Panels[0].Text := Format('  Found: %s (%u%%)', [ThousandSep(FoundItems), Percent]);
+  StatusBar1.Invalidate; //TODO: may be we do not need it
 end;
 
 procedure TMainForm.SearchBtnClick(Sender: TObject);
@@ -1143,15 +1158,14 @@ begin
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
-//var
-//  i: Cardinal;
 begin
   if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.Terminate;
 
-
+  // do some usefull work while thread is terminating
 
   if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.WaitFor;
 
+  ClearSearchResults; // to move items into FSearchResultsCache where they will be properly destroyed.
   FreeAndNil(FSearchResults);
   FreeAndNil(FSearchResultsCache);
   FreeAndNil(FSearchResultsFileInfoThread);

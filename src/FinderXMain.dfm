@@ -452,7 +452,7 @@ object MainForm: TMainForm
     Height = 24
     Panels = <
       item
-        Text = 'Found items : 0'
+        Text = 'Found : 0'
         Width = 120
       end
       item
@@ -460,15 +460,15 @@ object MainForm: TMainForm
         Width = 170
       end
       item
-        Text = 'Data load time: 0'
+        Text = 'Load time: 0'
         Width = 200
       end
       item
-        Text = 'Items loaded: 0'
+        Text = 'Items: 0'
         Width = 170
       end
       item
-        Text = 'Folder size: 0'
+        Text = 'Size: 0'
         Width = 150
       end>
   end
