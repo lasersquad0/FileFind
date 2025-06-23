@@ -73,7 +73,7 @@ const
   function  DateTimeToFileTime(FileTime: TDateTime): TFileTime;
   function  ThousandSep(Num: UInt64): string;
   // the same as Pos() but does case INsensitive search
-  function  XPos(const cSubStr, cString: string; Offset: Integer = 1): Integer;
+  function  XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
   procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
   function  AttrStr(Attr: DWORD): string;
   function  AttrStr2(Attr: DWORD): string;
@@ -280,18 +280,18 @@ begin
   end;
 end;
 
-// This function retrieves the last time, the given file was written to disk
+// This function retrieves the last time as string, the given file was written to disk
 function GetLocalTime(ftm: TFileTime): string;
 var
   mtm: TSystemTime;
   at: TFileTime;
-  //ds, ts:ShortString;
   ds, ts: string;
 const
   MAX_DATETIME_STR = 255;
 begin
   SetLength(ds, MAX_DATETIME_STR);
   SetLength(ts, MAX_DATETIME_STR);
+
   // Time must get converted, else there is an error of one hour
   // Does anybody know what this function does ?
   // Maybe something like summertime/wintertime (or what you call it out of Germany) ?
@@ -303,28 +303,31 @@ begin
   Result := ds + '  ' + ts;
 end;
 
-function XPos(const cSubStr, cString: string; Offset: Integer = 1): Integer;
+// equivalent of Pos() function but does case INSENSITIVE search of substring in a given string
+// return 0 if substring is not found
+// othewise returns index of beginning SubStr in Str
+function XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
 var
   nLen0, nLen1, nCnt, nCnt2: Integer;
   cFirst: Char;
 begin
-  nLen0 := Length(cSubStr);
-  nLen1 := Length(cString);
+  nLen0 := Length(SubStr);
+  nLen1 := Length(Str);
 
   if nLen0 > nLen1 then Result := 0 // the substr is longer than the cString
   else
   if nLen0 = 0 then Result := 0 // null substr not allowed
   else begin
     // the outer loop finds the first matching character....
-    cFirst := UpCase( cSubStr[1] );
+    cFirst := UpCase(SubStr[1]);
     Result := 0;
 
     for nCnt := Offset to nLen1 - nLen0 + 1 do begin
-      if UpCase( cString[nCnt] ) = cFirst then begin
+      if UpCase(Str[nCnt]) = cFirst then begin
         // this might be the start of the substring...at least the first character matches....
         Result := nCnt;
         for nCnt2 := 2 to nLen0 do begin
-          if UpCase( cString[nCnt + nCnt2 - 1] ) <> UpCase( cSubStr[nCnt2] ) then begin
+          if UpCase(Str[nCnt + nCnt2 - 1]) <> UpCase(SubStr[nCnt2]) then begin
             // failed
             Result := 0;
             break;
