@@ -4,7 +4,7 @@
         <ProjectVersion>20.1</ProjectVersion>
         <FrameworkType>VCL</FrameworkType>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Release</Config>
+        <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win64</Platform>
         <TargetedPlatforms>3</TargetedPlatforms>
         <AppType>Application</AppType>
@@ -175,18 +175,15 @@
         </DelphiCompile>
         <DCCReference Include="..\..\src\About.pas">
             <Form>AboutBox</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="..\..\src\FileCache.pas"/>
         <DCCReference Include="..\..\src\FinderXMain.pas">
             <Form>MainForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="..\..\src\Functions.pas"/>
         <DCCReference Include="..\..\src\HistoryEdit.pas"/>
         <DCCReference Include="..\..\src\IndexingLog.pas">
             <Form>IndexingLogForm</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="..\..\src\LoadFSThread.pas"/>
         <DCCReference Include="..\..\src\MaskSearch.pas"/>
@@ -194,11 +191,9 @@
         <DCCReference Include="..\..\src\Settings.pas"/>
         <DCCReference Include="..\..\src\SettingsForm.pas">
             <Form>SettingsForm1</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="..\..\src\StatisticForm.pas">
             <Form>StatisticForm1</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas"/>
         <DCCReference Include="..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas"/>

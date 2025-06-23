@@ -2,7 +2,7 @@ unit Hash;
 
 interface
 
-uses DynamicArray, SortedArray;
+uses DynamicArray{, SortedArray};
 
 resourcestring
   SKeyNotFound = 'Element is not found in Hash!';
@@ -17,9 +17,9 @@ resourcestring
  ************************************************************************************************************}
 
  type
-  THash<K:constructor; V> = class //TODO shall we add comparator type to THash?
+  THash<K; V> = class
   public type
-   TKeysArray = THArraySorted<K>;
+   TKeysArray = THArrayG<K>; //TODO: replaced by SortedArray for speed? Delphi will generate Internal Compiler Error. Find how to avoid that
    TValuesArray = THArrayG<V>;
    PointerV = TValuesArray.PointerT; // just new name of existing type for better understanding
    Pair = record First: K; Second: V; end;
