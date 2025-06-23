@@ -18,7 +18,7 @@ type
   TColumnInfos = array [0..Ord(High(TFileInfo))] of TColumnInfo;
 
   TSizeFormat = (sfAuto, sfBytes, sfKilobytes, sfMegabytes);
-  TSizeFormatLabels = array[TSizeFormat] of string;
+  //TSizeFormatLabels = array[TSizeFormat] of string;
 
 
    TSettingInfo = record

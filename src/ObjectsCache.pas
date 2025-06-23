@@ -30,7 +30,6 @@ begin
   if ThreadSafe
     then FLock :=  TCriticalSection.Create
     else FLock := nil;
-    //TInterlocked
   // fill with cached values
   for i := 1 to Capacity do FObjects.AddValue(T.Create);
 end;
