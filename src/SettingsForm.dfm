@@ -62,7 +62,7 @@ object SettingsForm1: TSettingsForm1
     Top = 10
     Width = 339
     Height = 297
-    ActiveCard = Card5
+    ActiveCard = Card4
     BevelInner = bvRaised
     BevelOuter = bvLowered
     Caption = 'SettingsPanels'
@@ -315,9 +315,9 @@ object SettingsForm1: TSettingsForm1
       object Label2: TLabel
         Left = 8
         Top = 216
-        Width = 74
+        Width = 93
         Height = 15
-        Caption = 'Index location'
+        Caption = 'Index file location'
       end
       object IncludeNewFixedDrivesCheckBox: TCheckBox
         Left = 8

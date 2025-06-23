@@ -85,6 +85,7 @@ uses
   System.UITypes, System.StrUtils, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, WinApi.Windows, Registry, Math,
   Settings, {IndexingLog,} Functions;
 
+  {
 function  StringListToArrayTab(Strings: TStrings): TArray<string>;
 var
   i, p1, p2: Integer;
@@ -98,6 +99,7 @@ begin
     Result[i] := Copy(str, p1 + 1, p2 - p1 - 1);
   end;
 end;
+   }
 
 procedure TSettingsForm1.OKButtonClick(Sender: TObject);
 begin
@@ -303,10 +305,11 @@ begin
         else MessageDlg('GetVolumeInformation failed with error: ' + error.ToString, mtError, [mbOK], 0);
     end;
 
-    VolName2 := PChar(VolName);
+    VolName2 := PChar(VolName); // PChar - to avoid many zeroes in the string end?
     if VolName2 = '' then VolName2 := '<noname>';
 
-    str := VolName2 + IfThen(Length(VolName2) > 9, ' ', #9) + CurrVol {+ #9} + GetDriveTypeString(CurrVol) + #9;
+    //str := VolName2 + IfThen(Length(VolName2) > 14, ' ', #9) + CurrVol {+ #9} + GetDriveTypeString(CurrVol) + #9;
+    str := Copy(VolName2, 1, 14) + #9 + CurrVol + GetDriveTypeString(CurrVol) + #9;
     var vol := TCache.Instance.VolumePresent(CurrVol);
     if vol = nil
       then str := str + '<not indexed>'
