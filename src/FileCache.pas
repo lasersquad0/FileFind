@@ -2,44 +2,9 @@ Unit FileCache;
 
 interface
 
-uses System.Classes, System.SysUtils, Windows, DynamicArray, DynamicArrays, Hash, SortedArray;
+uses System.Classes, System.SysUtils, Windows, DynamicArray, DynamicArrays, Hash, SortedArray, CacheItem;
 
 type
-
- TCacheItemRef = record
-    ItemLevel: Cardinal;
-    ItemIndex: Cardinal;
-    constructor Create(level, index: Cardinal);
- end;
-
- TVolumeCache = class;
-
- TCacheItem = class
- public
-   FVolume: TVolumeCache; // refers to big object root cache object for single volume
-   FParent: Cardinal;
-   FLevel: Cardinal;
-   FFileAttrs: DWORD;
-   FCreationTime: TFileTime;
-   FLastAccessTime: TFileTime;
-   FModifiedTime: TFileTime;
-   FFileSize: UInt64;
-   FFileName: TFileName;
-   FUpperCaseName: TFileName; // name of file/dir in upper case. need for search routines
-   FDisplayName: string;
-   FFileType: string;
-   FPath: string; // full path to directory, filled only for directories
-   FIconIndex: Integer;
-   FDenied: Boolean;
-
-   constructor Create; overload;
-   constructor Create(Volume: TVolumeCache; Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal); overload;
-   procedure Assign(Other: TCacheItem);
-   procedure Serialize(OStream: TStream);
-   procedure Deserialize(IStream: TStream);
-   function IsDirectory: Boolean; overload;
-   function IsReparsePoint: Boolean;
- end;
 
  TFileTypes = (ftFile, ftDir, ftTemp, ftArchive, ftReadOnly, ftHidden, ftSystem, ftDevice, ftSymbolic, ftCompressed,
                ftEncrypted, ftOffline, ftSparse, ftPinned, ftNotIndexed, ftVirtual, ftAll);
@@ -71,11 +36,22 @@ type
  end;
 
 
+ TError = record
+   ErrCode: Integer; // ErrCode=0 means 'no error', all other values is signal about error
+   ErrText: array [0..255] of char;
+   function HasError: Boolean;
+   procedure Create(code: Integer; msg: string);
+   procedure SetMsg(msg: string);
+   function GetMsg: string;
+   property Msg: string read GetMsg write SetMsg;
+ end;
+
+
  IIndexingProgress = class
-   procedure Start(P100: Integer; Notes: string); virtual; abstract; // define Max value for progress. -1 means that value for 100% progress is unknown
+   procedure Start(Notes: string; P100: Integer = -1); virtual; abstract; // defines Max value for progress. -1 means that value for 100% progress is unknown
    procedure Finish; virtual; abstract;
    function Progress(Prgress: Integer): Boolean; virtual; abstract; // Result=False stops process if indexing takes too long time
-   procedure ReportError(ErrorStr: string); virtual; abstract;
+   procedure ReportError(Error: TError); virtual; abstract;
  end;
 
   // if True is returned as a result of this function that means 'stop searching'
@@ -83,9 +59,7 @@ type
 
   TSearchResult = (srOK, srWrongPath, srNoIndexData, srCancelled);
   TFileSizeCompare = (fscEquals, fscMore, fscLess);
-
-
-   TSearchDateType = (sdNone, sdCreated, sdModified, sdLastAccess);
+  TSearchDateType = (sdNone, sdCreated, sdModified, sdLastAccess);
 
 
   TSearchFilter = record
@@ -111,6 +85,9 @@ type
   // This is done to reduce memory fragmentation because we need to store many small TCacheItems
  TLevelType = THArray;
 
+ PFileLevel = ^TFileLevel;
+ PPFileLevel = ^PFileLevel;
+
  TVolumeCache = class
  private
    FName: string;
@@ -121,7 +98,8 @@ type
    FExclFolders: THArraySorted<string>;
 
    procedure Serialize(OStream: TStream);
-   procedure Deserialize(IStream: TStream);
+   procedure Deserialize(IStream: TStream); overload;
+   procedure Deserialize(IStream: PPFileLevel; Count: Cardinal); overload;
    procedure SaveTo(const fileName: string);
    function  CompareProcString(item1, item2: string): Integer;
    function  AddLevel(level: Cardinal): TLevelType;
@@ -134,7 +112,7 @@ type
    procedure NotifyStart(Notes: string);
    procedure NotifyFinish;
    function  NotifyProgress(Progrs: Integer): Boolean;
-   procedure NotifyError(ErrorStr: string);
+   procedure NotifyError(Error: TError);
    //procedure CloseFindHandles;
    //constructor CreatePrivate;
    //class procedure FreeInst;
@@ -144,7 +122,7 @@ type
    constructor Create;
    destructor Destroy; override;
    procedure SerializeTo(const FileName:string);
-   procedure DeserializeFrom(const FileName:string);
+   //procedure DeserializeFrom(const FileName:string);
    procedure Clear;
    function  Size: UInt64;
    function  Count: Cardinal;
@@ -153,6 +131,7 @@ type
    function  Levels(): Cardinal;
 //   function  ReadFileSystem(const Volumes: TArray<string>): UInt64;
    function  ReadVolume(Volume: string; ExclusionsList: TArray<string>): UInt64;
+   function  ReadVolumeFast(Volume: string; ExclusionsList: TArray<string>): UInt64;
    function  MakePathString(ref: TCacheItemRef): string; overload;
    function  MakePathString(itemLevel, itemIndex: Cardinal): string; overload;
    function  Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
@@ -215,6 +194,8 @@ type
    function  GetExecData: TArray<TVolumeExecData>;
    function  GetVolumeNamesAsString: string;
    procedure ReadVolume(Volume: string; ExclusionsList: TArray<string>);
+   procedure ReadVolumeFast(Volume: string; ExclusionsList: TArray<string>);
+   procedure ReadVolumesFast(Volumes: TArray<string>; ExclusionsList: TArray<string>);
    function  Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
    procedure AddProgressListener(listener: IIndexingProgress);
    procedure RemoveProgressListener(listener: IIndexingProgress);
@@ -230,6 +211,56 @@ type
    property  IndexFileSaveDate: TDateTime read FIndexFileSaveDate;
  end;
 
+MFT_INDEX = packed record
+        low:  UInt32; // The low part of the file number.
+        high: UInt16; // The high part of the file number.
+        seq:  UInt16; // The sequence number of MFT record.
+end; // 8 bytes
+
+// MFT record number structure.
+MFT_REF = packed record
+    case Byte of
+      0: (sId: MFT_INDEX);
+      1: (Id: UInt64);
+end; // 8 bytes
+
+NTFS_DUP_INFO = packed record
+    CreateTime:     TFileTime; //UInt64; // 0x00 File creation file.
+    ModifyTime:     TFileTime; //UInt64; // 0x08 File modification time.
+    ModifyAttrTime: TFileTime; //UInt64; // 0x10 Last time any attribute was modified.
+    LastAccessTime: TFileTime; //UInt64; // 0x18 File last access time.
+    AllocSize:      UInt64;      // 0x20 Data attribute allocated size (for unnamed $DATA attribute), multiple of cluster size.
+    FileSize:       UInt64;     // 0x28 Actual data attribute size <= AllocSize.
+    FileAttrib:     UInt32;     // 0x30 Standard DOS attributes & more.
+    ea_size: UInt16; // 0x34 Packed EAs.
+    reparse: UInt16; // 0x36 Used by Reparse.
+end; // 0x38= 56 bytes
+
+// Filename attribute structure (0x30). Resident only
+ATTR_FILE_NAME = packed record
+    ParentDir: MFT_REF;   // 0x00 reference to MFT record for parent directory.
+    dup: NTFS_DUP_INFO;   // 0x08
+    FileNameLen: UInt8; // 0x40 File name length in words for unicode.
+    NameType:    UInt8; // 0x41 File name type: POSIX=0, UNICODE=1, DOS=2, BOTH=3
+end; // 0x42=66 bytes
+
+CACHE_ITEM = packed record
+    FParent: UInt32;
+    FLevel:  UInt32;
+    FMFTRecID: MFT_REF; // MFT Id of this file
+    FileAttr:ATTR_FILE_NAME; // 66 bytes. must be last field in FILELIST_ITEM because it has variable size
+
+    function Size: UInt32;
+    function Name: string;
+end; // 82 bytes long
+
+ PCACHE_ITEM = ^CACHE_ITEM;
+
+ TFileLevel = packed record
+  FCount: UInt32;
+  FStart: PCACHE_ITEM;
+end;
+
 
 var
   FileTypeNames: TFileTypeNames = ('File', 'Directory', 'Temporary', 'Archive', 'ReadOnly', 'Hidden', 'System', 'Device',
@@ -238,7 +269,7 @@ var
 implementation
 
 uses
-  System.UITypes, System.Math, Dialogs, System.Generics.Defaults, Functions, MaskSearch, ObjectsCache, Hash2;
+  System.Math, System.Generics.Defaults, Functions, MaskSearch, ObjectsCache, Hash2;
 
 const MAX_LEVELS = 100;
 const MAX_LEVEL_DIRS = 10_000;
@@ -254,11 +285,6 @@ begin
   Result := ( (dirName[0] = '.') AND (dirName[1] = #0) ) OR ( (dirName[0] = '.') AND (dirName[1] = '.') AND (dirName[2] = #0) );
 end;
 
-function MakeFileSize(hi, lo: Cardinal) : UInt64; inline;
-begin
-  Result := (UInt64(hi) shl 32) + UInt64(lo);
-end;
-
 function IsDirectory(var FileData: TWin32FindData): Boolean;
 begin
   IsDirectory := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_DIRECTORY) > 0;
@@ -269,120 +295,6 @@ begin
   IsReparse := (FileData.dwFileAttributes AND FILE_ATTRIBUTE_REPARSE_POINT) > 0;
 end;
 
-////////////////////////////////////
-// TCacheItem class methods
-///////////////////////////////////
-
-constructor TCacheItemRef.Create(level: Cardinal; index: Cardinal);
-begin
-  ItemLevel := level;
-  ItemIndex := index;
-end;
-
-constructor TCacheItem.Create();
-begin
-  FVolume := nil;
-  FParent := 0;
-  FLevel := 0;
-  FFileAttrs := 0;
-  FCreationTime.dwLowDateTime := 0;
-  FCreationTime.dwHighDateTime := 0;
-  FLastAccessTime.dwLowDateTime := 0;
-  FLastAccessTime.dwHighDateTime := 0;
-  FModifiedTime.dwLowDateTime := 0;
-  FModifiedTime.dwHighDateTime := 0;
-  FFileSize := 0;
-  FIconIndex := 0;
-  FDenied := False;
-end;
-
-procedure TCacheItem.Assign(Other: TCacheItem);
-begin
-  FVolume         := Other.FVolume;
-  FParent         := Other.FParent;
-  FLevel          := Other.FLevel;
-  FFileAttrs      := Other.FFileAttrs;
-  FCreationTime   := Other.FCreationTime;
-  FLastAccessTime := Other.FLastAccessTime;
-  FModifiedTime  := Other.FModifiedTime;
-  FFileSize       := Other.FFileSize;
-  FUpperCaseName  := Other.FUpperCaseName;
-  FDisplayName    := Other.FDisplayName;
-  FFileType       := Other.FFileType;
-  FIconIndex      := Other.FIconIndex;
-  FDenied         := Other.FDenied;
-end;
-
-constructor TCacheItem.Create(Volume: TVolumeCache; Parent: Cardinal; var FileData: TWin32FindData; Level: Cardinal);
-begin
-  Create(); // call default constructor to fill cache item with default values
-  FVolume := Volume;
-  FParent := Parent;
-  FLevel := Level;
-  FFileName := FileData.cFileName;
-  FFileAttrs := FileData.dwFileAttributes;
-  FCreationTime   := FileData.ftCreationTime;
-  FLastAccessTime := FileData.ftLastAccessTime;
-  FModifiedTime  := FileData.ftLastWriteTime;
-  FFileSize := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
-  FUpperCaseName := AnsiUpperCase(FFileName);
-end;
-
-procedure TCacheItem.Serialize(OStream: TStream);
-begin
-  OStream.WriteData<Cardinal>(FParent);
-  OStream.WriteData<Cardinal>(FFileAttrs);
-  OStream.WriteData<TFileTime>(FCreationTime);
-  //OStream.WriteData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
-  OStream.WriteData<TFileTime>(FLastAccessTime);
-  //OStream.WriteData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
-  OStream.WriteData<TFileTime>(FModifiedTime);
-  //OStream.WriteData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
-  OStream.WriteData<UInt64>(FFileSize);
-  //OStream.WriteData<Cardinal>(FFileData.nFileSizeLow);
-  OStream.WriteData<Cardinal>(FLevel);
-  OStream.WriteData<Boolean>(FDenied);
-  var lenBytes := ByteLength(FFileName); //StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
-  Assert(lenBytes < MAX_PATH * sizeof(FFileName[1]));
-  OStream.WriteData<Integer>(lenBytes);
-  OStream.Write(FFileName[1], lenBytes);
-end;
-
-procedure TCacheItem.Deserialize(IStream: TStream);
-var
-  lenBytes: Cardinal;
-begin
-  IStream.ReadData<Cardinal>(FParent);
-  IStream.ReadData<Cardinal>(FFileAttrs);
-  IStream.ReadData<TFileTime>(FCreationTime);
-  //IStream.ReadData<Cardinal>(FFileData.ftCreationTime.dwLowDateTime);
-  IStream.ReadData<TFileTime>(FLastAccessTime);
-  //IStream.ReadData<Cardinal>(FFileData.ftLastAccessTime.dwLowDateTime);
-  IStream.ReadData<TFileTime>(FModifiedTime);
-  //IStream.ReadData<Cardinal>(FFileData.ftLastWriteTime.dwLowDateTime);
-  IStream.ReadData<UInt64>(FFileSize);
-  //IStream.ReadData<Cardinal>(FFileData.nFileSizeLow);
-  //FFullFileSize := MakeFileSize(FFileData.nFileSizeHigh, FFileData.nFileSizeLow);
-  IStream.ReadData<Cardinal>(FLevel);
-  IStream.ReadData<Boolean>(FDenied);
-
-  IStream.ReadData<Cardinal>(lenBytes);
-  Assert(lenBytes < MAX_PATH * sizeof(FFileName[1]));
-  SetLength(FFileName, lenBytes div sizeof(FFileName[1])); // SetLength needs size in characters
-  IStream.Read(FFileName[1], lenBytes);
-  FUpperCaseName := AnsiUpperCase(FFileName);
-
-end;
-
-function TCacheItem.IsDirectory: Boolean;
-begin
-  IsDirectory := (FFileAttrs AND FILE_ATTRIBUTE_DIRECTORY) > 0;
-end;
-
-function TCacheItem.IsReparsePoint: Boolean;
-begin
-  IsReparsePoint := (FFileAttrs and FILE_ATTRIBUTE_REPARSE_POINT) > 0;
-end;
 
 ////////////////////////////////////
 // TVolumeCache methods
@@ -404,8 +316,7 @@ var
   fileData: TWin32FindData;
   hFind: THandle;
   tmp: LARGE_INTEGER;
-  ErrCode: Cardinal;
-  ErrMess: string;
+  Err: TError;
 begin
     Assert(sizeof(UInt64) = 8);
     Result := 0;
@@ -429,17 +340,17 @@ begin
     //hFind := Windows.FindFirstFile(PChar(searchDir), fileData);
 
     if (hFind = INVALID_HANDLE_VALUE) then begin
-      ErrCode := GetLastError();
-      if ErrCode = ERROR_ACCESS_DENIED then begin // print error message only if other than ERROR_ACCESS_DENIED error occurred
-        NotifyError('Access denied: ' + CurrDir);
+      Err.ErrCode := GetLastError();
+      if Err.ErrCode = ERROR_ACCESS_DENIED then begin // special processing for ERROR_ACCESS_DENIED error
+        Err.Msg := 'Access denied: ' + CurrDir;
+        NotifyError(Err);
         var item := GetItem(Parent);
-        item.FDenied := True; // set flag that we cannot enter into this folder because of permission denied or other reason.
+        item.FDenied := True; // set flag that we cannot enter into this folder because of permission denied.
       end
       else // other than ERROR_ACCESS_DENIED error encountered
       begin
-        ErrMess := 'ERROR in FindFirstFileEx: ' + CurrDir + ' GetLastError: ' + IntToStr(ErrCode);
-        NotifyError(ErrMess);
-        MessageDlg(ErrMess, mtError, [mbOK], 0); //TODO: shall we raise and exception here or call NotifyError()?
+        Err.Msg := 'ERROR in FindFirstFileEx: ' + CurrDir + ' GetLastError: ' + IntToStr(Err.ErrCode);
+        NotifyError(Err); // this callback logs message into log file and shows messagebox with error message
       end;
 
       Result := DirSize;
@@ -468,6 +379,8 @@ begin
       if FindNextFile(hFind, fileData) then begin
         Assert(fileData.cFileName[0] <> #0);
 
+        var tmp2:string := fileData.cFileName;
+
         if IS_DOT_DIR(fileData.cFileName) then continue;
 
         var itemRef := AddItem(parent.ItemIndex, fileData, Parent.ItemLevel + 1);
@@ -479,19 +392,15 @@ begin
       end
       else
       begin
-        ErrCode := GetLastError();
-        if ErrCode = ERROR_NO_MORE_FILES then break;
-        ErrMess := 'ERROR in FindNexFile: ' + CurrDir + ' GetLastError: ' + IntToStr(ErrCode);
-        NotifyError(ErrMess);
-        MessageDlg(ErrMess, mtError, [mbOK], 0); //TODO: shall we raise and exception here or call NotifyError()?
+        Err.ErrCode := GetLastError();
+        if Err.ErrCode = ERROR_NO_MORE_FILES then break; // this is NOT an error
+        Err.Msg := 'ERROR in FindNexFile: ' + CurrDir + ' GetLastError: ' + IntToStr(Err.ErrCode);
+        NotifyError(Err);  // this callback logs message into log file and shows messagebox with error message
         break;
       end
     end;
 
     var item := GetItem(Parent);
-    //tmp.QuadPart := Int64(DirSize);
-    //item.FFileSize := DWORD(tmp.HighPart);
-    //item.FFileData.nFileSizeLow := DWORD(tmp.LowPart);
     item.FFileSize := DirSize;
 
   //  FFindHandles.AddValue(hFind);
@@ -516,8 +425,7 @@ begin
   hf := Windows.CreateFile(PChar(FilePath), GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL OR FILE_FLAG_BACKUP_SEMANTICS, 0);
   try
     if hf = INVALID_HANDLE_VALUE then begin
-      MessageDlg(GetErrorMessageText(GetLastError(), 'Open file') + FilePath, mtError, [mbOK], 0);
-      Exit;
+      raise EInOutError.Create(SysErrorMessage(GetLastError()), FilePath);
     end;
 
     Windows.GetFileTime(hf, @FileData.ftCreationTime, @FileData.ftLastAccessTime, @FileData.ftLastWriteTime);
@@ -827,17 +735,18 @@ begin
       if NOT Found then Exit(srWrongPath);
     end;
      }
-    for i := 0{startArray.Count} to FCacheData.Count - 1 do begin // bypass Filter.StartFrom folders because each level contain only one folder from StartFrom path
-      var lv := FCacheData[i];
-      for j := 0 to lv.Count - 1 do begin
-        item := TCacheItem(lv.GetAddr(j));
+    for i := 1{startArray.Count} to FCacheData.Count do begin // bypass Filter.StartFrom folders because each level contain only one folder from StartFrom path
+      var lv := FCacheData[i - 1];
+      Assert(lv.Count > 0);
+      for j := 1 to lv.Count do begin
+        item := TCacheItem(lv.GetAddr(j - 1));
 
         if ApplyFilter(Filter, GrepList, item) then begin
           if item.IsDirectory then begin // build PathString only for directories
-            if item.FPath = '' then item.FPath := MakePathString(i, j);
+            if item.FPath = '' then item.FPath := MakePathString(i - 1, j - 1);
             if NOT Callback(item.FPath, item) then Exit(srCancelled); //TODO: optimization: cache PathString in the item and use it during next searches
           end else begin
-           if NOT Callback(MakePathString(i, j), item) then Exit(srCancelled);
+           if NOT Callback(MakePathString(i - 1, j - 1), item) then Exit(srCancelled);
           end;
         end;
 
@@ -858,11 +767,11 @@ begin
   OStream.WriteData<TDateTime>(FIndexedDateTime); // write datetime of latest index file update
   WriteStringToStream(OStream, FName);
   OStream.WriteData<Cardinal>(FCacheData.Count);
-  for i := 0 to FCacheData.Count - 1 do begin
-    var lv := FCacheData[i];
+  for i := 1 to FCacheData.Count do begin
+    var lv := FCacheData[i - 1];
     OStream.WriteData<Cardinal>(lv.Count);
-    for j := 0 to lv.Count - 1 do begin
-      item := TCacheItem(lv.GetAddr(j));
+    for j := 1 to lv.Count do begin
+      item := TCacheItem(lv.GetAddr(j - 1));
       item.Serialize(OStream);
     end;
   end;
@@ -884,15 +793,15 @@ begin
   IStream.ReadData<TDateTime>(FIndexedDateTime);
   FName := ReadStringFromStream(IStream);
   IStream.ReadData<Cardinal>(CacheSize);
-  Assert(cacheSize > 0);
-  if cacheSize = 0 then begin //TODO: shall we raise an exception here?
-    Logger.LogFmt('[TVolumeCache.Deserialize] cache size read from index file is zero for volume "%s"!', [FName]);
-    Exit;
+  //Assert(cacheSize > 0);
+  if cacheSize = 0 then begin // empty volume is OK. just write a warning into log file
+    TLogger.LogFmt('[TVolumeCache.Deserialize] cache size read from index file is zero for volume "%s"!', [FName]);
+    //Exit;
   end;
 
   FCacheData.SetCapacity(CacheSize);
 
-  for i := 0 to CacheSize - 1 do begin
+  for i := 1 to CacheSize do begin
     level := TLevelType.Create;
     level.ItemSize := Cardinal(TCacheItem.InstanceSize);
     FCacheData.AddValue(level);
@@ -901,8 +810,8 @@ begin
     Assert(levelSize > 0);
 
     level.AddFillValues(levelSize);
-    for j := 0 to levelSize - 1 do begin
-      item := TCacheItem(TCacheItem.InitInstance(level.GetAddr(j))); // init object by specitied address
+    for j := 1 to levelSize do begin
+      item := TCacheItem(TCacheItem.InitInstance(level.GetAddr(j-1))); // init object by specitied address
       item.Create;  // call constructor on object instantiated at specified address
       item.Deserialize(IStream);
      // level.Add(item);
@@ -911,6 +820,92 @@ begin
 
   //FModified := False; // loading index file does not mean "Modified". Modified=True after updating data from file system
   FExecTime := GetTickCount - start;
+end;
+
+
+
+function CACHE_ITEM.Size: UInt32;
+begin
+  Result := sizeof(CACHE_ITEM) + FileAttr.FileNameLen * sizeof(WChar);
+end;
+
+function CACHE_ITEM.Name: string;
+var p: PChar;
+begin
+  p := PChar(NativeInt(@Self) + sizeof(CACHE_ITEM));
+  SetString(Result, p, fileAttr.FileNameLen);
+end;
+
+procedure TVolumeCache.Deserialize(IStream: PPFileLevel; Count: Cardinal);
+const NTFS_DIRECTORY_MASK = $10000000; // this is NTFS attr directory flag, we neeed to move it into DOS_DIR flag place
+var
+  fileCache: PPFileLevel;
+  origLevel: PFileLevel;
+  origItem: PCACHE_ITEM;
+  level: TLevelType;
+  item: TCacheItem;
+  j, i: Integer;
+  start, err, len: Cardinal;
+begin
+  start := GetTickCount;
+
+  Clear;
+
+  FIndexedDateTime := Now;
+  fileCache := IStream;
+
+  for i := 1 to Count do begin
+    origLevel := fileCache^;
+
+    // avoid empty levels
+    if origLevel.FCount > 0 then begin
+
+      level := TLevelType.Create;
+      level.ItemSize := Cardinal(TCacheItem.InstanceSize);
+      FCacheData.AddValue(level);
+
+      origItem := origLevel.FStart;
+
+      level.AddFillValues(origLevel.FCount);
+      for j := 1 to level.Count do begin
+        item := TCacheItem(TCacheItem.InitInstance(level.GetAddr(j - 1))); // init object by specitied address
+        item.Create; // call constructor on object instantiated at specified address
+
+        //item.FVolume := Self;
+        item.FParent := origItem.FParent;
+        item.FLevel := origItem.FLevel;
+
+        Assert((origItem.FileAttr.dup.FileAttrib AND FILE_ATTRIBUTE_DIRECTORY) = 0); // in NTFS this attr bit is always zero
+
+        // some files have FileAttrib=0 for some reason. WINAPI never return zero attrs.
+        // it sets NORMAL bit for such files. Below we do the same.
+        if origItem.FileAttr.dup.FileAttrib = 0 then begin
+          item.FFileAttrs := FILE_ATTRIBUTE_NORMAL;
+        end else begin
+          // move NTFS_DIR flag/bit ($10000000) into DOS_DOR place, because all WINAPI functions return this flag in DOS_DIR place ($00000010)
+          item.FFileAttrs := origItem.FileAttr.dup.FileAttrib OR ((origItem.FileAttr.dup.FileAttrib AND NTFS_DIRECTORY_MASK) shr 24);
+        end;
+
+        Assert(item.FFileAttrs > 0);
+
+        item.FCreationTime := origItem.FileAttr.dup.CreateTime;
+        item.FLastAccessTime := origItem.FileAttr.dup.LastAccessTime;
+        item.FModifiedTime := origItem.FileAttr.dup.ModifyTime;
+        item.FFileSize := origItem.FileAttr.dup.FileSize;
+        item.FFileName := origItem.Name;
+        item.FUpperCaseName := AnsiUpperCase(item.FFileName);
+        item.FDenied := False;
+
+        origItem := PCACHE_ITEM(NativeInt(origItem) + origItem^.Size);
+      end;
+
+    end;
+
+    fileCache := PPFileLevel(NativeInt(fileCache) + SizeOf(PPFileLevel));
+  end;
+
+  FExecTime := GetTickCount - start;
+
 end;
 
 function TVolumeCache.GetItem(Level, Index: Cardinal): TCacheItem;
@@ -992,7 +987,7 @@ begin
   // need to create new root items
   //level.AddFillValues(1);
   item := TCacheItem(TCacheItem.InitInstance(level.AddFillValues(1){level.GetAddr(level.Count - 1)}));
-  item.Create(self, 0, fileData, 0);
+  item.Create(0, 0, fileData);
   //level.Add(item);
   Result.ItemLevel := 0;
   Result.ItemIndex := level.Count - 1;
@@ -1007,7 +1002,7 @@ begin
 
   //level.AddFillValues(1);
   item := TCacheItem(TCacheItem.InitInstance(level.AddFillValues(1){level.GetAddr(level.Count - 1)}));
-  item.Create(self, parent, fileData, itemLevel);
+  item.Create(parent, itemLevel, fileData);
   //level.Add(item);
   Result.ItemLevel := itemLevel;
   Result.ItemIndex := level.Count - 1;
@@ -1069,10 +1064,11 @@ end;
 
 function TVolumeCache.Size: UInt64;
 begin
+  if Count = 0 then Exit(0);
   Result := GetItem(0, 0).FFileSize;
 end;
 
-procedure TVolumeCache.DeserializeFrom(const FileName: string);
+{procedure TVolumeCache.DeserializeFrom(const FileName: string);
 var
   msin: TMemoryStream;
 begin
@@ -1087,7 +1083,7 @@ begin
   finally
     msin.Free;
   end;
-end;
+end;}
 
 procedure TVolumeCache.SaveTo(const FileName: string);
 var
@@ -1167,6 +1163,81 @@ begin
   FIndexedDateTime := Now;
 end;
 
+procedure TError.SetMsg(msg: string);
+begin
+  Assert(Length(msg) < 255); // one symbol is for zero terminator
+  StrPCopy(ErrText, msg);
+end;
+
+function TError.GetMsg: string;
+begin
+  Result := ErrText;
+end;
+
+procedure TError.Create(code: Integer; msg: string);
+begin
+  Assert(Length(msg) < 255); // one symbol is for zero terminator
+  ErrCode := code;
+  StrPCopy(ErrText, msg);
+end;
+
+function TError.HasError;
+begin
+  Result := ErrCode <> 0;
+end;
+
+// function from MFT DLL
+function ReadVolumeDirect(Volume: PChar; var VolSize: UInt64; var Cnt: Cardinal; var Data: Pointer): TError; stdcall; external 'MFTReaderDLL.dll' name 'ReadVolume';
+
+function TVolumeCache.ReadVolumeFast(Volume: string; ExclusionsList: TArray<string>): UInt64;
+var
+  fileCache: PPFileLevel;
+  i, cnt: Cardinal;
+  volSize: UInt64;
+  str: string;
+  err: TError;
+begin
+  var start := GetTickCount;
+
+  Result := 0;
+
+  NotifyStart(Volume);
+
+  Clear;
+  FName := Volume;
+
+  //TODO: may be list of exclusions should be Volume agnostic somehow???
+
+  // fill ExclFolders with values related to the specified Volume only
+  for i := 1 to Length(ExclusionsList) do begin
+    str := ExclusionsList[i - 1];
+    if str.StartsWith(Volume) then begin
+      str := ExcludeTrailingPathDelimiter(str); // delete trailing backslash for proper comparing in ReadDirectory method
+      FExclFolders.AddValue(str);
+    end;
+  end;
+
+  Volume := ExcludeTrailingPathDelimiter(Volume);
+
+  NotifyProgress(50);
+
+  err := ReadVolumeDirect(PChar(Volume), volSize, cnt, Pointer(fileCache));
+
+  if err.HasError then begin
+    TLogger.LogFmt('Error loading volume %s. Error code: %d. Error msg: %s.', [Volume, err.ErrCode, err.Msg]);
+    NotifyError(err);
+    Exit;
+  end;
+
+  Deserialize(fileCache, cnt);  // this call initializes FIndexedDateTime to Now()
+
+  NotifyFinish();
+
+  FExecTime := GetTickCount - start;
+  //FModified := True;
+  //FIndexedDateTime := Now;
+end;
+
 {
 function TVolumeCache.ReadFileSystem(const Volumes: TArray<string>): UInt64;
 var
@@ -1233,7 +1304,6 @@ begin
     GPath.Clear; // memory is not de-allocated, only reset Count to zero.
     GPathCache.PutItem(GPath); // return object back to cache
   end;
-
 end;
 
 procedure TVolumeCache.NotifyFinish;
@@ -1246,20 +1316,21 @@ function TVolumeCache.NotifyProgress(Progrs: Integer): Boolean;
 begin
   Result := False; // cancel by default
   if Assigned(FProgressListeners) then
-    for var i := 1 to FProgressListeners.Count do if NOT FProgressListeners[i - 1].Progress(Progrs) then Exit;
+    for var i := 1 to FProgressListeners.Count do
+      if NOT FProgressListeners[i - 1].Progress(Progrs) then Exit;
   Result := True;  // everything is ok return true
 end;
 
 procedure TVolumeCache.NotifyStart(Notes: string);
 begin
   if Assigned(FProgressListeners) then
-    for var i := 1 to FProgressListeners.Count do FProgressListeners[i - 1].Start(-1, Notes);
+    for var i := 1 to FProgressListeners.Count do FProgressListeners[i - 1].Start(Notes);
 end;
 
-procedure TVolumeCache.NotifyError(ErrorStr: string);
+procedure TVolumeCache.NotifyError(Error: TError);
 begin
   if Assigned(FProgressListeners) then
-    for var i := 1 to FProgressListeners.Count do FProgressListeners[i - 1].ReportError(ErrorStr);
+    for var i := 1 to FProgressListeners.Count do FProgressListeners[i - 1].ReportError(Error);
 end;
 
 procedure TVolumeCache.PrintLevelsStat(list: TStrings);
@@ -1482,6 +1553,8 @@ begin
     if FileExists(fileName) then begin
       msin.LoadFromFile(FileName);
       Deserialize(msin);
+    end else begin
+      TLogger.LogFmt('Index file is not found or not accessible ().', [FileName]);
     end;
   finally
     msin.Free;
@@ -1666,6 +1739,42 @@ begin
   vol.FProgressListeners := nil;
 end;
 
+// works only for NTFS drives
+procedure TCache.ReadVolumeFast(Volume: string; ExclusionsList: TArray<string>);
+var
+  vol: TVolumeCache;
+  MaxComponentLen, SystemFlags: DWORD;
+  fsType: string;
+begin
+  vol := GetOrCreateVolume(Volume);
+
+  // check that Volume is NTFS volume type.
+  // if not - call ReadVolume function that works with all volume types (but slower)
+  SetLength(fsType, MAX_PATH);
+  GetVolumeInformation(PChar(Volume), nil, 0, nil, MaxComponentLen, SystemFlags, PChar(fsType), MAX_PATH);
+
+  if fsType.StartsWith('NTFS', True) then begin
+    vol.FProgressListeners := FProgressListeners;
+    vol.ReadVolumeFast(Volume, ExclusionsList);
+    vol.FProgressListeners := nil;
+  end else begin
+    ReadVolume(Volume, ExclusionsList);
+  end;
+
+end;
+
+procedure TCache.ReadVolumesFast(Volumes: TArray<string>; ExclusionsList: TArray<string>);
+var
+  i: Cardinal;
+  vol: TVolumeCache;
+begin
+  for i := Low(Volumes) to High(Volumes) do begin
+    vol := GetOrCreateVolume(Volumes[i]);
+    vol.ReadVolumeFast(Volumes[i], ExclusionsList);
+  end;
+end;
+
+
 procedure TCache.RemoveProgressListener(listener: IIndexingProgress);
 begin
   var index := FProgressListeners.IndexOf(listener);
@@ -1681,8 +1790,3 @@ finalization
   FreeAndNil(GPathCache);
   //TCache.FreeInst; // free cache singlton
 end.
-
-
-
-
-
