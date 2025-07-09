@@ -14,14 +14,14 @@ type
     FHideCtrls   : TArray<TControl>;
     FListener: IIndexingProgress;
     FExclusionsList: TArray<string>;
+    FFastNTFS: Boolean;
   protected
     procedure Execute; override;
     procedure DoTerminate; override;
   public
     ExecData: TArray<TVolumeExecData>;
 
-    constructor Create(Volumes: TArray<string>; ExclusionsList: TArray<string>);
-    procedure Start(Listener: IIndexingProgress); overload;
+    constructor Create(Volumes: TArray<string>; ExclusionsList: TArray<string>; FastNTFS: Boolean);
     procedure Start(DisableCtrls, ShowCtrls, HideCtrls: TArray<TControl>; Listener: IIndexingProgress); overload;
     function GetReturnValue: Integer;
 end;
@@ -61,13 +61,14 @@ uses SysUtils, System.UITypes, Vcl.Dialogs, Windows, Functions;
 { TLoadFSThread }
 
 // ExclusionsList array is empty here when "exclude folders" option is off in settings
-constructor TLoadFSThread.Create(Volumes: TArray<string>; ExclusionsList: TArray<string>);
+constructor TLoadFSThread.Create(Volumes: TArray<string>; ExclusionsList: TArray<string>; FastNTFS: Boolean);
 var
   i: Cardinal;
 begin
   inherited Create(True); // create suspended
   FreeOnTerminate := True;
   FExclusionsList := ExclusionsList;
+  FFastNTFS := FastNTFS;
 
   SetLength(ExecData, Length(Volumes));
   for i := Low(Volumes) to High(Volumes) do begin
@@ -104,17 +105,19 @@ begin
 
     for i := Low(ExecData) to High(ExecData) do begin
       start := GetTickCount;
-      inst2.ReadVolume(ExecData[i].VolumeName, FExclusionsList);
+
+      if FFastNTFS
+        then inst2.ReadVolumeFast(ExecData[i].VolumeName, FExclusionsList)
+        else inst2.ReadVolume(ExecData[i].VolumeName, FExclusionsList);
+
       ExecData[i].VolSize    := inst2.GetVolume(ExecData[i].VolumeName).Size;
       ExecData[i].ItemsCount := inst2.GetVolume(ExecData[i].VolumeName).Count;
       ExecData[i].ExecTime   := GetTickCount - start;
-      Logger.LogFmt('[IndexingThread][%d] Finished indexing volume %s. Time spent %s', [ThreadID, ExecData[i].VolumeName, MillisecToStr(ExecData[i].ExecTime)]);
+      TLogger.LogFmt('[IndexingThread][%d] Finished indexing volume %s. Time spent %s', [ThreadID, ExecData[i].VolumeName, MillisecToStr(ExecData[i].ExecTime)]);
     end;
 
     inst2.RemoveProgressListener(FListener);
-     //inst1 := TFSC.Swap(inst2); // replace old data by new one
-    // inst1.Free; // old File Cache Data is not needed any more
-    SetReturnValue(1); // finiahed successfully
+    SetReturnValue(1); // finished successfully
   except
     on E: EOperationCancelled do begin
       TCache.FreeInst2; // clear half filled Instance2
@@ -134,16 +137,6 @@ begin
   Result := ReturnValue;
 end;
 
-procedure TLoadFSThread.Start(Listener: IIndexingProgress);
-begin
-  FListener := Listener;
-
-  //ProgressBar.Position := 0;
-
-  Logger.Log('[IndexingThread] STARTING');
-  Start;
-end;
-
 procedure TLoadFSThread.Start(DisableCtrls, ShowCtrls, HideCtrls: TArray<TControl>; Listener: IIndexingProgress);
 var
   i: Integer;
@@ -157,9 +150,7 @@ begin
   for i := 0 to High(FShowCtrls)    do FShowCtrls[i].Visible := True;
   for i := 0 to High(FHideCtrls)    do FHideCtrls[i].Visible := False;
 
-  //ProgressBar.Position := 0;
-
-  Logger.Log('[IndexingThread] STARTING');
+  TLogger.Log('[IndexingThread] STARTING');
   Start;
 end;
 
