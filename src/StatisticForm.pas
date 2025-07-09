@@ -47,7 +47,7 @@ implementation
 {$R *.dfm}
 
 uses
-  TypInfo, DynamicArray, FileCache;
+  TypInfo, DynamicArray, CacheItem, FileCache;
 
 type
  TTopFolders = class
