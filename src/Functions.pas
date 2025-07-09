@@ -3,7 +3,7 @@ unit Functions;
 interface
 
 uses
-  SysUtils, Winapi.Windows, WinAPI.Messages, Classes, DynamicArray, Hash, FileCache;
+  SysUtils, Winapi.Windows, WinAPI.Messages, Classes, DynamicArray, Hash, CacheItem;
 
 type
   SplitRec = record
@@ -16,7 +16,7 @@ type
     class function IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T;
   end;
 
-  Logger = class
+  TLogger = class
   private
   type
     TErrorListHash = THash<Cardinal, string>;
@@ -42,38 +42,28 @@ const
   WM_SearchResultsShellInfo_MSG = WM_APP + 2;
   WM_RESTORE_MAINFORM_MSG = WM_APP + 3;
 
-{type
-
-  TFileShellInfoThread = class(TThread)
-  private
-    FBegin: Cardinal;
-    FFinish: Cardinal;
-    FCancelFlag: PBoolean;
-    FWinHandle: THandle;
-  protected
-    procedure Execute; override;
-  public
-    procedure Start(WinHandle: THandle; CancelFlag: PBoolean; lvStart: Cardinal = 0; lvEnd: Cardinal = 0); overload;
-    class procedure RunGetShellInfoBgThread(WinHandle: THandle; CancelFlag: PBoolean);
-  end;
- }
 
   function  MillisecToStr(ms: Cardinal): string;
   function  GetLocalTime(ftm: TFileTime): string;
   function  StringListToArray(Strings: TStrings): TArray<string>;
   procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
+
   // split string to array of strings using Delim as delimiter
   procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+
   // splits string to array of strings using Delim as delimiter
   procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+
   procedure WriteStringToStream(OStream: TStream; str: string);
   function  ReadStringFromStream(IStream: TStream): string;
-  function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
+ // function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
   function  FileTimeToDateTime(FileTime: TFileTime): TDateTime;
   function  DateTimeToFileTime(FileTime: TDateTime): TFileTime;
   function  ThousandSep(Num: UInt64): string;
+
   // the same as Pos() but does case INsensitive search
   function  XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
+
   procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
   function  AttrStr(Attr: DWORD): string;
   function  AttrStr2(Attr: DWORD): string;
@@ -199,8 +189,8 @@ begin
   IStream.Read(Result[1], lenBytes);
 end;
 
-
-function GetErrorMessageText(LastError: Cardinal; const ErrorPlace: string): string;
+// **** Use built-in SysUtils.SysErrorMessage function  *****
+{function GetErrorMessageText(LastError: Cardinal; const ErrorPlace: string): string;
 var
   buf: string;
 begin
@@ -212,6 +202,7 @@ begin
   Result := Format('%s failed with error code %d as follows:\n%s', [ErrorPlace, LastError, buf]);
   //Windows.StringCchPrintf(PChar(buf2), Length(buf2), '%s failed with error code %d as follows:\n%s', PChar(errorPlace), lastError, pChar(buf));
 end;
+ }
 
 function FileTimeToDateTime(FileTime: TFileTime): TDateTime;
  var
@@ -418,7 +409,7 @@ begin
   Len := MAX_PATH * 3; // allocate enough storage for list of drives
   SetLength(Names, Len);
   Res := GetLogicalDriveStrings(Len, PChar(Names));
-  if Res = 0 then Logger.Log('GetLogicalDriveStrings returned error: ' + GetLastError.ToString);
+  if Res = 0 then TLogger.Log('GetLogicalDriveStrings returned error: ' + GetLastError.ToString);
 
   Result := ZStrArrayToDelphiArray(PChar(Names));
 end;
@@ -461,11 +452,11 @@ begin
       Item.FFileType := 'Unknown file type';
     end;
 
-    if Logger.ErrorStringIds.GetValuePointer(err) = nil
+    if TLogger.ErrorStringIds.GetValuePointer(err) = nil
       then errStr := 'UNKNOWN'
-      else errStr := Logger.ErrorStringIds[err];
+      else errStr := TLogger.ErrorStringIds[err];
 
-    Logger.Log(Format('Error %s (errocode: %d) returned by ShGetFileInfo("%s")', [errStr, err, FullFileName]));
+    TLogger.Log(Format('Error %s (errocode: %d) returned by ShGetFileInfo("%s")', [errStr, err, FullFileName]));
   end
   else
   begin
@@ -541,60 +532,11 @@ Cleanup:
   Result := fIsRunAsAdmin;
 end;
 
-
-{ TFileShellInfoThread }
- {
-procedure TFileShellInfoThread.Execute;
-var
-  i, j: Cardinal;
-  levels, lvlCount: Cardinal;
-  start: Cardinal;
-  tmpI: TCacheItem;
-begin
-  start := GetTickCount;
-
-  for i := FBegin to FFinish do begin
-    lvlCount := TFSC.Instance.LevelCount(i);
-    for j := 1 to lvlCount do begin
-      if ((j mod 100) = 0) AND FCancelFlag^ then Exit;  // check for cancel every 100th item
-
-      var item := TFSC.Instance.GetItem(i, j - 1);
-      if item.FFileType = '' then begin
-        TmpI := TCacheItem.Create;
-        TmpI.Assign(item);
-        GetFileShellInfo(TFSC.Instance.MakePathString(i, j - 1), TmpI);
-        PostMessage(FwinHandle, WM_FileShellInfo_MSG, WPARAM(TmpI), LPARAM(j - 1));
-      end;
-    end;
-  end;
-
-  LogMessage('[TFileShellInfoThread]['+ IntToStr(ThreadID) +'] FINISHED. Time spent: '+ MillisecToStr(GetTickCount - start));
-end;
-
-procedure TFileShellInfoThread.Start(WinHandle: THandle; CancelFlag: PBoolean; lvStart: Cardinal = 0; lvEnd: Cardinal = 0);
-begin
-  FBegin := lvStart;
-  FFinish := lvEnd;
-  FCancelFlag := CancelFlag;
-  FWinHandle := WinHandle;
-
-  Start();
-end;
-
-class procedure TFileShellInfoThread.RunGetShellInfoBgThread(WinHandle: THandle; CancelFlag: PBoolean);
-begin
-  LogMessage('[TFileShellInfoThread] STARTING');
-  var FileShellInfoThread := TFileShellInfoThread.Create(True);
-  FileShellInfoThread.FreeOnTerminate := True;
-  FileShellInfoThread.Start(WinHandle, CancelFlag, 0, TFSC.Instance.Levels - 1);
-end;
-  }
-
 //const DEF_LOG_FILENAME = 'FinderX_denug.log';
 const
   INVALID_SET_FILE_POINTER = -1;
 
-class constructor Logger.Create;
+class constructor TLogger.Create;
 begin
   FFileH := INVALID_HANDLE_VALUE;
 
@@ -606,13 +548,13 @@ begin
   ErrorStringIDs[ERROR_NO_MORE_ITEMS]  := 'ERROR_NO_MORE_ITEMS'; //259
 end;
 
-class destructor Logger.Destroy;
+class destructor TLogger.Destroy;
 begin
   Shutdown;
   FreeAndNil(ErrorStringIDs);
 end;
 
-class procedure Logger.Init(const LogFileName: string);
+class procedure TLogger.Init(const LogFileName: string);
 var tdir: TDirectory;
 begin
   // do nothing if logfilename has not changed
@@ -632,14 +574,14 @@ begin
   end;
 end;
 
-class procedure Logger.Shutdown();
+class procedure TLogger.Shutdown();
 begin
   CloseHandle(FFileH); // close old log file
   FFileH := INVALID_HANDLE_VALUE;
   FLogFileName := '';
 end;
 
-class procedure Logger.Log(const Msg: string);
+class procedure TLogger.Log(const Msg: string);
 var
   MsgA: AnsiString;
   bytesWritten: DWORD;
@@ -650,15 +592,15 @@ begin
 
   res1 := SetFilePointer(FFileH, 0, nil, FILE_END);
   if res1 = INVALID_SET_FILE_POINTER then
-    raise Exception.CreateFmt('Cannot position to the end of file (%s). Error code: %s', [FLogFileName, GetLastError.ToString]);
+    raise  EInOutError.CreateFmt('Cannot position to the end of file (%s). Error code: %s', [FLogFileName, GetLastError.ToString]);
 
   MsgA := AnsiString(DateTimeToStr(Now) + ' ' + Msg) + sLineBreak; // use AnsiString here to be able to easily view log file in any file viewer.
   res2 := WriteFile(FFileH, PAnsiChar(MsgA)^, DWORD(Length(MsgA)), bytesWritten, nil);
   if NOT res2 then
-    raise Exception.CreateFmt('Write to log file error (%s). Error code: %s', [FLogFileName, GetLastError.ToString]);
+    raise EInOutError.CreateFmt('Write to log file error (%s). Error code: %s', [FLogFileName, GetLastError.ToString]);
 end;
 
-class procedure Logger.LogFmt(const Msg: string; Values: array of const);
+class procedure TLogger.LogFmt(const Msg: string; Values: array of const);
 begin
   if FFileH = INVALID_HANDLE_VALUE then Exit; // logger is in shutdown state or error opening file
 
@@ -666,3 +608,4 @@ begin
 end;
 
 end.
+
