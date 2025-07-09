@@ -7,6 +7,7 @@ uses
   SysUtils,
   Classes,
   Vcl.Dialogs,
+  System.UITypes,
   About in '..\..\src\About.pas' {AboutBox},
   FileCache in '..\..\src\FileCache.pas',
   FinderXMain in '..\..\src\FinderXMain.pas' {MainForm},
@@ -23,7 +24,8 @@ uses
   DynamicArrays in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas',
   Hash in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas',
   Hash2 in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas',
-  SortedArray in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas';
+  SortedArray in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas',
+  CacheItem in '..\..\src\CacheItem.pas';
 
 {$R *.res}
 
@@ -34,7 +36,7 @@ begin
   AppSettings.Load;
   try
     //Logger.Init raises an exception when LoaFileName has incorrect path or file name
-    if AppSettings.WriteLogFile then Logger.Init(AppSettings.LogFileName);
+    if AppSettings.WriteLogFile then TLogger.Init(AppSettings.LogFileName);
   except
     on ex: EFOpenError do begin
       MessageDlg(ex.Message, TMsgDlgType.mtWarning, [mbOK], 0);
@@ -44,25 +46,25 @@ begin
   var mutex := CreateMutex(nil, False, PChar('FinderX'));
   if GetLastError = ERROR_ALREADY_EXISTS then begin
     // copy of FinderX is already running, activating first app copy
-    Logger.Log('Another copy of FinderX app is running. Activating it.');
+    TLogger.Log('Another copy of FinderX app is running. Activating it.');
     var hWnd := FindWindow('TMainForm', 'FindexX - find files quick!');
-    if hWnd = 0 then Logger.Log('Cannot find FinderX window while mutex already exists.');
+    if hWnd = 0 then TLogger.Log('Cannot find FinderX window while mutex already exists.');
     SendMessage(hWnd, WM_RESTORE_MAINFORM_MSG, 0, 0); //send user message to restore main form from tray
     //ShowWindow(hWnd, SW_RESTORE {SHOWNORMAL});
     //SetForegroundWindow(hWnd);
     CloseHandle(mutex);
-    Logger.Log('Another copy is being activated. Exiting.');
+    TLogger.Log('Another copy is being activated. Exiting.');
     Exit;
   end;
 
   if AppSettings.RunAsAdmin then begin
     if IsAppRunningAsAdminMode then begin
-      Logger.Log('Application is running with ADMIN RIGHTS!');
+      TLogger.Log('Application is running with ADMIN RIGHTS!');
     end else begin
       CloseHandle(mutex); // important to close mutex before running new instance by ShellExecute
       var fname := Application.ExeName;
       var res := ShellExecute(0, 'runas', PChar(fname), nil, nil, SW_SHOWNORMAL);
-      if res < 33 then Logger.Log('ShellExecute run as admin error: ' + IntToStr(res));
+      if res < 33 then TLogger.Log('ShellExecute run as admin error: ' + IntToStr(res));
       Exit;
     end;
   end;
@@ -70,7 +72,7 @@ begin
   Application.Initialize;
   ReportMemoryLeaksOnShutdown := True;
   Application.MainFormOnTaskbar := True;
-  Logger.Log('Application initialization time:' + MillisecToStr(GetTickcount - start));
+  TLogger.Log('Application initialization time:' + MillisecToStr(GetTickcount - start));
   Application.CreateForm(TMainForm, MainForm);
   Application.CreateForm(TAboutBox, AboutBox);
   Application.CreateForm(TIndexingLogForm, IndexingLogForm);
