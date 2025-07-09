@@ -62,7 +62,7 @@ object SettingsForm1: TSettingsForm1
     Top = 10
     Width = 339
     Height = 297
-    ActiveCard = Card4
+    ActiveCard = Card2
     BevelInner = bvRaised
     BevelOuter = bvLowered
     Caption = 'SettingsPanels'
@@ -149,14 +149,14 @@ object SettingsForm1: TSettingsForm1
       TabOrder = 1
       VerticalAlignment = taAlignTop
       object SearchAsYouTypeLabel2: TLabel
-        Left = 177
+        Left = 193
         Top = 55
         Width = 77
         Height = 15
         Caption = 'symbols typed'
       end
       object SearchAsYouTypeLabel1: TLabel
-        Left = 30
+        Left = 36
         Top = 55
         Width = 91
         Height = 15
@@ -179,7 +179,7 @@ object SettingsForm1: TSettingsForm1
         TabOrder = 1
       end
       object SearchAfterNumberBox: TNumberBox
-        Left = 131
+        Left = 147
         Top = 51
         Width = 35
         Height = 23
@@ -199,6 +199,15 @@ object SettingsForm1: TSettingsForm1
         Caption = 'Search as you type'
         TabOrder = 3
         OnClick = SearchAsYouTypeCheckBoxClick
+      end
+      object ClearHistoryButton: TButton
+        Left = 147
+        Top = 80
+        Width = 142
+        Height = 25
+        Caption = 'Clear history (90 items)'
+        TabOrder = 4
+        OnClick = ClearHistoryButtonClick
       end
     end
     object Card3: TCard

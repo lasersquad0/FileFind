@@ -56,6 +56,7 @@ type
     LogFileLabel: TLabel;
     Label2: TLabel;
     IndexLocationEdit: TEdit;
+    ClearHistoryButton: TButton;
     procedure OKButtonClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure SearchAsYouTypeCheckBoxClick(Sender: TObject);
@@ -69,8 +70,10 @@ type
     procedure ExcludeFoldersCheckBoxClick(Sender: TObject);
     procedure ResetToDefaultButtonClick(Sender: TObject);
     procedure LogFileCheckBoxClick(Sender: TObject);
+    procedure ClearHistoryButtonClick(Sender: TObject);
   private
     FVolumes: TArray<string>;
+    procedure UpdateClearHistoryCaption;
   end;
 
 
@@ -165,6 +168,11 @@ begin
   MinimizeToTrayCheckBox.Enabled := ShowTrayIconCheckBox.Checked;
 end;
 
+procedure TSettingsForm1.UpdateClearHistoryCaption;
+begin
+  ClearHistoryButton.Caption := Format('Clear history (%d items)', [AppSettings.SearchHistory.Count]);
+end;
+
 procedure TSettingsForm1.RemoveFolderButtonClick(Sender: TObject);
 var
   idx: Integer;
@@ -186,6 +194,12 @@ begin
   if FileOpenDialog1.Execute then begin
     ExcludeFoldersListBox.Items.Add(FileOpenDialog1.FileName);
   end;
+end;
+
+procedure TSettingsForm1.ClearHistoryButtonClick(Sender: TObject);
+begin
+  AppSettings.SearchHistory.Clear;
+  UpdateClearHistoryCaption;
 end;
 
 procedure TSettingsForm1.EditFolderButtonClick(Sender: TObject);
@@ -275,6 +289,7 @@ begin
   ExcludeFoldersCheckBoxClick(self);
   LogFileCheckBoxClick(self);
   ShowTrayIconCheckBoxClick(self);
+  UpdateClearHistoryCaption;
 
   // exclude folders: if list from registry is empty then populate it with default values.
  { if(ExcludeFoldersListBox.Items.Count = 0) then begin
