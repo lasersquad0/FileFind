@@ -10,7 +10,10 @@ Improvements:
 FinderX version 1.2.0
 
 Improvements:
-
++ Added refreshing IndexDB in background. IT is done one time only during app start and done once per day.
++ Added new way of reading file info: "Fast NTFS file reading" - uses low level file API to read files directly NTFS filesystem. It works much faster than standard way (FindFirstFile and FindNext). For NTFS volumes new way is set by default. For non-NTFS (FAT32, etc.) previous method is used. You can turn off fast NTFS reading by setting registry key FastReadingNTFS to 0.
++ Added possibility to search by LastAccess, Modified and Created datetime fields. Can be found on advanced search panel.
++ Added 'Clear history' button on Settings form that deletes all collected history items. 
 * If search string is in a quotes (e.g. "myfilename" or 'myfilename') then file with exact name "myfilename" (without quotes) is searched.
   That helps to find exact files with name that included into many other file names like "win" or "system".
 + Index DB location path is shown on Settings form now (as read only). Index DB location path is stored into registry together with other application settings.
@@ -19,7 +22,7 @@ Improvements:
 + Added "Delete index file" main menu item.
 + Added "Write diagnostic info into log file" option to settings. When this option is on, useful diagnostic info is written into specified log file.
 * Significanly reduced memory usage by application (in 2.5 times in average) due to internal data optimizations.
-* Increased search speed. More to go.
+* Increased search speed.
  
 
 ---------------------------------------------------
