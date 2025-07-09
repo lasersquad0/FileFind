@@ -150,6 +150,13 @@ begin
   FACOptions := [acAutoAppend, acAutoSuggest, acUseArrowKey];
 end;
 
+destructor TSearchEdit.Destroy;
+begin
+  //FACList := nil;
+  FACList._Release;
+  inherited;
+end;
+
 procedure TSearchEdit.CreateWnd;
 var
   Dummy: IUnknown;
@@ -176,12 +183,6 @@ begin
       //CLSID_IAutoComplete is not available
     end;
   end;
-end;
-
-destructor TSearchEdit.Destroy;
-begin
-  FACList := nil;
-  inherited;
 end;
 
 procedure TSearchEdit.DestroyWnd;
