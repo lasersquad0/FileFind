@@ -21,19 +21,19 @@ type
   //TSizeFormatLabels = array[TSizeFormat] of string;
 
 
-   TSettingInfo = record
+  TSettingInfo = record
     Name: string;
     DefValueB: Boolean;
     DefValueI: Integer;
     DefValueS: string;
   end;
 
-   TSettingNames = (snCaseSensitiveSearch, snCaseSensitiveSort, snHideFoldersSize, snEnableSearchHistory,
+  TSettingNames = (snCaseSensitiveSearch, snCaseSensitiveSort, snHideFoldersSize, snEnableSearchHistory,
                    snFoldersOnTop, snSearchAsYouType, snSearchAfterSymbols, snShowTrayIcon, snMinimizeToTray,
                    snRunAsAdmin, snHighlightSearchTerms, snShowRowMouseover, snStartAppWithSystem,
                    snIncludeNewFixedVolumes, snIncludeNewRemovableVolumes, snRemoveOfflineVolumes, snExcludeFolders,
-                   snExcludeFoldersList, snSizeFormat,  snMaxFoundItems,
-                   snVolumesToIndex, snIndexFileName, snWriteLogFile, snLogFileName);
+                   snExcludeFoldersList, snSizeFormat,  snMaxFoundItems, snVolumesToIndex, snIndexFileName,
+                   snWriteLogFile, snLogFileName, snNTFSFastReading);
 
   TSettingInfos = array [TSettingNames] of TSettingInfo;
 
@@ -66,6 +66,7 @@ type
     IndexFileName: string;
     WriteLogFile: Boolean;
     LogFileName: string;
+    FastReadingNTFS: Boolean;
 
     constructor Create;
     destructor Destroy; override;
@@ -115,7 +116,8 @@ var
                           (Name:'ExcludeFolders';      DefValueB: False), (Name:'ExcludeFoldersList';  DefValueS: ''),
                           (Name:'SizeFormat';          DefValueI: Ord(sfAuto)), (Name:'MaxFoundItems'; DefValueI: 20_000),
                           (Name:'VolumesToIndex';      DefValueS: 'C:\'), (Name:'IndexFileName';       DefValueS: TSettings.INDEX_FILENAME),
-                          (Name:'WriteLogFile';        DefValueB: True),  (Name:'LogFileName';         DefValueS: 'FinderX_debug.log')
+                          (Name:'WriteLogFile';        DefValueB: True),  (Name:'LogFileName';         DefValueS: 'FinderX_debug.log'),
+                          (Name:'FastReadingNTFS';     DefValueB: True)
                         );
 
 { TSettings }
@@ -147,6 +149,7 @@ begin
   WriteLogFile               := STVL[snWriteLogFile].DefValueB;
   LogFileName                := STVL[snLogFileName].DefValueS;
   IndexFileName              := ExpandFileName(STVL[snIndexFileName].DefValueS);
+  FastReadingNTFS            := STVL[snNTFSFastReading].DefValueB;
 
   ExcludeFoldersList := GetDefaultExcludeFoldersList;
   Insert(STVL[snVolumesToIndex].DefValueS, VolumesToIndex, 0); // add one volume by default
@@ -177,30 +180,31 @@ begin
    try
      reg.RootKey := HKEY_CURRENT_USER;
      if reg.OpenKeyReadOnly(APPKEY) then begin
-       if reg.ValueExists(STVL[snCaseSensitiveSearch].Name)       then CaseSensitiveSearch    := reg.ReadBool(STVL[snCaseSensitiveSearch].Name);
-       if reg.ValueExists(STVL[snCaseSensitiveSort].Name)         then CaseSensitiveSort      := reg.ReadBool(STVL[snCaseSensitiveSort].Name);
-       if reg.ValueExists(STVL[snHideFoldersSize].Name)           then HideFoldersSize        := reg.ReadBool(STVL[snHideFoldersSize].Name);
-       if reg.ValueExists(STVL[snEnableSearchHistory].Name)       then EnableSearchHistory    := reg.ReadBool(STVL[snEnableSearchHistory].Name);
-       if reg.ValueExists(STVL[snFoldersOnTop].Name)              then FoldersOnTop           := reg.ReadBool(STVL[snFoldersOnTop].Name);
-       if reg.ValueExists(STVL[snSearchAsYouType].Name)           then SearchAsYouType        := reg.ReadBool(STVL[snSearchAsYouType].Name);
-       if reg.ValueExists(STVL[snShowTrayIcon].Name)              then ShowTrayIcon           := reg.ReadBool(STVL[snShowTrayIcon].Name);
-       if reg.ValueExists(STVL[snMinimizeToTray].Name)            then MinimizeToTray         := reg.ReadBool(STVL[snMinimizeToTray].Name);
-       if reg.ValueExists(STVL[snRunAsAdmin].Name)                then RunAsAdmin             := reg.ReadBool(STVL[snRunAsAdmin].Name);
-       if reg.ValueExists(STVL[snHighlightSearchTerms].Name)      then HighlightSearchTerms   := reg.ReadBool(STVL[snHighlightSearchTerms].Name);
-       if reg.ValueExists(STVL[snShowRowMouseover].Name)          then ShowRowMouseover       := reg.ReadBool(STVL[snShowRowMouseover].Name);
-       if reg.ValueExists(STVL[snStartAppWithSystem].Name)        then StartAppWithSystem     := reg.ReadBool(STVL[snStartAppWithSystem].Name);
-       if reg.ValueExists(STVL[snIncludeNewFixedVolumes].Name)    then IncludeNewFixedVolumes := reg.ReadBool(STVL[snIncludeNewFixedVolumes].Name);
-       if reg.ValueExists(STVL[snIncludeNewRemovableVolumes].Name)then IncludeNewRemovableVolumes := reg.ReadBool(STVL[snIncludeNewRemovableVolumes].Name);
-       if reg.ValueExists(STVL[snRemoveOfflineVolumes].Name)      then RemoveOfflineVolumes   := reg.ReadBool(STVL[snRemoveOfflineVolumes].Name);
-       if reg.ValueExists(STVL[snExcludeFolders].Name)            then ExcludeFolders         := reg.ReadBool(STVL[snExcludeFolders].Name);
-       if reg.ValueExists(STVL[snExcludeFoldersList].Name)        then ExcludeFoldersList     := reg.ReadMultiString(STVL[snExcludeFoldersList].Name);
-       if reg.ValueExists(STVL[snSizeFormat].Name)                then SizeFormat             := TSizeFormat(reg.ReadInteger(STVL[snSizeFormat].Name));
-       if reg.ValueExists(STVL[snSearchAfterSymbols].Name)        then SearchAfterSymbols     := reg.ReadInteger(STVL[snSearchAfterSymbols].Name);
-       if reg.ValueExists(STVL[snMaxFoundItems].Name)             then MaxFoundItems          := Cardinal(reg.ReadInteger(STVL[snMaxFoundItems].Name));
-       if reg.ValueExists(STVL[snVolumesToIndex].Name)            then VolumesToIndex         := reg.ReadMultiString(STVL[snVolumesToIndex].Name);
-       if reg.ValueExists(STVL[snIndexFileName].Name)             then IndexFileName          := reg.ReadString(STVL[snIndexFileName].Name);
-       if reg.ValueExists(STVL[snWriteLogFile].Name)              then WriteLogFile           := reg.ReadBool(STVL[snWriteLogFile].Name);
-       if reg.ValueExists(STVL[snLogFileName].Name)               then LogFileName            := reg.ReadString(STVL[snLogFileName].Name);
+       if reg.ValueExists(STVL[snCaseSensitiveSearch].Name)       then CaseSensitiveSearch       := reg.ReadBool(STVL[snCaseSensitiveSearch].Name);
+       if reg.ValueExists(STVL[snCaseSensitiveSort].Name)         then CaseSensitiveSort         := reg.ReadBool(STVL[snCaseSensitiveSort].Name);
+       if reg.ValueExists(STVL[snHideFoldersSize].Name)           then HideFoldersSize           := reg.ReadBool(STVL[snHideFoldersSize].Name);
+       if reg.ValueExists(STVL[snEnableSearchHistory].Name)       then EnableSearchHistory       := reg.ReadBool(STVL[snEnableSearchHistory].Name);
+       if reg.ValueExists(STVL[snFoldersOnTop].Name)              then FoldersOnTop              := reg.ReadBool(STVL[snFoldersOnTop].Name);
+       if reg.ValueExists(STVL[snSearchAsYouType].Name)           then SearchAsYouType           := reg.ReadBool(STVL[snSearchAsYouType].Name);
+       if reg.ValueExists(STVL[snShowTrayIcon].Name)              then ShowTrayIcon              := reg.ReadBool(STVL[snShowTrayIcon].Name);
+       if reg.ValueExists(STVL[snMinimizeToTray].Name)            then MinimizeToTray            := reg.ReadBool(STVL[snMinimizeToTray].Name);
+       if reg.ValueExists(STVL[snRunAsAdmin].Name)                then RunAsAdmin                := reg.ReadBool(STVL[snRunAsAdmin].Name);
+       if reg.ValueExists(STVL[snHighlightSearchTerms].Name)      then HighlightSearchTerms      := reg.ReadBool(STVL[snHighlightSearchTerms].Name);
+       if reg.ValueExists(STVL[snShowRowMouseover].Name)          then ShowRowMouseover          := reg.ReadBool(STVL[snShowRowMouseover].Name);
+       if reg.ValueExists(STVL[snStartAppWithSystem].Name)        then StartAppWithSystem        := reg.ReadBool(STVL[snStartAppWithSystem].Name);
+       if reg.ValueExists(STVL[snIncludeNewFixedVolumes].Name)    then IncludeNewFixedVolumes    := reg.ReadBool(STVL[snIncludeNewFixedVolumes].Name);
+       if reg.ValueExists(STVL[snIncludeNewRemovableVolumes].Name)then IncludeNewRemovableVolumes:= reg.ReadBool(STVL[snIncludeNewRemovableVolumes].Name);
+       if reg.ValueExists(STVL[snRemoveOfflineVolumes].Name)      then RemoveOfflineVolumes      := reg.ReadBool(STVL[snRemoveOfflineVolumes].Name);
+       if reg.ValueExists(STVL[snExcludeFolders].Name)            then ExcludeFolders            := reg.ReadBool(STVL[snExcludeFolders].Name);
+       if reg.ValueExists(STVL[snExcludeFoldersList].Name)        then ExcludeFoldersList        := reg.ReadMultiString(STVL[snExcludeFoldersList].Name);
+       if reg.ValueExists(STVL[snSizeFormat].Name)                then SizeFormat                := TSizeFormat(reg.ReadInteger(STVL[snSizeFormat].Name));
+       if reg.ValueExists(STVL[snSearchAfterSymbols].Name)        then SearchAfterSymbols        := reg.ReadInteger(STVL[snSearchAfterSymbols].Name);
+       if reg.ValueExists(STVL[snMaxFoundItems].Name)             then MaxFoundItems             := Cardinal(reg.ReadInteger(STVL[snMaxFoundItems].Name));
+       if reg.ValueExists(STVL[snVolumesToIndex].Name)            then VolumesToIndex            := reg.ReadMultiString(STVL[snVolumesToIndex].Name);
+       if reg.ValueExists(STVL[snIndexFileName].Name)             then IndexFileName             := reg.ReadString(STVL[snIndexFileName].Name);
+       if reg.ValueExists(STVL[snWriteLogFile].Name)              then WriteLogFile              := reg.ReadBool(STVL[snWriteLogFile].Name);
+       if reg.ValueExists(STVL[snLogFileName].Name)               then LogFileName               := reg.ReadString(STVL[snLogFileName].Name);
+       if reg.ValueExists(STVL[snNTFSFastReading].Name)           then FastReadingNTFS           := reg.ReadBool(STVL[snNTFSFastReading].Name);
      end;
      reg.CloseKey;
 
@@ -306,6 +310,7 @@ begin
        reg.WriteString(STVL[snIndexFileName].Name, IndexFileName);
        reg.WriteBool(STVL[snWriteLogFile].Name, WriteLogFile);
        reg.WriteString(STVL[snLogFileName].Name, LogFileName);
+       reg.WriteBool(STVL[snNTFSFastReading].Name, FastReadingNTFS);
      end;
      reg.CloseKey;
 
@@ -346,28 +351,28 @@ var
   TmpFolder: PChar;
 begin
   if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppData.');
+    then TLogger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppData.');
   Insert(TmpFolder + '\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppDataLow, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppDataLow.');
+    then TLogger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppDataLow.');
   Insert(TmpFolder + '\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramFilesX86.');
+    then TLogger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramFilesX86.');
   Insert(TmpFolder + '\Microsoft\Temp', Result, Length(Result));
   Insert(TmpFolder + '\Google\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramData.');
+    then TLogger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramData.');
   Insert(TmpFolder + '\Microsoft\Search\Data\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_Windows, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then Logger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_Windows.');
+    then TLogger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_Windows.');
   Insert(TmpFolder + '\Temp', Result, Length(Result));
   Insert(TmpFolder + '\WinSyS\Temp', Result, Length(Result));
   Insert(TmpFolder + '\assembly\Temp', Result, Length(Result));
