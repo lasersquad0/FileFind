@@ -1,0 +1,1 @@
+Compress-Archive -path ..\Win64\Release\FinderX.exe,..\README.txt,..\changelog.txt -Force -DestinationPath FinderX.1.1.0.zip
