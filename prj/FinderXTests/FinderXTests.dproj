@@ -116,11 +116,11 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="MaskSearchTest.pas"/>
-        <DCCReference Include="..\..\MaskSearch.pas"/>
-        <DCCReference Include="C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas"/>
         <DCCReference Include="C:\Program Files (x86)\Embarcadero\Studio\23.0\source\DunitX\DUnitX.Loggers.GUI.VCL.pas">
             <Form>GUIVCLTestRunner</Form>
         </DCCReference>
+        <DCCReference Include="..\..\src\MaskSearch.pas"/>
+        <DCCReference Include="C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -170,6 +170,18 @@
                 <DeployFile LocalName="Win32\Debug\FinderXTests.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>FinderXTests.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="Win64\Debug\FinderXTests.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win64">
+                        <RemoteName>FinderXTests.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="Win64\Debug\FinderXTests.rsm" Configuration="Debug" Class="DebugSymbols">
+                    <Platform Name="Win64">
+                        <RemoteName>FinderXTests.rsm</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

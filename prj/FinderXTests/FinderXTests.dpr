@@ -15,9 +15,9 @@ uses
   {$ENDIF }
   DUnitX.TestFramework,
   MaskSearchTest in 'MaskSearchTest.pas',
-  MaskSearch in '..\..\MaskSearch.pas',
-  DynamicArray in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
-  DUnitX.Loggers.GUI.VCL in 'C:\Program Files (x86)\Embarcadero\Studio\23.0\source\DunitX\DUnitX.Loggers.GUI.VCL.pas' {GUIVCLTestRunner};
+  DUnitX.Loggers.GUI.VCL in 'C:\Program Files (x86)\Embarcadero\Studio\23.0\source\DunitX\DUnitX.Loggers.GUI.VCL.pas' {GUIVCLTestRunner},
+  MaskSearch in '..\..\src\MaskSearch.pas',
+  DynamicArray in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas';
 
 { keep comment here to protect the following conditional from being removed by the IDE when adding a unit }
 {$IFNDEF TESTINSIGHT}
@@ -36,7 +36,6 @@ begin
   ReportMemoryLeaksOnShutdown := True;
   Application.Title := 'DUnitX';
   Application.CreateForm(TGUIVCLTestRunner, GUIVCLTestRunner);
-
   Application.Run;
   (*
   try
