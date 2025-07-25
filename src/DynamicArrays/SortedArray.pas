@@ -4,10 +4,14 @@ interface
 
 uses Classes, System.Generics.Defaults, DynamicArray;
 
+resourcestring
+  SCannotInsertIntoSortedArray = 'It is impossible to insert value into sorted array. Use AddValue() instead.';
+  SOperationNotSupportedBySortedArray = 'Operation is not supprted by sorted array.';
+
 type
   // Stores elements in sorted order
   // Sorting rules are defined Compare method that need to be ovveriden in descendant class (seee THArraySorted).
-  THCustomArraySorted<T:constructor> = class(THArrayG<T>)
+  THCustomArraySorted<T> = class(THArrayG<T>)
   private
     // Since array is sorted methods that can break sorting are moved into private section
     procedure AddMany(Value: T; Cnt: Cardinal); override;
@@ -42,7 +46,7 @@ type
 
   // This is generic class with comparator type parameter CmpT that has to be descendant of TComparer<T>
   // Overrided function Compare uses CmpT claa for doing citems comparison
-  THArraySorted<T:constructor; CmpT: TComparer<T>, constructor> = class(THCustomArraySorted<T>)
+  THArraySorted<T; CmpT: TComparer<T>, constructor> = class(THCustomArraySorted<T>)
   private
     FComparer: CmpT;
 //    function InsertValue(Index: Cardinal; Value: T): Cardinal; override;
@@ -60,8 +64,9 @@ type
     function GetComparer: CmpT;
  end;
 
+
   // This is generic class uses default TComparer<T>.Default comparer for sorting element in the array
- THArraySorted<T:constructor> = class(THCustomArraySorted<T>)
+ THArraySorted<T> = class(THCustomArraySorted<T>)
   private
     FComparer: IComparer<T>;
   protected
@@ -87,6 +92,7 @@ implementation
  uses SysUtils;
 
 { THArraySorted<T> 2 type params }
+
 
 constructor THArraySorted<T, CmpT>.Create;
 begin
