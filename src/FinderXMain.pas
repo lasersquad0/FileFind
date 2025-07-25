@@ -13,9 +13,9 @@ type
   public
     Size: UInt64;
     SizeStr: string;
-    ModifiedStr: string;
-    LastAccessStr: string;
-    CreatedStr: string;
+    //ModifiedStr: string;
+    //LastAccessStr: string;
+    //CreatedStr: string;
     AttrStr: string;
     Path: string;
     Item: TCacheItem;
@@ -53,7 +53,6 @@ type
     FileSizeFactor: TComboBox;
     ImageList1: TImageList;
     AdvancedSearchButton: TSpeedButton;
-    SearchByModifiedDate: TCheckBox;
     DateTimePickerFrom: TDateTimePicker;
     DateTimePickerTo: TDateTimePicker;
     SearchByAttributes: TCheckBox;
@@ -96,6 +95,7 @@ type
     CheckIntegrity: TMenuItem;
     DateTypeComboBox: TComboBox;
     Label1: TLabel;
+    AttrTemp: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -242,25 +242,27 @@ begin
          ResultsItem.SizeStr := '-';
        end else begin
          ResultsItem.Size := Item.FFileSize;
-         ResultsItem.SizeStr := MakeSizeStr(ResultsItem.Size); //ThousandSep(ResultsItem.Size);
-         //ResultsItem.Size := (UInt64(Item.FFileData.nFileSizeHigh) shl 32) + UInt64(Item.FFileData.nFileSizeLow);
+         ResultsItem.SizeStr := MakeSizeStr(ResultsItem.Size);
        end;
      end;
    end else begin // file, not a directory
      ResultsItem.Size := Item.FFileSize;
-     ResultsItem.SizeStr := MakeSizeStr(ResultsItem.Size); //ThousandSep(ResultsItem.Size);
+     ResultsItem.SizeStr := MakeSizeStr(ResultsItem.Size);
    end;
 
-   Item.FDisplayName := Item.FFileName;
+  // Item.FDisplayName := Item.FFileName; //TODO: why do we modify Item here?
    //Item.FIconIndex := 1; // default icon until proper icon is loaded via GetFileShellInfo
 
-   ResultsItem.Item := Item;
-
-   ResultsItem.ModifiedStr := GetLocalTime(Item.FModifiedTime); //TODO: calc and store local time in TCacheItem for performance puporses
-   ResultsItem.LastAccessStr := GetLocalTime(Item.FLastAccessTime);
-   ResultsItem.CreatedStr := GetLocalTime(Item.FCreationTime);
    ResultsItem.AttrStr := AttrStr2(Item.FFileAttrs);
    ResultsItem.Path := FullPath;
+   ResultsItem.Item := Item;
+
+   // convert TFileTime to string only one time and only for found items to same memory and increase speed.
+   if Item.FCreationTimeStr = '' then begin
+     Item.FModifiedTimeStr   := FileTimeToString(Item.FModifiedTime);
+     Item.FLastAccessTimeStr := FileTimeToString(Item.FLastAccessTime);
+     Item.FCreationTimeStr   := FileTimeToString(Item.FCreationTime);
+   end;
 
    FSearchResults.AddValue(ResultsItem);
 
@@ -283,9 +285,9 @@ begin
       resItem := FSearchResults[index];
 
       resItem.Item.FDisplayName := TmpItem.FDisplayName;
-      resItem.Item.FFileType := TmpItem.FFileType;
-      resItem.Item.FIconIndex := TmpITem.FIconIndex;
-      resItem.Item.FDenied := TmpITem.FDenied;
+      resItem.Item.FFileType    := TmpItem.FFileType;
+      resItem.Item.FIconIndex   := TmpITem.FIconIndex;
+      resItem.Item.FDenied      := TmpITem.FDenied;
     end;
 
     TmpItem.Free;
@@ -296,7 +298,7 @@ begin
     ProgressBarFileInfo.Position := index*100 div cnt;
     UpdateStatusBarX(cnt, FFileInfoMessagesCount*100 div cnt);
   end
-  else
+  else // TmpItem=nill is a signal that another thread has finished process
   begin
     ProgressBarFileInfo.Position := ProgressBarFileInfo.Max;
     Application.ProcessMessages; // chance to show 100% progress
@@ -341,13 +343,14 @@ end;
 function TMainForm.GetAttributes: Cardinal;
 begin
   Result := 0;
-  Result := Result OR Cardinal(IfThen(AttrArchive.Checked,   FILE_ATTRIBUTE_ARCHIVE));
-  Result := Result OR Cardinal(IfThen(AttrHidden.Checked,    FILE_ATTRIBUTE_HIDDEN));
   Result := Result OR Cardinal(IfThen(AttrDirectory.Checked, FILE_ATTRIBUTE_DIRECTORY));
-  Result := Result OR Cardinal(IfThen(AttrEncrypted.Checked, FILE_ATTRIBUTE_ENCRYPTED));
-  Result := Result OR Cardinal(IfThen(AttrCompressed.Checked,FILE_ATTRIBUTE_COMPRESSED));
+  Result := Result OR Cardinal(IfThen(AttrArchive.Checked,   FILE_ATTRIBUTE_ARCHIVE));
   Result := Result OR Cardinal(IfThen(AttrReadonly.Checked,  FILE_ATTRIBUTE_READONLY));
   Result := Result OR Cardinal(IfThen(AttrSystem.Checked,    FILE_ATTRIBUTE_SYSTEM));
+  Result := Result OR Cardinal(IfThen(AttrHidden.Checked,    FILE_ATTRIBUTE_HIDDEN));
+  Result := Result OR Cardinal(IfThen(AttrCompressed.Checked,FILE_ATTRIBUTE_COMPRESSED));
+  Result := Result OR Cardinal(IfThen(AttrTemp.Checked,      FILE_ATTRIBUTE_TEMPORARY));
+  Result := Result OR Cardinal(IfThen(AttrEncrypted.Checked, FILE_ATTRIBUTE_ENCRYPTED));
 end;
 
 procedure TMainForm.Timer1Timer(Sender: TObject);
@@ -720,9 +723,9 @@ begin
 
   Item.SubItems.Add(origItem.SizeStr);
   Item.SubItems.Add(origItem.Item.FFileType);
-  Item.SubItems.Add(origItem.ModifiedStr);
-  Item.SubItems.Add(origItem.LastAccessStr);
-  Item.SubItems.Add(origItem.CreatedStr);
+  Item.SubItems.Add(origItem.Item.FModifiedTimeStr);
+  Item.SubItems.Add(origItem.Item.FLastAccessTimeStr);
+  Item.SubItems.Add(origItem.Item.FCreationTimeStr);
   Item.SubItems.Add(origItem.AttrStr);
   Item.SubItems.Add(origItem.Path);
 
@@ -811,9 +814,9 @@ procedure TMainForm.CheckIntegrityClick(Sender: TObject);
 begin
   TCache.Instance.CheckThatParentIsDirectory;
   TCache.Instance.CheckLevelsDataTsCorrect;
-  TCache.Instance.CheckHangingDirectories; //TODO: it would be great to check returned value as well
+  TCache.Instance.CheckHangingDirectories;
   TCache.Instance.CheckFileDatesAreCorrect;
-  ShowMessage('Integrity checks are OK');
+  MessageDlg('Data Integrity checks finished successfully!', TMsgDlgType.mtInformation, [mbOK], 0);
 end;
 
 procedure TMainForm.ClearSearchResults;
@@ -827,13 +830,14 @@ end;
 
 procedure TMainForm.SearchByAttributesClick(Sender: TObject);
 begin
-  AttrArchive.Enabled    := SearchByAttributes.Checked;
-  AttrHidden.Enabled     := SearchByAttributes.Checked;
   AttrDirectory.Enabled  := SearchByAttributes.Checked;
-  AttrEncrypted.Enabled  := SearchByAttributes.Checked;
-  AttrCompressed.Enabled := SearchByAttributes.Checked;
+  AttrArchive.Enabled    := SearchByAttributes.Checked;
   AttrReadonly.Enabled   := SearchByAttributes.Checked;
   AttrSystem.Enabled     := SearchByAttributes.Checked;
+  AttrHidden.Enabled     := SearchByAttributes.Checked;
+  AttrCompressed.Enabled := SearchByAttributes.Checked;
+  AttrTemp.Enabled       := SearchByAttributes.Checked;
+  AttrEncrypted.Enabled  := SearchByAttributes.Checked;
 end;
 
 procedure TMainForm.SearchByFileSizeClick(Sender: TObject);
@@ -1027,7 +1031,7 @@ begin
   ProgressBarFileInfo.Visible := False;
 
   SearchByFileSizeClick(SearchByFileSize); // disable search controls by default
-  SearchByModifiedDateClick(SearchByModifiedDate);
+  SearchByModifiedDateClick(nil);
   SearchByAttributesClick(SearchByAttributes);
 
   IndexingBitBtn.Hint := BuildIndexingBtnHint;
@@ -1212,7 +1216,12 @@ begin
   // do NOT show error in case of Access Denied
   if (Error.ErrCode = NO_ERROR) OR (Error.ErrCode = ERROR_ACCESS_DENIED) then Exit;
 
-  MessageDlg(Error.ErrText, mtError, [mbOK], 0);
+  TLoadFSThread.Synchronize(FThread,
+   procedure
+   begin
+     MessageDlg(Error.ErrText, mtError, [mbOK], 0);
+   end
+   );
 end;
 
 procedure TMainFormIndexingProgress.Start(Notes: string; P100: Integer);
@@ -1225,7 +1234,6 @@ begin
       MainForm.ProgressBar1.Position := 0;
    end
    );
-
 end;
 
 

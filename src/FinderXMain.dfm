@@ -309,15 +309,6 @@ object MainForm: TMainForm
         'Megabytes'
         'Gigabytes')
     end
-    object SearchByModifiedDate: TCheckBox
-      Left = 624
-      Top = 76
-      Width = 97
-      Height = 17
-      Caption = 'Date between'
-      TabOrder = 4
-      OnClick = SearchByModifiedDateClick
-    end
     object DateTimePickerFrom: TDateTimePicker
       Left = 174
       Top = 72
@@ -327,7 +318,7 @@ object MainForm: TMainForm
       Time = 45444.000000000000000000
       Checked = False
       Kind = dtkDateTime
-      TabOrder = 5
+      TabOrder = 4
     end
     object DateTimePickerTo: TDateTimePicker
       Left = 336
@@ -337,7 +328,7 @@ object MainForm: TMainForm
       Date = 45444.000000000000000000
       Time = 45444.000000000000000000
       Kind = dtkDateTime
-      TabOrder = 6
+      TabOrder = 5
     end
     object SearchByAttributes: TCheckBox
       Left = 11
@@ -345,24 +336,24 @@ object MainForm: TMainForm
       Width = 78
       Height = 17
       Caption = 'Attributes'
-      TabOrder = 7
+      TabOrder = 6
       OnClick = SearchByAttributesClick
     end
     object AttrArchive: TCheckBox
-      Left = 624
+      Left = 201
       Top = 108
       Width = 65
       Height = 17
       Caption = 'Archive'
-      TabOrder = 8
+      TabOrder = 7
     end
     object AttrHidden: TCheckBox
-      Left = 196
+      Left = 443
       Top = 108
       Width = 74
       Height = 17
       Caption = 'Hidden'
-      TabOrder = 9
+      TabOrder = 8
     end
     object AttrDirectory: TCheckBox
       Left = 114
@@ -370,39 +361,39 @@ object MainForm: TMainForm
       Width = 81
       Height = 17
       Caption = 'Directory'
-      TabOrder = 10
+      TabOrder = 9
     end
     object AttrEncrypted: TCheckBox
-      Left = 533
+      Left = 720
       Top = 108
       Width = 85
       Height = 17
       Caption = 'Encrypted'
-      TabOrder = 11
+      TabOrder = 10
     end
     object AttrCompressed: TCheckBox
-      Left = 431
+      Left = 519
       Top = 108
       Width = 85
       Height = 17
       Caption = 'Compressed'
-      TabOrder = 12
+      TabOrder = 11
     end
     object AttrReadonly: TCheckBox
-      Left = 347
+      Left = 279
       Top = 108
       Width = 80
       Height = 17
       Caption = 'Readonly'
-      TabOrder = 13
+      TabOrder = 12
     end
     object AttrSystem: TCheckBox
-      Left = 272
+      Left = 365
       Top = 108
       Width = 59
       Height = 17
       Caption = 'System'
-      TabOrder = 14
+      TabOrder = 13
     end
     object SearchBtn: TBitBtn
       Left = 467
@@ -412,7 +403,7 @@ object MainForm: TMainForm
       Caption = 'Search'
       ImageIndex = 3
       Images = ImageList1
-      TabOrder = 15
+      TabOrder = 14
       OnClick = SearchBtnClick
     end
     object IndexingBitBtn: TBitBtn
@@ -425,7 +416,7 @@ object MainForm: TMainForm
       Images = ImageList1
       ParentShowHint = False
       ShowHint = True
-      TabOrder = 16
+      TabOrder = 15
       OnClick = IndexingBitBtnClick
     end
     object DateTypeComboBox: TComboBox
@@ -435,7 +426,7 @@ object MainForm: TMainForm
       Height = 23
       Style = csDropDownList
       ItemIndex = 0
-      TabOrder = 17
+      TabOrder = 16
       Text = '<none>'
       OnChange = SearchByModifiedDateClick
       Items.Strings = (
@@ -443,6 +434,14 @@ object MainForm: TMainForm
         'Creation'
         'Modified'
         'Last access')
+    end
+    object AttrTemp: TCheckBox
+      Left = 624
+      Top = 108
+      Width = 85
+      Height = 17
+      Caption = 'Temporary'
+      TabOrder = 17
     end
   end
   object StatusBar1: TStatusBar
