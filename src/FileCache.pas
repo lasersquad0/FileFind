@@ -117,6 +117,8 @@ type
    //constructor CreatePrivate;
    //class procedure FreeInst;
    procedure StatSort(var Stat: TFileSystemStatRecord);
+   //function CallbackFunc(progress: Integer): Integer;
+
 
  public
    constructor Create;
@@ -201,7 +203,7 @@ type
    procedure RemoveProgressListener(listener: IIndexingProgress);
 
    // integrity checks procedures
-   function CheckHangingDirectories: THArrayG<string>;
+   procedure CheckHangingDirectories;
    procedure CheckThatParentIsDirectory;
    procedure CheckLevelsDataTsCorrect;
    procedure CheckFileDatesAreCorrect;
@@ -273,7 +275,16 @@ uses
 
 const MAX_LEVELS = 100;
 const MAX_LEVEL_DIRS = 10_000;
-//const MAX_FIND_HANDLES_CAPACITY = 30_000;
+
+const NTFS_DIRECTORY_MASK = $10000000; // this is NTFS attr directory flag, we neeed to move it into DOS_DIR flag place
+const TEST_DIR_MASK = NTFS_DIRECTORY_MASK OR FILE_ATTRIBUTE_DIRECTORY;
+const FILE_VALID_ATTRIBUTES = (2*FILE_ATTRIBUTE_ENCRYPTED - 1) OR NTFS_DIRECTORY_MASK;
+
+{const SUM_OF_ATTRS =  FILE_ATTRIBUTE_READONLY + FILE_ATTRIBUTE_HIDDEN  + FILE_ATTRIBUTE_SYSTEM +
+                      FILE_ATTRIBUTE_DIRECTORY + FILE_ATTRIBUTE_ARCHIVE + FILE_ATTRIBUTE_DEVICE +
+                      FILE_ATTRIBUTE_NORMAL + FILE_ATTRIBUTE_TEMPORARY + FILE_ATTRIBUTE_SPARSE_FILE +
+                      FILE_ATTRIBUTE_REPARSE_POINT + FILE_ATTRIBUTE_COMPRESSED + FILE_ATTRIBUTE_OFFLINE +
+                      FILE_ATTRIBUTE_NOT_CONTENT_INDEXED + FILE_ATTRIBUTE_ENCRYPTED;}
 
 ////////////////////////////////////
 // Common Functions
@@ -365,8 +376,9 @@ begin
 
       if IsDirectory(fileData) then begin
         if NOT IsReparse(fileData) then DirSize := ReadDirectory(CurrDir + '\' + fileData.cFileName, itemRef, False);
-      end
-        else DirSize := MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
+      end else begin
+        DirSize := MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
+      end;
     end;
 
     while(True) do begin
@@ -379,19 +391,18 @@ begin
       if FindNextFile(hFind, fileData) then begin
         Assert(fileData.cFileName[0] <> #0);
 
-        var tmp2:string := fileData.cFileName;
-
         if IS_DOT_DIR(fileData.cFileName) then continue;
 
         var itemRef := AddItem(parent.ItemIndex, fileData, Parent.ItemLevel + 1);
 
         if IsDirectory(fileData) then begin
           if NOT IsReparse(fileData) then DirSize := DirSize + ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, False);
-        end
-          else DirSize := DirSize + MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow)
+        end else begin
+          DirSize := DirSize + MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
+        end;
       end
       else
-      begin
+      begin  // error in FindNextFile
         Err.ErrCode := GetLastError();
         if Err.ErrCode = ERROR_NO_MORE_FILES then break; // this is NOT an error
         Err.Msg := 'ERROR in FindNexFile: ' + CurrDir + ' GetLastError: ' + IntToStr(Err.ErrCode);
@@ -412,7 +423,7 @@ begin
 end;
 {$WRITEABLECONST OFF}
 
-//TODO shall we convert procedure to function to be able to return an error?
+//TODO: shall we convert procedure to function to be able to return an error?
 procedure TVolumeCache.FillFileData(const FilePath: string; var FileData: TWin32FindData);
 var
   hf: THandle;
@@ -485,7 +496,7 @@ begin
           end;
 
           if mx < pValue^ then begin
-            mx := pValue^; // find dir with maximum links count
+            mx := pValue^; // find dir with maximum child items
             mxDir := MakePathString(i - 1, j - 1);
           end;
         end;
@@ -507,8 +518,8 @@ var
 begin
   for i := 1 to FCacheData.Count - 1 do begin
     var lv := FCacheData[i];
-    for j := 0 to lv.Count - 1 do begin
-      item := TCacheItem(lv.GetAddr(j));
+    for j := 1 to lv.Count do begin
+      item := TCacheItem(lv.GetAddr(j - 1));
       // Parent of any item must be a directory
       parent := GetItem(i - 1, item.FParent);
       Assert(parent.IsDirectory);
@@ -527,6 +538,9 @@ begin
     for j := 1 to lv.Count do begin
       item := TCacheItem(lv.GetAddr(j - 1));
       Assert(item.FLevel = i - 1);
+      Assert(item.FFileAttrs > 0); // zero file attr is replaced by NORMAL attribute if read by FAST method.
+      //Assert( NOT ((item.FFileAttrs > SUM_OF_ATTRS) AND (item.FFileAttrs < NTFS_DIRECTORY_MASK)) );
+      Assert( ((item.FFileAttrs AND TEST_DIR_MASK) = 0) OR ((item.FFileAttrs AND TEST_DIR_MASK) = TEST_DIR_MASK) ); // both DIR bits either set or both cleared
     end;
   end;
 end;
@@ -710,10 +724,10 @@ begin
   try
     // check if filter str has wildcards
     if (Pos('*', Filter.SearchStr) > 0) OR (Pos('?', Filter.SearchStr) > 0 ) then begin
-      GrepList := TStringList.Create;
+      //GrepList := TStringList.Create;
       if Filter.CaseSensitive // compile filters into GrepList
-        then SetFilters(Filter.SearchStr, GrepList)
-        else SetFilters(Filter.SearchStrUpper, GrepList);
+        then GrepList := CompileMask(Filter.SearchStr)
+        else GrepList := CompileMAsk(Filter.SearchStrUpper);
     end;
 
     {StringToArray(Filter.StartFrom, startArray, '\');
@@ -744,7 +758,7 @@ begin
         if ApplyFilter(Filter, GrepList, item) then begin
           if item.IsDirectory then begin // build PathString only for directories
             if item.FPath = '' then item.FPath := MakePathString(i - 1, j - 1);
-            if NOT Callback(item.FPath, item) then Exit(srCancelled); //TODO: optimization: cache PathString in the item and use it during next searches
+            if NOT Callback(item.FPath, item) then Exit(srCancelled);
           end else begin
            if NOT Callback(MakePathString(i - 1, j - 1), item) then Exit(srCancelled);
           end;
@@ -755,7 +769,7 @@ begin
     Result := srOK;
   finally
     //startArray.Free;
-    FreeAndNil(GrepList); // works even when GrepList=nil
+    FreeCompiledMask(GrepList);
   end;
 end;
 
@@ -823,7 +837,6 @@ begin
 end;
 
 
-
 function CACHE_ITEM.Size: UInt32;
 begin
   Result := sizeof(CACHE_ITEM) + FileAttr.FileNameLen * sizeof(WChar);
@@ -837,7 +850,6 @@ begin
 end;
 
 procedure TVolumeCache.Deserialize(IStream: PPFileLevel; Count: Cardinal);
-const NTFS_DIRECTORY_MASK = $10000000; // this is NTFS attr directory flag, we neeed to move it into DOS_DIR flag place
 var
   fileCache: PPFileLevel;
   origLevel: PFileLevel;
@@ -871,7 +883,6 @@ begin
         item := TCacheItem(TCacheItem.InitInstance(level.GetAddr(j - 1))); // init object by specitied address
         item.Create; // call constructor on object instantiated at specified address
 
-        //item.FVolume := Self;
         item.FParent := origItem.FParent;
         item.FLevel := origItem.FLevel;
 
@@ -879,26 +890,28 @@ begin
 
         // some files have FileAttrib=0 for some reason. WINAPI never return zero attrs.
         // it sets NORMAL bit for such files. Below we do the same.
-        if origItem.FileAttr.dup.FileAttrib = 0 then begin
-          item.FFileAttrs := FILE_ATTRIBUTE_NORMAL;
+        if (origItem.FileAttr.dup.FileAttrib AND FILE_VALID_ATTRIBUTES) = 0 then begin
+          item.FFileAttrs := item.FFileAttrs OR FILE_ATTRIBUTE_NORMAL;
         end else begin
           // move NTFS_DIR flag/bit ($10000000) into DOS_DOR place, because all WINAPI functions return this flag in DOS_DIR place ($00000010)
           item.FFileAttrs := origItem.FileAttr.dup.FileAttrib OR ((origItem.FileAttr.dup.FileAttrib AND NTFS_DIRECTORY_MASK) shr 24);
         end;
 
         Assert(item.FFileAttrs > 0);
+        // both DIR bits either set or both cleared
+        Assert( ((item.FFileAttrs AND TEST_DIR_MASK) = 0) OR ((item.FFileAttrs AND TEST_DIR_MASK) = TEST_DIR_MASK) );
 
-        item.FCreationTime := origItem.FileAttr.dup.CreateTime;
+        item.FCreationTime   := origItem.FileAttr.dup.CreateTime;
         item.FLastAccessTime := origItem.FileAttr.dup.LastAccessTime;
-        item.FModifiedTime := origItem.FileAttr.dup.ModifyTime;
-        item.FFileSize := origItem.FileAttr.dup.FileSize;
-        item.FFileName := origItem.Name;
-        item.FUpperCaseName := AnsiUpperCase(item.FFileName);
-        item.FDenied := False;
+        item.FModifiedTime   := origItem.FileAttr.dup.ModifyTime;
+        item.FFileSize       := origItem.FileAttr.dup.FileSize;
+        item.FFileName       := origItem.Name;
+        item.FDisplayName    := item.FFileName;
+        item.FUpperCaseName  := AnsiUpperCase(item.FFileName);
+        item.FDenied         := False;
 
         origItem := PCACHE_ITEM(NativeInt(origItem) + origItem^.Size);
       end;
-
     end;
 
     fileCache := PPFileLevel(NativeInt(fileCache) + SizeOf(PPFileLevel));
@@ -1186,17 +1199,33 @@ begin
   Result := ErrCode <> 0;
 end;
 
+type
+  TCallback = function(progress: Integer): Integer;
+
 // function from MFT DLL
-function ReadVolumeDirect(Volume: PChar; var VolSize: UInt64; var Cnt: Cardinal; var Data: Pointer): TError; stdcall; external 'MFTReaderDLL.dll' name 'ReadVolume';
+function ReadVolumeDirect(Volume: PChar; var Cnt: Cardinal; var Data: Pointer; callback: TCallback): TError; stdcall; external 'MFTReaderDLL.dll' name 'ReadVolume';
+
+// workaround
+// we can pass only simple function pointer to MFT DLL (cannot pass function of object)
+// that is why we have to define global volume cache variable
+var gVolCache: TVolumeCache;
+
+function CallbackFunc(progress: Integer): Integer;
+begin
+  TLogger.LogFmt('Callback called. Progress: %d', [progress]);
+  gVolCache.NotifyProgress(progress);
+end;
 
 function TVolumeCache.ReadVolumeFast(Volume: string; ExclusionsList: TArray<string>): UInt64;
 var
   fileCache: PPFileLevel;
   i, cnt: Cardinal;
-  volSize: UInt64;
   str: string;
   err: TError;
+
 begin
+  gVolCache := self;
+
   var start := GetTickCount;
 
   Result := 0;
@@ -1221,20 +1250,19 @@ begin
 
   NotifyProgress(50);
 
-  err := ReadVolumeDirect(PChar(Volume), volSize, cnt, Pointer(fileCache));
+  err := ReadVolumeDirect(PChar(Volume), cnt, Pointer(fileCache), CallbackFunc);
 
   if err.HasError then begin
     TLogger.LogFmt('Error loading volume %s. Error code: %d. Error msg: %s.', [Volume, err.ErrCode, err.Msg]);
     NotifyError(err);
-    Exit;
+    raise EInOutError.Create(err.ErrText, Volume);
   end;
 
-  Deserialize(fileCache, cnt);  // this call initializes FIndexedDateTime to Now()
+  Deserialize(fileCache, cnt); // this call makes FIndexedDateTime = Now;
 
   NotifyFinish();
 
   FExecTime := GetTickCount - start;
-  //FModified := True;
   //FIndexedDateTime := Now;
 end;
 
@@ -1373,20 +1401,25 @@ function TVolumeCache.GetStat(): TFileSystemStatRecord;
 var
    i,j: Cardinal;
    item: TCacheItem;
+   countedItems: Cardinal;
+   counted: Boolean;
 begin
   ZeroMemory(@Result, sizeof(Result));
 
   if FCacheData.Count = 0 then Exit;
 
   //var totalItems: Cardinal := 0;
-  var countedItems: Cardinal := 0;
+  countedItems := 0;
 
-  for i := 0 to FCacheData.Count - 1 do begin
-    var lv := FCacheData[i];
+  for i := 1 to FCacheData.Count do begin
+    var lv := FCacheData[i - 1];
     // totalItems := totalItems + lv.Count;
-    for j := 0 to lv.Count - 1 do begin
-      item := TCacheItem(lv.GetAddr(j));
-      var counted: Boolean := false;
+    for j := 1 to lv.Count do begin
+
+      item := TCacheItem(lv.GetAddr(j - 1));
+      Assert( ((item.FFileAttrs AND TEST_DIR_MASK) = 0) OR ((item.FFileAttrs AND TEST_DIR_MASK) = TEST_DIR_MASK) );
+
+      counted := False;
 
       if (item.FFileAttrs AND FILE_ATTRIBUTE_DIRECTORY)    > 0 then begin Inc(Result.Stat[ftDir]);       counted := True; end;
       if (item.FFileAttrs AND FILE_ATTRIBUTE_ARCHIVE)      > 0 then begin Inc(Result.Stat[ftArchive]);   counted := True; end;
@@ -1406,7 +1439,8 @@ begin
       //if (item.FFileData.dwFileAttrs AND FILE_ATTRIBUTE_PINNED) > 0 then begin Inc(Result[ftPinned]); counted := true; end;
       if counted
         then Inc(countedItems)
-        else raise Exception.Create('Uncounted file type encontered!'); //list.Add(Format('Missing file attribute : %s : %u', [item.FFileData.cFileName, item.FFileData.dwFileAttributes]));
+        else
+        raise Exception.Create('Uncounted file type encontered!'); //list.Add(Format('Missing file attribute : %s : %u', [item.FFileData.cFileName, item.FFileData.dwFileAttributes]));
     end;
   end;
 
@@ -1465,13 +1499,16 @@ end;
 
 { TCache }
 
-function TCache.CheckHangingDirectories: THArrayG<string>;
+procedure TCache.CheckHangingDirectories;
 var
-  i: Integer;
+  i, j: Integer;
   emptyDirs: THArrayG<string>;
 begin
   for i := 1 to FVolumeData.Count do begin
-    emptyDirs := FVolumeData.GetPair(i - 1).Second.CheckHangingDirectories; //TODO: do something useful with emptyDirs info
+    emptyDirs := FVolumeData.GetPair(i - 1).Second.CheckHangingDirectories;
+    for j := 1 to emptyDirs.Count do // write empty dirs to log file
+      TLogger.Log(emptyDirs.GetValue(j - 1));
+    emptyDirs.Free;
   end;
 end;
 
@@ -1542,7 +1579,7 @@ begin
   end;
 end;
 
-// loads nothing if file does not exist
+// loads nothing if file does not exist and does not report error
 //TODO: think of if this function need to raise an exception if file does not exist or not accessible
 procedure TCache.DeserializeFrom(const FileName: string);
 var
@@ -1785,7 +1822,11 @@ end;
 initialization
   GPathCache := TObjectsCache<THArrayG<string>>.Create(3, True); //we have two threads that will work with this global objects, so 3 items should be enough
   //GPath.SetCapacity(MAX_DIR_LEVELS);
-
+  Assert(sizeof(NTFS_DUP_INFO) = $38);
+  Assert(sizeof(MFT_REF) = $8);
+  Assert(sizeof(MFT_INDEX) = sizeof(MFT_REF));
+  Assert(sizeof(ATTR_FILE_NAME) = $42);
+  Assert(sizeof(CACHE_ITEM) = $8 + sizeof(MFT_REF) + sizeof(ATTR_FILE_NAME));
 finalization
   FreeAndNil(GPathCache);
   //TCache.FreeInst; // free cache singlton
