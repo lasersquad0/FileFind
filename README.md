@@ -1,6 +1,6 @@
 
-FinderX application for fast and easy files search 
-==================================================
+FinderX application for fast and easy search 
+=============================================
 
 CONTACTS
 ------------
@@ -16,8 +16,8 @@ SUMMARY
 -------
 
 FinderX - application for fast and easy search for files and folders. 
-FinderX loads all files and folders (names and their attributes) into memory and does memory search that is extremely fast. 
-Most of searches take less then a second.
+FinderX loads all files and folders (names and their attributes) into memory and does memory search from there. That is why search is extremely fast. 
+Most of searches take less then one second.
 
 
 GETTING STARTED
@@ -54,18 +54,22 @@ FEATURES
 - Fast indexing anf automatic discovering and indexing new volumes e.g. removable one.
 - When you are typing text serch is started in 0.5 sec after you stopped typing, you do not need to press Search button 
 - You can do wildcards search. Two wildcards are supported: * and ?.
+- You can do whole word search. If search string enclosed in quotes ("myfile" or 'myfile') then it will search for a file with exact name "myfile" (without quotes). It means that files with names like myfile.exe, myfilename, supermyfile.log will NOT appear in search results. This feature helps to find files by name that a part of other commonly used name like "win" or "system".
 - Search term is automatically highlighted in search results for your convenience
 - All your searches are stored in search history and automatically shown once you type new search
-- In addition to by name you can do search by file/folder size, modified date, and file attributes. Press Advanced search button to see additional search options. 
+- In addition to by name you can do search by file/folder size, modified/created/access date, and file attributes. Press Advanced search button to see additional search options. 
 - Results can be sorted by Name, Size, File Type, Modified Date, Created, Last Access, Path.
 - You can hide columns that you don't need.
 - Width and order of columns is automatically saved and restored next FinderX run. 
+- You can run FinderX in Administrator mode to search more files (configured in settings).
 - You can make search case sensitive.
 - You can make sorting case sensitive.
 - You can collect all folders on top during sort (like it works in Windows File Explorer)
 - You can view files and folders statistics, go to File/Statistics main manu item
-- You can exclude some folders from bein indexed e.g. varioud Temp folders.
+- You can exclude some folders from being indexed e.g. various Temp folders.
 - App icon in system tray
 - Status bar shows important information such as: number of found items, time spent on last search, total number of items in index, data load time, top level indexed folder size
 - Double click on item in search results will open item's folder in Windows File Explorer
+
+
 
