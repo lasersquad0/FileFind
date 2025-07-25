@@ -66,8 +66,8 @@ uses Classes, {Windows,} SysUtils;
    procedure SetItemSize(Size: Cardinal); virtual;
   protected
    FValues: Pointer;
-   procedure Error(Value, max: Cardinal);
-   function CalcAddr(num: Cardinal): Pointer; virtual;
+   procedure Error(Value, MaxValue: Cardinal);
+   function CalcAddr(Index: Cardinal): Pointer; virtual;
    procedure InternalQuickSort(CompareProc: TCompareProc; SwapProc: TSwapProc; L,R: Cardinal);
    function InternalQuickFind(FindProc: TFindProc; FindData: Pointer; L, R: Cardinal): Integer;
 
@@ -80,20 +80,20 @@ uses Classes, {Windows,} SysUtils;
    function  Add(pValue: Pointer): Cardinal; virtual;
    procedure AddMany(pValue: Pointer; Cnt: Cardinal);
    function  AddFillValues(Cnt: Cardinal): Pointer;
-   procedure Delete(num: Cardinal); virtual;
+   procedure Delete(Index: Cardinal); virtual;
    procedure Hold;
-   procedure Get(num: Cardinal; pValue: Pointer); virtual;
-   function  GetAddr(num: Cardinal): Pointer;
+   procedure Get(Index: Cardinal; pValue: Pointer); virtual;
+   function  GetAddr(Index: Cardinal): Pointer;
    procedure Grow;
    procedure GrowTo(Cnt: Cardinal);
-   function  Insert(num: Cardinal; pValue: Pointer): Cardinal; virtual;
-   procedure InsertMany(num: Cardinal; pValue: Pointer; Cnt: Cardinal);
+   function  Insert(Index: Cardinal; pValue: Pointer): Cardinal; virtual;
+   procedure InsertMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal);
    function  IndexOf(Value: Pointer): Integer;
    function  IndexOfFrom(Value: Pointer; Start: Cardinal): Integer;
    procedure MoveData(FromPos, Cnt: Cardinal; Offset: Integer); virtual;
    procedure SetCapacity(Value: Cardinal);
-   procedure Update(num: Cardinal; pValue: Pointer); virtual;
-   procedure UpdateMany(num: Cardinal; pValue: Pointer; Cnt: Cardinal);
+   procedure Update(Index: Cardinal; pValue: Pointer); virtual; // fills Index value with zero if pValue=nil
+   procedure UpdateMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal);
    procedure Zero;
    procedure LoadFromStream(s: TStream); virtual; // read values will be added to existing ones
    procedure SaveToStream(s: TStream); virtual;
@@ -212,7 +212,7 @@ uses Classes, {Windows,} SysUtils;
    function IndexOf(Value: Integer): Integer;
    function IndexOfFrom(Value: Integer; Start: Cardinal): Integer;
    function AddValue(Value: Integer): Cardinal;
-   function InsertValue(num: Cardinal; Value: Integer): Cardinal;
+   function InsertValue(Index: Cardinal; Value: Integer): Cardinal;
    function Pop: Integer;
    procedure Push(Value: Integer);
    property Value[Index: Cardinal]: Integer read GetValue write SetValue; default;
@@ -1094,11 +1094,10 @@ begin
   inherited Destroy;
 end;
 
-procedure THArray.Delete(num: Cardinal);
+procedure THArray.Delete(Index: Cardinal);
 begin
-  Error(num, FCount);
-  //if num >= FCount then raise ERangeError.Create(Format(SItemNotFound, [num]));
-  if num < (FCount - 1) then memcpy(GetAddr(num+1), GetAddr(num), (FCount-num-1)*FItemSize);
+  Error(Index, FCount);
+  if Index < (FCount - 1) then memcpy(GetAddr(Index+1), GetAddr(Index), (FCount-Index-1)*FItemSize);
   Dec(FCount);
 end;
 
@@ -1180,60 +1179,61 @@ begin
   SetCapacity(FCapacity + Delta);
 end;
 
-function THArray.Insert(num: Cardinal; pValue: Pointer): Cardinal;
+function THArray.Insert(Index: Cardinal; pValue: Pointer): Cardinal;
 begin
-  Error(num, FCount + 1);
+  Error(Index, FCount + 1);
   Inc(FCount);
   if FCount >= FCapacity then Grow;
-  memcpy(CalcAddr(num), CalcAddr(num + 1), (FCount - num- 1 ) * FItemSize); // make place to insert
-  Update(num, pValue);
-  Result := num;
+  memcpy(CalcAddr(Index), CalcAddr(Index + 1), (FCount - Index- 1 ) * FItemSize); // make place to insert
+  Update(Index, pValue);
+  Result := Index;
 end;
 
-procedure THArray.InsertMany(num: Cardinal; pValue: Pointer; Cnt: Cardinal);
+procedure THArray.InsertMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal);
 begin
   if Cnt = 0 then exit; // nothing to do
-  Error(num, FCount + 1);
+  Error(StartIndex, FCount + 1);
   if FCount + Cnt > FCapacity then GrowTo(FCount + Cnt);
   FCount := FCount + Cnt;
-  memcpy(CalcAddr(num), CalcAddr(num + Cnt), (FCount - num - Cnt) * FItemSize);
-  UpdateMany(num, pValue, Cnt);
+  memcpy(CalcAddr(StartIndex), CalcAddr(StartIndex + Cnt), (FCount - StartIndex - Cnt) * FItemSize);  // make place to insert
+  UpdateMany(StartIndex, pValue, Cnt);
 end;
 
-procedure THArray.Update(num: Cardinal; pValue: Pointer);
+procedure THArray.Update(Index: Cardinal; pValue: Pointer);
 begin
-  Error(num, FCount);
+  Error(Index, FCount);
   if pValue = nil
-    then memclr(GetAddr(num), FItemSize)
-    else memcpy(pValue, GetAddr(num), FItemSize);
+    then memclr(GetAddr(Index), FItemSize)
+    else memcpy(pValue, GetAddr(Index), FItemSize);
 end;
 
-procedure THArray.UpdateMany(num: Cardinal; pValue: Pointer; Cnt: Cardinal);
+//TODO: what if pValue=nil?
+procedure THArray.UpdateMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal);
 begin
   if Cnt = 0 then exit;  // nothing to update
-  Error(num + Cnt - 1, FCount);
-  memcpy(pValue, GetAddr(num), FItemSize*Cnt);
+  Error(StartIndex + Cnt - 1, FCount);
+  memcpy(pValue, GetAddr(StartIndex), FItemSize*Cnt);
 end;
 
-procedure THArray.Get(num: Cardinal; pValue: Pointer);
+procedure THArray.Get(Index: Cardinal; pValue: Pointer);
 begin
-  memcpy(GetAddr(num), pValue, FItemSize);
+  memcpy(GetAddr(Index), pValue, FItemSize);
 end;
 
-function THArray.GetAddr(num: Cardinal): Pointer;
+function THArray.GetAddr(Index: Cardinal): Pointer;
 begin
-  Error(num, FCount);
-  Result := CalcAddr(num);
+  Error(Index, FCount);
+  Result := CalcAddr(Index);
 end;
 
-function THArray.CalcAddr(num: Cardinal): Pointer;
+function THArray.CalcAddr(Index: Cardinal): Pointer;
 begin
-  Result := Pointer(NativeInt(FValues) + NativeInt(num * FItemSize));
+  Result := Pointer(NativeInt(FValues) + NativeInt(Index * FItemSize));
 end;
 
-procedure THArray.Error(Value, max: Cardinal);
+procedure THArray.Error(Value, MaxValue: Cardinal);
 begin
-  if Value >= max then raise ERangeError.Create(Format(SItemNotFound, [Value]));
+  if Value >= MaxValue then raise ERangeError.Create(Format(SItemNotFound, [Value]));
 end;
 
 // intentionally done: SetItemSize does not generate an exception when Size=0.
@@ -1241,6 +1241,7 @@ end;
 procedure THArray.SetItemSize(Size: Cardinal);
 begin
   ClearMem;
+  //TODO: is that ok that when Size=0 SetItemSize DOES NOT really change FItemSize?
   if (FCount = 0) and (Size > 0) then FItemSize := Size;
 end;
 
@@ -1360,7 +1361,7 @@ begin
       if @SwapProc = nil then Swap(i, j) else SwapProc(self, i, j);
       Inc(i);
 
-      // TODO: to avoid out of range exception then Dec(j) when j=0. I think there should be better solution to bypasss this situation
+      //TODO: to avoid out of range exception then Dec(j) when j=0. I think there should be better solution to bypasss this situation
       // for example do not call InternalQuickSort when R-L=1 because sorting is trivial in a such interval
       // another solution might be to call InsertSort instead of QuickSort for intervals less then some value (e.g. 40)
       if j = 0 then break;
@@ -1402,6 +1403,7 @@ var
 begin
   Result := -1; // 'not found' by default
   if FCount = 0 then exit;
+
   if @FindProc = nil then raise EArgumentException.Create(SNoFindProc);
 
   L := 0;
@@ -1516,7 +1518,8 @@ end;
 function THArray.IndexOfFrom(Value: Pointer; Start: Cardinal): Integer;
 begin
   Result := -1;
-  if Start >= FCount then exit;
+  if Start >= FCount then Exit;
+  if Value = nil then Exit;
  //Error(Start, Integer(FCount) - 1);
   if FValues <> nil then begin
     Result := memfindgeneral(GetAddr(Start), Value, FItemSize, FCount - Start);
@@ -1837,9 +1840,9 @@ begin
   Result := inherited Add(@Value);
 end;
 
-function THArrayInteger.InsertValue(num: Cardinal; Value: Integer): Cardinal;
+function THArrayInteger.InsertValue(Index: Cardinal; Value: Integer): Cardinal;
 begin
-  Result := inherited Insert(num, @Value);
+  Result := inherited Insert(Index, @Value);
 end;
 
 function THArrayInteger.IndexOf(Value: Integer): Integer;
@@ -3393,7 +3396,7 @@ end;
 
 function THArrayString.IndexOfFrom(Value: string; Start: Integer): Integer;
 begin
-  Result := -1; // TODO: implement this method
+  Result := -1; //TODO: implement this method
 end;
 
 function THArrayString.Insert(num: Cardinal; Value: string): Cardinal;

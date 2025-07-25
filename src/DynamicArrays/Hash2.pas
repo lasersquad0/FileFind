@@ -12,7 +12,7 @@ type
 (* Keys can be any type, indexes can be any type too.
 *)
 
-  THash2<K1:constructor; K2:constructor; V:constructor> = class
+  THash2<K1; K2; V> = class
   private type
    THashChildType = THash<K2, V>;
    THashValuesType = THash<K1, THashChildType>;
@@ -50,7 +50,7 @@ type
    //number of values with K1=Key in the hash2
    function  Count(Key: K1): Cardinal; overload;
 
-   //TODO: define functionality for this method
+   // returns number of K1 keys in hash2
    function  Count: Cardinal; overload;
 
    // delete value associated with Key1 and Key3 in hash2
@@ -153,7 +153,8 @@ begin
   if FValues.Count = 0 then exit;
 
   for i := 0 to FValues.Count - 1 do
-    Result := Result + Count(FValues.AIndexes[i]);
+    Result := Result + Count(FValues.AIndexes[i]); //TODO: shall we replace it to FValues.AValues[i].Count ?
+
 end;
 
 function THash2<K1,K2,V>.GetChildHash(Key: K1): THashChildType;
