@@ -7,9 +7,9 @@ uses Classes;
 
 resourcestring
  SItemNotFound = 'Element with index %d not found !';
- SKeyNotFound  = 'Element with index%d not found in Read-only hash !';
- SCannotInsertIntoSortedArray = 'It is impossible to insert value into sorted array. Use AddValue() instead.';
- SOperationNotSupportedBySortedArray = 'Operation is not supprted by sorted array.';
+ //SKeyNotFound  = 'Element with index%d not found in Read-only hash !';
+ //SCannotInsertIntoSortedArray = 'It is impossible to insert value into sorted array. Use AddValue() instead.';
+ //SOperationNotSupportedBySortedArray = 'Operation is not supprted by sorted array.';
 
 
 type
@@ -590,7 +590,7 @@ begin
       //if @SwapProc = nil then Swap(i, j) else SwapProc(self, i, j);
       Inc(i);
 
-      // TODO: to avoid out of range exception then Dec(j) when j=0. I think there should be better solution to bypasss this situation
+      //TODO: to avoid out of range exception then Dec(j) when j=0. I think there should be better solution to bypasss this situation
       // for example do not call InternalQuickSort when R-L=1 because sorting is trivial in a such interval
       // another solution might be to call InsertSort instead of QuickSort for intervals less then some value (e.g. 40)
       if j = 0 then break;

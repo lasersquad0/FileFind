@@ -95,6 +95,7 @@ var
   i, start: Cardinal;
   inst2: TCache;
 begin
+  TLogger.Log('[IndexingThread] START');
   SetReturnValue(0); // mark that thread didnt finish successfully
 
   try
@@ -130,6 +131,8 @@ begin
   //var FindCloseThread := TFindCloseThread.Create(True); // thread to close all find handles
   //FindCloseThread.FreeOnTerminate := True;
   //FindCloseThread.Start(TFSC.Instance.FindHandles);
+
+  TLogger.Log('[IndexingThread] FINISH');
 end;
 
 function TLoadFSThread.GetReturnValue: Integer;
@@ -150,7 +153,6 @@ begin
   for i := 0 to High(FShowCtrls)    do FShowCtrls[i].Visible := True;
   for i := 0 to High(FHideCtrls)    do FHideCtrls[i].Visible := False;
 
-  TLogger.Log('[IndexingThread] STARTING');
   Start;
 end;
 

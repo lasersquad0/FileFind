@@ -21,6 +21,9 @@ type
    FCreationTime: TFileTime;
    FLastAccessTime: TFileTime;
    FModifiedTime: TFileTime;
+   FCreationTimeStr: string;
+   FLastAccessTimeStr: string;
+   FModifiedTimeStr: string;
    FFileSize: UInt64;
    FFileName: TFileName;
    FUpperCaseName: TFileName; // name of file/dir in upper case. need for search routines
@@ -100,6 +103,7 @@ begin
   FParent := Parent;
   FLevel := Level;
   FFileName := FileData.cFileName;
+  FDisplayName := FFileName;
   FFileAttrs := FileData.dwFileAttributes;
   FCreationTime   := FileData.ftCreationTime;
   FLastAccessTime := FileData.ftLastAccessTime;
@@ -143,6 +147,7 @@ begin
   SetLength(FFileName, lenBytes div sizeof(FFileName[1])); // SetLength needs size in characters
   IStream.Read(FFileName[1], lenBytes);
   FUpperCaseName := AnsiUpperCase(FFileName);
+  FDisplayName := FFileName;
 end;
 
 function TCacheItem.IsDirectory: Boolean;

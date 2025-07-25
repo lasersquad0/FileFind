@@ -42,30 +42,28 @@ const
   WM_SearchResultsShellInfo_MSG = WM_APP + 2;
   WM_RESTORE_MAINFORM_MSG = WM_APP + 3;
 
-
-  function  MillisecToStr(ms: Cardinal): string;
-  function  GetLocalTime(ftm: TFileTime): string;
-  function  StringListToArray(Strings: TStrings): TArray<string>;
-  procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
-
   // split string to array of strings using Delim as delimiter
   procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
 
   // splits string to array of strings using Delim as delimiter
   procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
 
+    // the same as Pos() but does case INsensitive search
+  function  XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
+
+  function  MillisecToStr(ms: Cardinal): string;
+//  function  GetLocalTime(ftm: TFileTime): string;
+  function  FileTimeToString(const FileTime: TFileTime): string;
+  function  StringListToArray(Strings: TStrings): TArray<string>;
+  procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
   procedure WriteStringToStream(OStream: TStream; str: string);
   function  ReadStringFromStream(IStream: TStream): string;
  // function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
   function  FileTimeToDateTime(FileTime: TFileTime): TDateTime;
   function  DateTimeToFileTime(FileTime: TDateTime): TFileTime;
   function  ThousandSep(Num: UInt64): string;
-
-  // the same as Pos() but does case INsensitive search
-  function  XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
-
   procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
-  function  AttrStr(Attr: DWORD): string;
+//  function  AttrStr(Attr: DWORD): string;
   function  AttrStr2(Attr: DWORD): string;
   function  GetLogicalDrives: TArray<string>;
   function  IsDriveRemovable(drive: string): Boolean;
@@ -127,6 +125,7 @@ begin
 end;
 
 // split string to array of strings using Delim as delimiter
+//TODO: check whether DynamicArray.pas has the same function
 procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
 var
   i, len: Cardinal;
@@ -272,13 +271,13 @@ begin
 end;
 
 // This function retrieves the last time as string, the given file was written to disk
-function GetLocalTime(ftm: TFileTime): string;
+{function GetLocalTime(ftm: TFileTime): string;
+const
+  MAX_DATETIME_STR = 255;
 var
   mtm: TSystemTime;
   at: TFileTime;
   ds, ts: string;
-const
-  MAX_DATETIME_STR = 255;
 begin
   SetLength(ds, MAX_DATETIME_STR);
   SetLength(ts, MAX_DATETIME_STR);
@@ -293,6 +292,25 @@ begin
   SetLength(ts, GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, @mtm, NIL, @ts[1], MAX_DATETIME_STR) - 1);
   Result := ds + '  ' + ts;
 end;
+ }
+
+function FileTimeToString(const FileTime: TFileTime): string;
+var
+  LocalFileTime: TFileTime;
+  SystemTime: TSystemTime;
+  DateTime: TDateTime;
+begin
+  // Convert to local file time
+  if FileTimeToLocalFileTime(FileTime, LocalFileTime) then begin
+    if FileTimeToSystemTime(LocalFileTime, SystemTime) then begin
+      DateTime := SystemTimeToDateTime(SystemTime);
+      Result := DateTimeToStr(DateTime);
+    end
+      else Result := 'Invalid system time';
+  end
+    else Result := 'Invalid file time';
+end;
+
 
 // equivalent of Pos() function but does case INSENSITIVE search of substring in a given string
 // return 0 if substring is not found
@@ -362,12 +380,12 @@ begin
   end;
 end;
 
-// returns a string with file attributes (DRSH)
-function AttrStr(Attr: DWORD): string;
+// returns a string with file attributes (ADRSHCTE)
+{function AttrStr(Attr: DWORD): string;
 begin
   Result := '';
-  if (Attr AND FILE_ATTRIBUTE_ARCHIVE)    > 0 then Result := Result + 'A';
   if (Attr AND FILE_ATTRIBUTE_DIRECTORY)  > 0 then Result := Result + 'D';
+  if (Attr AND FILE_ATTRIBUTE_ARCHIVE)    > 0 then Result := Result + 'A';
   if (Attr AND FILE_ATTRIBUTE_READONLY)   > 0 then Result := Result + 'R';
   if (Attr AND FILE_ATTRIBUTE_SYSTEM)     > 0 then Result := Result + 'S';
   if (Attr AND FILE_ATTRIBUTE_HIDDEN)     > 0 then Result := Result + 'H';
@@ -375,14 +393,14 @@ begin
   if (Attr AND FILE_ATTRIBUTE_TEMPORARY)  > 0 then Result := Result + 'T';
   if (Attr AND FILE_ATTRIBUTE_ENCRYPTED)  > 0 then Result := Result + 'E';
 end;
+ }
 
-
-// returns a string with file attributes in fixed format
+// returns a string with file attributes in fixed format (e.g. D-R-H---)
 function AttrStr2(Attr: DWORD): string;
 begin
   Result := '--------';
-  if (Attr AND FILE_ATTRIBUTE_ARCHIVE)    > 0 then Result[2] := 'A';
   if (Attr AND FILE_ATTRIBUTE_DIRECTORY)  > 0 then Result[1] := 'D';
+  if (Attr AND FILE_ATTRIBUTE_ARCHIVE)    > 0 then Result[2] := 'A';
   if (Attr AND FILE_ATTRIBUTE_READONLY)   > 0 then Result[3] := 'R';
   if (Attr AND FILE_ATTRIBUTE_SYSTEM)     > 0 then Result[4] := 'S';
   if (Attr AND FILE_ATTRIBUTE_HIDDEN)     > 0 then Result[5] := 'H';
@@ -422,21 +440,20 @@ begin
   Result := (dt = DRIVE_REMOVABLE) OR (dt = DRIVE_CDROM);
 end;
 
-// FileName - must be full path to existing file or folder
-// or relative path to existing file/folder
+// FileName - must be full path to existing file or folder (or relative path to existing file/folder)
 {$WRITEABLECONST ON}   // needed for CallsCount static variable
 function GetFileShellInfo(FullFileName: TFileName; Item: TCacheItem): Boolean;
 const
   CallsCount: Cardinal = 0;
 var
   ShFileInfo: TShFileInfo;
-  errStr: string;
+  //errStr: string;
 begin
   Inc(CallsCount);
 
   ZeroMemory(@ShFileInfo, SizeOf(ShFileInfo));
 
-  // Get Windows file name, system file type string and icon index
+  // get file display name, system file type string and icon index
   var Res := ShGetFileInfo(PChar(FullFileName), 0 {Item.FFileData.dwFileAttributes}, ShFileInfo, SizeOf(ShFileInfo),
   {SHGFI_USEFILEATTRIBUTES OR} SHGFI_TYPENAME OR SHGFI_DISPLAYNAME OR SHGFI_SYSICONINDEX OR SHGFI_SMALLICON { OR SHGFI_ICON } );
 
@@ -452,19 +469,17 @@ begin
       Item.FFileType := 'Unknown file type';
     end;
 
-    if TLogger.ErrorStringIds.GetValuePointer(err) = nil
+   { if TLogger.ErrorStringIds.GetValuePointer(err) = nil //TODO: shall we use SysUtils.SysErrorMessage here?
       then errStr := 'UNKNOWN'
       else errStr := TLogger.ErrorStringIds[err];
-
-    TLogger.Log(Format('Error %s (errocode: %d) returned by ShGetFileInfo("%s")', [errStr, err, FullFileName]));
+    }
+    TLogger.Log(Format('Error (code=%d) "%s" in ShGetFileInfo(%s).', [err, SysErrorMessage(err), FullFileName]));
   end
   else
   begin
-    //Item.FDenied := False;
     if ShFileInfo.szDisplayName[0] = #0
       then Item.FDisplayName := ExtractFileName(FullFileName)
       else Item.FDisplayName := ShFileInfo.szDisplayName;
-    //Item.FDisplayName := IfThen(ShFileInfo.szDisplayName[0] = #0, ExtractFileName(FullFileName), ShFileInfo.szDisplayName); // Set the item caption
     Item.FIconIndex := ShFileInfo.IIcon;  // Set file icon index from system image list
     Item.FFileType := ShFileInfo.szTypeName;
   end;
@@ -472,6 +487,7 @@ begin
   Result := Res <> 0;
 end;
 {$WRITEABLECONST OFF}
+
 
 function IsAppRunningAsAdminMode(): Boolean;
 type

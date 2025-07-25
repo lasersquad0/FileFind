@@ -137,9 +137,9 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.68;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=FinderX;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=Probably the best application for file search</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.69;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=FinderX;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=Probably the best application for file search</VerInfo_Keys>
         <Icon_MainIcon>Images\Uwp_logo44.ico</Icon_MainIcon>
-        <VerInfo_Build>68</VerInfo_Build>
+        <VerInfo_Build>69</VerInfo_Build>
         <DCC_DynamicBase>false</DCC_DynamicBase>
         <DCC_HighEntropyVa>false</DCC_HighEntropyVa>
         <DCC_DUPLICATE_CTOR_DTOR>false</DCC_DUPLICATE_CTOR_DTOR>
@@ -195,12 +195,12 @@
         <DCCReference Include="..\..\src\StatisticForm.pas">
             <Form>StatisticForm1</Form>
         </DCCReference>
-        <DCCReference Include="..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas"/>
-        <DCCReference Include="..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas"/>
-        <DCCReference Include="..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas"/>
-        <DCCReference Include="..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas"/>
         <DCCReference Include="..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas"/>
         <DCCReference Include="..\..\src\CacheItem.pas"/>
+        <DCCReference Include="C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas"/>
+        <DCCReference Include="C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas"/>
+        <DCCReference Include="C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas"/>
+        <DCCReference Include="C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas"/>
         <None Include="FinderX.todo"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>

@@ -260,10 +260,10 @@ begin
   if Cache.VolumesCount = 0 then Exit;
 
   vol := Cache.GetVolume(Volume); //TODO: make it work with many volumes
-  for i := 0 to vol.Levels - 1 do begin
+  for i := 1 to vol.Levels do begin
     //Level := Cache.FCacheData[i];
-    for j := 0 to vol.LevelCount(i) - 1 do begin
-      Item := vol.GetItem(i, j); //Level.GetAddr(j);
+    for j := 1 to vol.LevelCount(i - 1) do begin
+      Item := vol.GetItem(i - 1, j - 1); //Level.GetAddr(j);
       if Item.IsDirectory then AddValue(Item);
     end;
   end;
@@ -282,10 +282,10 @@ begin
   if Cache.VolumesCount = 0 then Exit;
 
   vol := Cache.GetVolume(Volume);
-  for i := 0 to vol.Levels - 1 do begin
+  for i := 1 to vol.Levels do begin
     //Level := Cache.FCacheData[i];
-    for j := 0 to vol.LevelCount(i) - 1 do begin
-      Item := vol.GetItem(i, j); //levelGetAddr(j);
+    for j := 1 to vol.LevelCount(i - 1) do begin
+      Item := vol.GetItem(i - 1, j - 1); //levelGetAddr(j);
       if NOT (Item.IsDirectory
          OR ((Item.FFileAttrs AND FILE_ATTRIBUTE_DEVICE) > 0)) then AddValue(Item);
     end;
