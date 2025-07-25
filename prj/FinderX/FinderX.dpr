@@ -20,12 +20,12 @@ uses
   Settings in '..\..\src\Settings.pas',
   SettingsForm in '..\..\src\SettingsForm.pas' {SettingsForm1},
   StatisticForm in '..\..\src\StatisticForm.pas' {StatisticForm1},
-  DynamicArray in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
-  DynamicArrays in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas',
-  Hash in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas',
-  Hash2 in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas',
   SortedArray in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas',
-  CacheItem in '..\..\src\CacheItem.pas';
+  CacheItem in '..\..\src\CacheItem.pas',
+  DynamicArray in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
+  DynamicArrays in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas',
+  Hash in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas',
+  Hash2 in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas';
 
 {$R *.res}
 
@@ -72,12 +72,13 @@ begin
   Application.Initialize;
   ReportMemoryLeaksOnShutdown := True;
   Application.MainFormOnTaskbar := True;
-  TLogger.Log('Application initialization time:' + MillisecToStr(GetTickcount - start));
+  TLogger.Log('Application initialization time cutoff 1:' + MillisecToStr(GetTickcount - start));
   Application.CreateForm(TMainForm, MainForm);
   Application.CreateForm(TAboutBox, AboutBox);
   Application.CreateForm(TIndexingLogForm, IndexingLogForm);
   Application.CreateForm(TSettingsForm1, SettingsForm1);
   Application.CreateForm(TStatisticForm1, StatisticForm1);
+  TLogger.Log('Application initialization time cutoff 2:' + MillisecToStr(GetTickcount - start));
   Application.Run;
 
   CloseHandle(mutex); // important to close mutex in the beginning of app shutdown
