@@ -1,12 +1,15 @@
 unit MaskSearch;
 
 interface
-uses Classes, SysUtils, Windows, ShellAPI;
+
+uses Classes, SysUtils, StrUtils, Windows{, ShellAPI};
 
 //function GetTimeModified(a:tfiletime):string;
 
 // fills the GrepList with the parts of 'a' (divided by ',' or ';')
-procedure SetFilters(MaskStr: string; GrepList: TStringList{; FindFile:boolean; MatchCase: Boolean});
+//procedure SetFilters(MaskStr: string; GrepList: TStringList{; FindFile:boolean; MatchCase: Boolean});
+function CompileMask(MaskStr: string): TStringList;
+procedure FreeCompiledMask(GrepList: TStringList);
 
 // main mask search function.
 // tests whether the string 'a' fits to the search masks in GrepList
@@ -15,10 +18,6 @@ function CmpMask(SearchStr: string; GrepList: TStringList{; FindFile: Boolean; M
 function CmpFile(FileName: string; GrepList: TStringList{; MatchCase: Boolean}): Boolean;
 
 implementation
-
-//
-// STRING ROUTINES
-//
 
 {
 function GetTimeModified(a:tfiletime):string;
@@ -50,28 +49,77 @@ begin
   else Result := AnsiLowerCase(S);
 end;
   }
-//
-// Original File Search Routine by Marcus Stephany
-//
-procedure SetFilters(MaskStr: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean});
-// fills the GrepList with the parts of MaskStr (divided by ',' or ';')
+
+procedure FreeCompiledMask(GrepList: TStringList);
+var
+  i: Integer;
+begin
+  if Assigned(GrepList) then begin
+    for i := 0 to Pred(GrepList.Count) do GrepList.Objects[i].Free;
+    GrepList.Free;
+  end;
+end;
+
+// created GrepList and fills it with the MaskStr items (substrings of MaskStr divided by ',' or ';')
+// GrepList mut be then free with the call FreeCompiledMask
+// compiles each part of MaskStr into TStringList object added to GrepList item as GrepList.Object[i]
+// GrepList.Object[i] further used in cmpmask1 for doing mask search
 // findfile describes whether to use for find files or text in files
-// + aml modified : Match Case
+function CompileMask(MaskStr: string): TStringList; {; FindFile: Boolean; MatchCase: Boolean}
 var
   ct: Integer;
-  grepItem: string;
+  b: string;
+  ps1,ps2,ps3    : Integer;
+  dontcare       : Boolean;
+  onechar        : Char;
+  //grepItem: string;
+  tmpList, GrepList: TStringList;
 begin
-     if not Assigned(GrepList) then exit;
-
-     GrepList.Clear;
+     GrepList := TStringList.Create;
      GrepList.Sorted := False;
-     if MaskStr = '' then begin
-        GrepList.add('*');
-        exit;
-     end;
+     Result := GrepList;
+
+     if MaskStr = '' then MaskStr := '*';
 
      // replace all ',' by ';'
-     ct := Pos(',', MaskStr);
+     MaskStr := ReplaceStr(MaskStr, ',', ';');
+
+     // split MaskStr by ';' in GrepList
+     GrepList.Delimiter := ';';
+     GrepList.StrictDelimiter := True;
+     GrepList.DelimitedText := MaskStr;
+
+     // delete empty MaskStr items if any
+     ct := 0;
+     while ct < GrepList.Count do
+       if GrepList[ct] = '' then GrepList.Delete(ct) else Inc(ct);
+
+     // compile each MaskStr item into number of 'substrings', put then into TStringList
+     // and connect it to appropriate MaskStr item
+     for ct := 0 to Pred(GrepList.Count) do begin
+       b := GrepList[ct];
+       tmpList := TStringList.create;
+       // divide partial strings ('?','*' or text) to tmp_list
+       repeat
+         onechar := b[1];
+         if (onechar = '*') or (onechar = '?') then begin
+           tmpList.Add(onechar);
+           Delete(b, 1, 1);
+         end else begin
+           ps1 := Pos('?', b);
+           if ps1 = 0 then ps1 := MaxInt;
+           ps2 := Pos('*', b);
+           if ps2 = 0 then ps2 := MaxInt;
+           if ps2 > ps1 then ps2 := ps1;
+           tmpList.Add(Copy(b, 1, ps2 - 1));
+           b := Copy(b, ps2, MaxInt);
+         end;
+       until b = '';
+
+       GrepList.Objects[ct] := tmpList; // adding compiled list to MaskStr appropriate item
+     end;
+
+     {ct := Pos(',', MaskStr);
      while ct > 0 do begin
        MaskStr[ct] := ';';
        ct := Pos(',', MaskStr);
@@ -84,10 +132,10 @@ begin
      while ct > 0 do begin
        grepItem := Trim(Copy(MaskStr, 1, ct - 1));
        if grepItem <> '' then GrepList.Add(grepItem); // do not add empty strings
-       //GrepList.Add(Trim(Copy(MaskStr, 1, ct - 1) {CaseAware(Trim(Copy(a, 1, ct - 1)), MatchCase}));
+       //GrepList.Add(Trim(Copy(MaskStr, 1, ct - 1) {CaseAware(Trim(Copy(a, 1, ct - 1)), MatchCase}{));
        MaskStr := Copy(MaskStr, ct + 1, MaxInt);
        ct := Pos(';', MaskStr);
-     end;
+     end;}
 
      // replace a 'xxx' term (without a '.') with '*xxx*' (for compatibility
      // with win95's file-search-dialog)
@@ -106,15 +154,16 @@ begin
      GrepList.Duplicates := dupIgnore;
 end;
 
-// tests whether the string 'a' fits to the search mask in 'b'
-function cmpmask1(a, b: string{; FindFile: Boolean}): Boolean;
-var sr             : string;
-    ps1,ps2,ps3    : Integer;
-    dontcare       : Boolean;
-    onechar        : Char;
-    tmp_list       : TStrings;
+// tests whether the string 'a' fits to the compiled search mask in cMask
+function cmpmask1(a: string; cMask: TStringList{; FindFile: Boolean}): Boolean;
+var
+  sr             : string;
+  ps1,ps2,ps3    : Integer;
+  dontcare       : Boolean;
+  //onechar        : Char;
+  //tmp_list       : TStrings;
 begin
-     Result := True;
+ {    Result := True;
      if b = '*' then Exit; // fits always
      if b = '*.*' then if Pos('.', a) > 0 then Exit; // fits, too
      if (Pos('*', b) = 0) and (Pos('?', b) = 0) then
@@ -127,11 +176,11 @@ begin
 
 
      Result := False;
-     if b = '' then Exit;
+     if b = '' then Exit; }
 
-     try
+     //try
         //TODO: shall we parse mask only once and apply to all search strings?
-        tmp_list := TStringList.create;
+        {tmp_list := TStringList.create;
         // divide partial strings ('?','*' or text) to tmp_list
         repeat
               onechar := b[1];
@@ -147,12 +196,12 @@ begin
                   tmp_list.Add(Copy(b, 1, ps2 - 1));
                   b := Copy(b, ps2, MaxInt);
               end;
-        until b = '';
+        until b = '';}
         // now compare the string with the partial search masks
         dontcare := False;
         ps2      := 1;
-        if tmp_list.Count > 0 then for ps1 := 0 to Pred(tmp_list.Count) do begin
-           sr := tmp_list[ps1];
+        if cMask.Count > 0 then for ps1 := 0 to Pred(cMask.Count) do begin
+           sr := cMask[ps1];
            if sr = '?' then begin
               Inc(ps2, 1);
               if ps2 > Length(a) then break;//Exit;
@@ -174,24 +223,36 @@ begin
         end;
         if not dontcare then if ps2 <> Length(a) + 1 then Exit;
         Result := True;
-     finally
-        tmp_list.Free;
-     end;
+     //finally
+     //   tmp_list.Free;
+     //end;
 end;
 
 // tests whether the string SearchStr fits to the search masks in GrepList
 // If mask is empty (Greplist is empty), we consider that any search string fits such mask
 // Empty search string may NOT fit the mask e.g. when mask = '?'
 function CmpMask(SearchStr: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean}): Boolean;
-var ct : Integer;
+var
+  ct : Integer;
+  mask: string;
 begin
      Result := True;
      //if SearchStr = '' then exit; // if no search string, the always return TRUE
      //a := CaseAware(a, MatchCase);
      if (GrepList = nil) or (GrepList.Count < 1) then Exit;
      Result := True;
-     for ct := 0 to Pred(GrepList.Count) do
-         if cmpmask1(SearchStr, GrepList[ct]{, FindFile}) then Exit; // compare with the whole GrepList until one fits
+     for ct := 0 to Pred(GrepList.Count) do begin
+       mask := GrepList[ct];
+       if mask = '' then Exit;
+       if mask = '*' then Exit; // fits always
+       if mask = '*.*' then if Pos('.', SearchStr) > 0 then Exit; // fits, too
+       if (Pos('*', mask) = 0) and (Pos('?', mask) = 0) then
+         if Pos(mask, SearchStr) > 0 then Exit; // search without wildcards
+
+       if cmpmask1(SearchStr, TStringList(GrepList.Objects[ct]){, FindFile}) then Exit; // compare with the whole GrepList until one fits
+
+     end;
+
      Result := False;
 end;
 
