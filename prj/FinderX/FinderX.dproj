@@ -164,8 +164,8 @@
         <Icon_MainIcon>Images\AppIcon.ico</Icon_MainIcon>
         <UWP_DelphiLogo44>Images\Uwp_logo44.png</UWP_DelphiLogo44>
         <UWP_DelphiLogo150>Images\Uwp_logo150.png</UWP_DelphiLogo150>
-        <VerInfo_Build>44</VerInfo_Build>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.2.0.44;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.2.0.0;Comments=Probably the best file search application</VerInfo_Keys>
+        <VerInfo_Build>45</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.2.0.45;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.2.0.0;Comments=Probably the best file search application</VerInfo_Keys>
         <VerInfo_MinorVer>2</VerInfo_MinorVer>
     </PropertyGroup>
     <ItemGroup>
