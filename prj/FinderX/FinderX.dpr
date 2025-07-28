@@ -20,12 +20,12 @@ uses
   Settings in '..\..\src\Settings.pas',
   SettingsForm in '..\..\src\SettingsForm.pas' {SettingsForm1},
   StatisticForm in '..\..\src\StatisticForm.pas' {StatisticForm1},
-  SortedArray in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas',
   CacheItem in '..\..\src\CacheItem.pas',
-  DynamicArray in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
-  DynamicArrays in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas',
-  Hash in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas',
-  Hash2 in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas';
+  DynamicArray in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
+  DynamicArrays in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas',
+  Hash in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas',
+  Hash2 in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas',
+  SortedArray in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas';
 
 {$R *.res}
 
