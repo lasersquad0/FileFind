@@ -11,7 +11,6 @@ type
     flag: Boolean;
   end;
 
- type
   TTernary = class
     class function IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T;
   end;
@@ -24,7 +23,7 @@ type
     FLogFileName: string;
     FFileH: THandle;
   public
-    class var ErrorStringIDs: TErrorListHash;
+    //class var ErrorStringIDs: TErrorListHash;
     class constructor Create;
     class destructor Destroy;
     class procedure Init(const LogFileName: string);
@@ -48,22 +47,22 @@ const
   // splits string to array of strings using Delim as delimiter
   procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
 
+  procedure SplitByStrings(InputStr: string; DelimStrList: THArrayG<string>; var output: THArrayG<SplitRec>);
+
     // the same as Pos() but does case INsensitive search
   function  XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
 
   function  MillisecToStr(ms: Cardinal): string;
-//  function  GetLocalTime(ftm: TFileTime): string;
+
   function  FileTimeToString(const FileTime: TFileTime): string;
   function  StringListToArray(Strings: TStrings): TArray<string>;
   procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
   procedure WriteStringToStream(OStream: TStream; str: string);
   function  ReadStringFromStream(IStream: TStream): string;
- // function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
   function  FileTimeToDateTime(FileTime: TFileTime): TDateTime;
   function  DateTimeToFileTime(FileTime: TDateTime): TFileTime;
   function  ThousandSep(Num: UInt64): string;
-  procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
-//  function  AttrStr(Attr: DWORD): string;
+
   function  AttrStr2(Attr: DWORD): string;
   function  GetLogicalDrives: TArray<string>;
   function  IsDriveRemovable(drive: string): Boolean;
@@ -71,6 +70,10 @@ const
 
   function IsAppRunningAsAdminMode(): Boolean;
   function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; IsMember: PLongBool): LongBool; stdcall;
+
+  // function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
+  // function  GetLocalTime(ftm: TFileTime): string;
+  // function  AttrStr(Attr: DWORD): string;
 
 implementation
 
@@ -125,49 +128,152 @@ begin
 end;
 
 // split string to array of strings using Delim as delimiter
+// does not add empty strings to output array
 //TODO: check whether DynamicArray.pas has the same function
-procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+var gStringb: TStringBuilder;
+{procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'}{);
 var
   i, len: Cardinal;
-  s: string;
 begin
   i := 1;
   len := Cardinal(Length(str));
-  //SetLength(s, len);
 
   while i <= len do begin
-    s := '';
+    gStringb.Clear;  // Clear sets Capacity to 16 (default capacity)
     while i <= len do begin
       if str[i] = Delim then begin
         Inc(i);
         break;
       end;
-      s := s + str[i];
+      gStringb.Append(str[i]);
       Inc(i);
     end;
 
-    if Length(s) > 0 then arr.AddValue(s);
+    if gStringb.Length > 0 then arr.AddValue(gStringb.ToString);
   end;
 end;
-
-// splits string to array of strings using Delim as delimiter
-procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+ }
+procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
 var
   i, len: Cardinal;
-  s:string;
 begin
   i := 1;
   len := Cardinal(Length(str));
-    //SetLength(s, len);
 
-  while i <= len do begin
-    if str[i] = Delim then
-      if Length(s) > 0 then arr.AddValue(s);
-      s := s + str[i];
+    gStringb.Clear;  // Clear sets Capacity to 16 (default capacity)
+    while i <= len do begin
+      if str[i] = Delim then begin
+        if gStringb.Length > 0 then arr.AddValue(gStringb.ToString);
+        gStringb.Clear;
+      end else
+        gStringb.Append(str[i]);
       Inc(i);
+    end;
+
+    if gStringb.Length > 0 then arr.AddValue(gStringb.ToString);
+end;
+
+// splits string to array of strings using Delim as delimiter
+// multiple consecutive Delims are treated as a single Delim.
+// Delims (one or several) in the end of string are ignored (do not generate items in arr)
+procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+var
+  i, len: Cardinal;
+  DelimFlag: Boolean;
+begin
+  i := 1;
+  len := Cardinal(Length(str));
+
+  gStringb.Clear;
+  DelimFlag := True;
+  while i <= len do begin
+    if str[i] = Delim then begin
+      if {Length(s) > 0} NOT DelimFlag then begin
+        arr.AddValue(gStringb.ToString);
+        gStringb.Append(str[i]);
+      end;
+      DelimFlag := True;
+    end else begin
+      gStringb.Append(str[i]);
+      DelimFlag := False;
+    end;
+    Inc(i);
   end;
 
-  if Length(s) > 0 then arr.AddValue(s);
+  if {Length(s) > 0} NOT DelimFlag then arr.AddValue(gStringb.ToString);
+end;
+
+
+// equivalent of Pos() function but does case INSENSITIVE search of substring in a given string
+// return 0 if substring is not found
+// othewise returns index of beginning SubStr in Str
+function XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
+var
+  nLen0, nLen1, nCnt, nCnt2: Integer;
+  cFirst: Char;
+begin
+  nLen0 := Length(SubStr);
+  nLen1 := Length(Str);
+
+  if nLen0 > nLen1 then Result := 0 // the substr is longer than the cString
+  else
+  if nLen0 = 0 then Result := 0 // null substr not allowed
+  else begin
+    // the outer loop finds the first matching character....
+    cFirst := UpCase(SubStr[1]);
+    Result := 0;
+
+    for nCnt := Offset to nLen1 - nLen0 + 1 do begin
+      if UpCase(Str[nCnt]) = cFirst then begin
+        // this might be the start of the substring...at least the first character matches....
+        Result := nCnt;
+        for nCnt2 := 2 to nLen0 do begin
+          if UpCase(Str[nCnt + nCnt2 - 1]) <> UpCase(SubStr[nCnt2]) then begin
+            // failed
+            Result := 0;
+            break;
+          end;
+        end;
+      end;
+
+      if Result > 0 then break;
+
+    end;
+  end;
+end;
+
+procedure SplitByStrings(InputStr: string; DelimStrList: THArrayG<string>; var output: THArrayG<SplitRec>);
+var
+  p1, p2: Integer;
+  i, len: Integer;
+  val: SplitRec;
+begin
+  p1 := 1;
+  output.Clear;
+
+  while True do begin
+    for i := 1 to DelimStrList.Count do begin
+      len := Length(DelimStrList[i - 1]);
+
+      p2 := XPos(DelimStrList[i - 1], InputStr, p1);
+
+      if p2 = 0 then begin
+        val.str := Copy(InputStr, p1);
+        val.flag := False;
+        output.AddValue(val);
+        Exit; //break; // nothing more found
+      end else begin
+        val.str := Copy(InputStr, p1, p2 - p1);
+        val.flag := False;
+        output.AddValue(val); // adding part of string
+
+        val.str := Copy(InputStr, p2, len);
+        val.flag := True;
+        output.AddValue(val); // adding split string itself
+      end;
+      p1 := p2 + len;
+    end;
+  end;
 end;
 
 procedure WriteStringToStream(OStream: TStream; str: string);
@@ -312,74 +418,6 @@ begin
 end;
 
 
-// equivalent of Pos() function but does case INSENSITIVE search of substring in a given string
-// return 0 if substring is not found
-// othewise returns index of beginning SubStr in Str
-function XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
-var
-  nLen0, nLen1, nCnt, nCnt2: Integer;
-  cFirst: Char;
-begin
-  nLen0 := Length(SubStr);
-  nLen1 := Length(Str);
-
-  if nLen0 > nLen1 then Result := 0 // the substr is longer than the cString
-  else
-  if nLen0 = 0 then Result := 0 // null substr not allowed
-  else begin
-    // the outer loop finds the first matching character....
-    cFirst := UpCase(SubStr[1]);
-    Result := 0;
-
-    for nCnt := Offset to nLen1 - nLen0 + 1 do begin
-      if UpCase(Str[nCnt]) = cFirst then begin
-        // this might be the start of the substring...at least the first character matches....
-        Result := nCnt;
-        for nCnt2 := 2 to nLen0 do begin
-          if UpCase(Str[nCnt + nCnt2 - 1]) <> UpCase(SubStr[nCnt2]) then begin
-            // failed
-            Result := 0;
-            break;
-          end;
-        end;
-      end;
-
-      if Result > 0 then break;
-
-    end;
-  end;
-end;
-
-procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
-var
-  p1, p2: Integer;
-  len: Integer;
-  val: SplitRec;
-begin
-  p1 := 1;
-  len := length(DelimString);
-  arr.Clear;
-  while True do begin
-    p2 := XPos(DelimString, InputString, p1);
-
-    if p2 = 0 then begin
-      val.str := Copy(InputString, p1);
-      val.flag := False;
-      arr.AddValue(val);
-      break;  // nothing more found
-    end else begin
-      val.str := Copy(InputString, p1, p2 - p1);
-      val.flag := False;
-      arr.AddValue(val); // adding part of string
-
-      val.str := Copy(InputString, p2, len);
-      val.flag := True;
-      arr.AddValue(val);  // adding split string itself
-    end;
-    p1 := p2 + len;
-  end;
-end;
-
 // returns a string with file attributes (ADRSHCTE)
 {function AttrStr(Attr: DWORD): string;
 begin
@@ -469,10 +507,6 @@ begin
       Item.FFileType := 'Unknown file type';
     end;
 
-   { if TLogger.ErrorStringIds.GetValuePointer(err) = nil //TODO: shall we use SysUtils.SysErrorMessage here?
-      then errStr := 'UNKNOWN'
-      else errStr := TLogger.ErrorStringIds[err];
-    }
     TLogger.Log(Format('Error (code=%d) "%s" in ShGetFileInfo(%s).', [err, SysErrorMessage(err), FullFileName]));
   end
   else
@@ -556,18 +590,18 @@ class constructor TLogger.Create;
 begin
   FFileH := INVALID_HANDLE_VALUE;
 
-  ErrorStringIDs := TErrorListHash.Create;
+ { ErrorStringIDs := TErrorListHash.Create;
   ErrorStringIDs[ERROR_FILE_NOT_FOUND] := 'ERROR_FILE_NOT_FOUND'; //3
   ErrorStringIDs[ERROR_PATH_NOT_FOUND] := 'ERROR_PATH_NOT_FOUND'; //5
   ErrorStringIDs[ERROR_MORE_DATA]      := 'ERROR_MORE_DATA'; //234
   ErrorStringIDs[ERROR_NO_TOKEN]       := 'ERROR_NO_TOKEN'; //1008
-  ErrorStringIDs[ERROR_NO_MORE_ITEMS]  := 'ERROR_NO_MORE_ITEMS'; //259
+  ErrorStringIDs[ERROR_NO_MORE_ITEMS]  := 'ERROR_NO_MORE_ITEMS'; //259 }
 end;
 
 class destructor TLogger.Destroy;
 begin
   Shutdown;
-  FreeAndNil(ErrorStringIDs);
+  //FreeAndNil(ErrorStringIDs);
 end;
 
 class procedure TLogger.Init(const LogFileName: string);
@@ -578,7 +612,7 @@ begin
 
   CloseHandle(FFileH); // close old log file
 
-  // check whether LogFileName contains path or not (contains file name only)
+  // check whether LogFileName contains path or contains file name only
   if TPath.GetDirectoryName(LogFileName) = ''
     then FLogFileName := TPath.GetAppPath + '\' + LogFileName
     else FLogFileName := LogFileName;
@@ -623,5 +657,9 @@ begin
   Log(Format(Msg, Values));
 end;
 
-end.
+initialization
+  gStringb := TStringBuilder.Create;
+finalization
+  FreeAndNil(gStringb);
 
+end.
