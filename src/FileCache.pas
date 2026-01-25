@@ -55,7 +55,7 @@ type
  end;
 
   // if True is returned as a result of this function that means 'stop searching'
-  TFNCSearchResult = function(FullPath: string; FileData: TCacheItem): Boolean of object;
+  TFNCSearchResult = function({FullPath: string;} FileData: TCacheItem): Boolean of object;
 
   TSearchResult = (srOK, srWrongPath, srNoIndexData, srCancelled);
   TFileSizeCompare = (fscEquals, fscMore, fscLess);
@@ -321,6 +321,7 @@ function TVolumeCache.ReadDirectory(const CurrDir: TFileName; Parent: TCacheItem
 const
   FIND_FIRST_EX_LARGE_FETCH = $00000002;
   ProgressCounter: Integer = 0;  // this works as static variable inside a procedure
+  //strBld: TStringBuilder = TStringBuilder.Create(100);
 var
   DirSize: UInt64;
   SearchDir: string;
@@ -328,6 +329,7 @@ var
   hFind: THandle;
   tmp: LARGE_INTEGER;
   Err: TError;
+
 begin
     Assert(sizeof(UInt64) = 8);
     Result := 0;
@@ -338,12 +340,14 @@ begin
     DirSize := 0;
     tmp.QuadPart := 0;
 
-    SearchDir := '\\?\' + CurrDir + '\*';  // add prefix to extend path string to 32767 symbols
+    Assert(CurrDir[length(CurrDir)] = '\'); // currDir should end on '\'
+
+    SearchDir := CurrDir + '*';  // add prefix to extend path string to 32767 symbols
     ZeroMemory(@fileData, sizeof(fileData));
 
     // this will be true only for the first ReadDirectory call in reccursion because for all other calls ShowProgress=false
     if ShowProgress then begin
-      ProgressCounter := 0; // all reccursive calls are made with ShowProgress=False;
+      ProgressCounter := 0;
       NotifyStart(CurrDir);
     end;
 
@@ -375,7 +379,7 @@ begin
       var itemRef := AddItem(parent.ItemIndex, fileData, Parent.ItemLevel + 1);
 
       if IsDirectory(fileData) then begin
-        if NOT IsReparse(fileData) then DirSize := ReadDirectory(CurrDir + '\' + fileData.cFileName, itemRef, False);
+        if NOT IsReparse(fileData) then DirSize := ReadDirectory(CurrDir + fileData.cFileName + '\', itemRef, False);
       end else begin
         DirSize := MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
       end;
@@ -396,7 +400,7 @@ begin
         var itemRef := AddItem(parent.ItemIndex, fileData, Parent.ItemLevel + 1);
 
         if IsDirectory(fileData) then begin
-          if NOT IsReparse(fileData) then DirSize := DirSize + ReadDirectory(currDir + '\' + fileData.cFileName, itemRef, False);
+          if NOT IsReparse(fileData) then DirSize := DirSize + ReadDirectory(CurrDir + fileData.cFileName + '\', itemRef, False);
         end else begin
           DirSize := DirSize + MakeFileSize(fileData.nFileSizeHigh, fileData.nFileSizeLow);
         end;
@@ -436,7 +440,8 @@ begin
   hf := Windows.CreateFile(PChar(FilePath), GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL OR FILE_FLAG_BACKUP_SEMANTICS, 0);
   try
     if hf = INVALID_HANDLE_VALUE then begin
-      raise EInOutError.Create(SysErrorMessage(GetLastError()), FilePath);
+      var aaaa := EInOutError.Create(SysErrorMessage(GetLastError()), FilePath);
+      raise aaaa; //EInOutError.Create(SysErrorMessage(GetLastError()), FilePath);
     end;
 
     Windows.GetFileTime(hf, @FileData.ftCreationTime, @FileData.ftLastAccessTime, @FileData.ftLastWriteTime);
@@ -467,7 +472,7 @@ begin
       var lv := FCacheData[i];
       for j := 0 to lv.Count - 1 do begin
         item := TCacheItem(lv.GetAddr(j));
-        if item.FDenied then Assert(item.IsDirectory); // FDenied can be set for directories only
+        //if item.FDenied then Assert(item.IsDirectory); // FDenied can be set for both directories (access deniee) and files (when any other error occurred)
 
         // bypass denied dirs
         if item.IsDirectory AND NOT item.FDenied AND NOT item.IsReparsePoint then begin // bypass symbolic links
@@ -503,7 +508,9 @@ begin
       end;
     end;
 
-    Result.AddValue('Empty folders count: ' + Result.Count.ToString);
+    var cnt := Result.Count; // comment these two lines to write list of empty dirs into log file
+    Result.Clear;
+    Result.AddValue('Empty folders count: ' + cnt.ToString {Result.Count.ToString});
     Result.AddValue('Maximum items in Dir: ' + mx.ToString + ' - ' + mxDir);
 
   finally
@@ -642,7 +649,14 @@ end;
 // True if Filter.SearchStr is a substring of FileName
 function CheckForFileName(var Filter: TSearchFilter; GrepList: TStringList; FileName, FileNameUpper: string): Boolean;
 begin
-  if GrepList = nil then begin
+  //if GrepList = nil then begin
+  if (Pos('*', Filter.SearchStr) > 0) OR (Pos('?', Filter.SearchStr) > 0 ) then begin
+    if Filter.CaseSensitive
+      then Result := WildcardMatch(FileName, Filter.SearchStr)
+      else Result := WildcardMatch(FileNameUpper, Filter.SearchStrUpper);
+  end
+  else
+  begin
     if Filter.ExactSearch then // look for full name instead of substr
       if Filter.CaseSensitive
         then Result := Filter.SearchStr = FileName
@@ -652,20 +666,21 @@ begin
         then Result := Pos(Filter.SearchStr, FileName) > 0
         else Result := Pos(Filter.SearchStrUpper, FileNameUpper) > 0;
   end
+  {
   else
   begin   // use mask search
     if Filter.CaseSensitive
       then Result := cmpmask(FileName, GrepList)
       else Result := cmpmask(FileNameUpper, GrepList);
-  end;
+  end;}
 end;
 
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
 function CheckForDate(var Filter: TSearchFilter; item: TCacheItem): Boolean;
 begin
   case Filter.SearchByDateType of
-    sdModified:   Result := (CompareFileTime(item.FModifiedTime, Filter.DateFrom)  >= 0) AND (CompareFileTime(item.FModifiedTime, Filter.DateTo) <= 0);
-    sdCreated:    Result := (CompareFileTime(item.FCreationTime, Filter.DateFrom)   >= 0) AND (CompareFileTime(item.FCreationTime, Filter.DateTo) <= 0);
+    sdModified:   Result := (CompareFileTime(item.FModifiedTime, Filter.DateFrom)   >= 0) AND (CompareFileTime(item.FModifiedTime, Filter.DateTo)   <= 0);
+    sdCreated:    Result := (CompareFileTime(item.FCreationTime, Filter.DateFrom)   >= 0) AND (CompareFileTime(item.FCreationTime, Filter.DateTo)   <= 0);
     sdLastAccess: Result := (CompareFileTime(item.FLastAccessTime, Filter.DateFrom) >= 0) AND (CompareFileTime(item.FLastAccessTime, Filter.DateTo) <= 0);
     sdNone:       Result := False;
   end;
@@ -681,7 +696,7 @@ end;
 // if GrepList=nil use substr search otherwise use mask search functions
 function ApplyFilter(var Filter: TSearchFilter; GrepList: TStringList; Item: TCacheItem): Boolean;
 begin
-  Result := False; //Result=False by default means 'not found'
+  Result := False; // by default means 'not found'
   if Filter.SearchStr <> '' then
     if NOT CheckForFileName(Filter, GrepList, Item.FFileName, Item.FUpperCaseName) then Exit;
   if Filter.SearchByFileSize then
@@ -697,7 +712,7 @@ end;
 function TVolumeCache.Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
 var
   //startArray: THArrayG<string>;
-  GrepList: TStringList;
+  //GrepList: TStringList;
   i, j, len: Cardinal;
   //Found: Boolean;
   item: TCacheItem;
@@ -720,15 +735,16 @@ begin
 
   //startArray := THArrayG<string>.Create;
 
-  GrepList := nil;
+  {GrepList := nil;
   try
     // check if filter str has wildcards
     if (Pos('*', Filter.SearchStr) > 0) OR (Pos('?', Filter.SearchStr) > 0 ) then begin
       //GrepList := TStringList.Create;
       if Filter.CaseSensitive // compile filters into GrepList
         then GrepList := CompileMask(Filter.SearchStr)
-        else GrepList := CompileMAsk(Filter.SearchStrUpper);
+        else GrepList := CompileMask(Filter.SearchStrUpper);
     end;
+    }
 
     {StringToArray(Filter.StartFrom, startArray, '\');
 
@@ -755,22 +771,23 @@ begin
       for j := 1 to lv.Count do begin
         item := TCacheItem(lv.GetAddr(j - 1));
 
-        if ApplyFilter(Filter, GrepList, item) then begin
-          if item.IsDirectory then begin // build PathString only for directories
+        if ApplyFilter(Filter, nil{GrepList}, item) then begin
+          //if item.IsDirectory then begin // build PathString only for directories
             if item.FPath = '' then item.FPath := MakePathString(i - 1, j - 1);
-            if NOT Callback(item.FPath, item) then Exit(srCancelled);
-          end else begin
-           if NOT Callback(MakePathString(i - 1, j - 1), item) then Exit(srCancelled);
-          end;
+            if NOT Callback(item) then Exit(srCancelled);
+          //end else begin
+          // if NOT Callback(MakePathString(i - 1, j - 1), item) then Exit(srCancelled);
+          //end;
         end;
 
       end;
     end;
+
     Result := srOK;
-  finally
+  //finally
     //startArray.Free;
-    FreeCompiledMask(GrepList);
-  end;
+  //  FreeCompiledMask(GrepList);
+  //end;
 end;
 
 procedure TVolumeCache.Serialize(OStream: TStream);
@@ -789,8 +806,6 @@ begin
       item.Serialize(OStream);
     end;
   end;
-
- // FModified := False;
 end;
 
 procedure TVolumeCache.Deserialize(IStream: TStream);
@@ -807,10 +822,9 @@ begin
   IStream.ReadData<TDateTime>(FIndexedDateTime);
   FName := ReadStringFromStream(IStream);
   IStream.ReadData<Cardinal>(CacheSize);
-  //Assert(cacheSize > 0);
+
   if cacheSize = 0 then begin // empty volume is OK. just write a warning into log file
     TLogger.LogFmt('[TVolumeCache.Deserialize] cache size read from index file is zero for volume "%s"!', [FName]);
-    //Exit;
   end;
 
   FCacheData.SetCapacity(CacheSize);
@@ -832,7 +846,6 @@ begin
     end;
   end;
 
-  //FModified := False; // loading index file does not mean "Modified". Modified=True after updating data from file system
   FExecTime := GetTickCount - start;
 end;
 
@@ -1038,8 +1051,7 @@ begin
 
     ZeroMemory(@fileData, sizeof(fileData));
     lstrcpy(fileData.cFileName, PWideChar(pathArray[0]));
-    // _tcsncpy_s<MAX_PATH>(fileData.cFileName, pathArray[0].c_str(), pathArray[0].size());
-    // fileData.cFileName[pathArray[0].size()] = '\0';
+
     FillFileData(pathArrayAccum[0], fileData);
     parent := AddRootItem(fileData);
 
@@ -1048,8 +1060,7 @@ begin
     for lv := 1 to pathArray.Count - 1 do begin
       Assert(lv = parent.ItemLevel + 1);
       lstrcpy(fileData.cFileName, PWideChar(pathArray[lv]));
-      // _tcsncpy_s<MAX_PATH>(fileData.cFileName, pathArray[lv].c_str(), pathArray[lv].size());
-      // fileData.cFileName[pathArray[lv].size()] = '\0';
+
       FillFileData(pathArrayAccum[lv], fileData);
       parent := AddItem(parent.ItemIndex, fileData, lv, True);
     end;
@@ -1162,17 +1173,16 @@ begin
   for i := 1 to Length(ExclusionsList) do begin
     str := ExclusionsList[i - 1];
     if str.StartsWith(Volume) then begin
-      str := ExcludeTrailingPathDelimiter(str); // delete trailing backslash for proper comparing in ReadDirectory method
+      str := IncludeTrailingPathDelimiter(str); // ensures that trailing backslash present for proper comparing in ReadDirectory method
       FExclFolders.AddValue(str);
     end;
   end;
 
-  Volume := ExcludeTrailingPathDelimiter(Volume);
   var startItemRef := AddFullPath(Volume);
-  Result := ReadDirectory(Volume, startItemRef, True);
+  Volume := '\\?\' + Volume;
+  Result := ReadDirectory(Volume, startItemRef, True); // Volume looks like C:\  (includes trailing path delimiter - this is ok)
 
   FExecTime := GetTickCount - start;
-  //FModified := True;
   FIndexedDateTime := Now;
 end;
 
@@ -1210,6 +1220,7 @@ function ReadVolumeDirect(Volume: PChar; var Cnt: Cardinal; var Data: Pointer; c
 // that is why we have to define global volume cache variable
 var gVolCache: TVolumeCache;
 
+//TODO: think of making CallbackFunc class static func of TVolumeCache???
 function CallbackFunc(progress: Integer): Integer;
 begin
   TLogger.LogFmt('Callback called. Progress: %d', [progress]);
@@ -1241,12 +1252,12 @@ begin
   for i := 1 to Length(ExclusionsList) do begin
     str := ExclusionsList[i - 1];
     if str.StartsWith(Volume) then begin
-      str := ExcludeTrailingPathDelimiter(str); // delete trailing backslash for proper comparing in ReadDirectory method
+      str := IncludeTrailingPathDelimiter(str); // ensure trailing backslash present for proper comparing in ReadDirectory method
       FExclFolders.AddValue(str);
     end;
   end;
 
-  Volume := ExcludeTrailingPathDelimiter(Volume);
+  //Volume := ExcludeTrailingPathDelimiter(Volume);
 
   NotifyProgress(50);
 
@@ -1299,9 +1310,7 @@ var
   k, ii: Integer;
   GPath: THArrayG<string>;
 begin
-  GPath := GPathCache.GetItem;
-  //GPath.SetCapacity(MAX_DIR_LEVELS); // because of cache memory for capacity will be allocated only once during first call
-  //GPath.Clear;
+  GPath := GPathCache.GetItem; // items are cleared below before returning to cache
 
   try
     var item := GetItem(ItemLevel, ItemIndex);
@@ -1591,7 +1600,7 @@ begin
       msin.LoadFromFile(FileName);
       Deserialize(msin);
     end else begin
-      TLogger.LogFmt('Index file is not found or not accessible ().', [FileName]);
+      TLogger.LogFmt('Index file "%s" is not found or not accessible.', [FileName]);
     end;
   finally
     msin.Free;
@@ -1820,8 +1829,7 @@ end;
 
 
 initialization
-  GPathCache := TObjectsCache<THArrayG<string>>.Create(3, True); //we have two threads that will work with this global objects, so 3 items should be enough
-  //GPath.SetCapacity(MAX_DIR_LEVELS);
+  GPathCache := TObjectsCache<THArrayG<string>>.Create(3, False); //we have two threads that will work with this global objects, so 3 items should be enough
   Assert(sizeof(NTFS_DUP_INFO) = $38);
   Assert(sizeof(MFT_REF) = $8);
   Assert(sizeof(MFT_INDEX) = sizeof(MFT_REF));
