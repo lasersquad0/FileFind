@@ -29,7 +29,7 @@ type
    FUpperCaseName: TFileName; // name of file/dir in upper case. need for search routines
    FDisplayName: string;
    FFileType: string;
-   FPath: string; // full path to directory, filled only for directories
+   FPath: string; // full path to directory, for optimization filled only for items that were searched
    FIconIndex: Integer;
    FDenied: Boolean;
 
@@ -38,9 +38,14 @@ type
    procedure Assign(Other: TCacheItem);
    procedure Serialize(OStream: TStream);
    procedure Deserialize(IStream: TStream);
-   function IsDirectory: Boolean; overload;
+   function IsDirectory: Boolean;
    function IsReparsePoint: Boolean;
  end;
+
+  TCacheItemExt = class(TCacheItem)
+  public
+    CacheItem: TCacheItem;
+  end;
 
  function MakeFileSize(hi, lo: Cardinal) : UInt64; inline;
 
@@ -87,7 +92,7 @@ begin
   FFileAttrs      := Other.FFileAttrs;
   FCreationTime   := Other.FCreationTime;
   FLastAccessTime := Other.FLastAccessTime;
-  FModifiedTime  := Other.FModifiedTime;
+  FModifiedTime   := Other.FModifiedTime;
   FFileSize       := Other.FFileSize;
   FUpperCaseName  := Other.FUpperCaseName;
   FDisplayName    := Other.FDisplayName;
