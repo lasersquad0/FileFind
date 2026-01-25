@@ -34,6 +34,7 @@ begin
 
   // first thing: load settings from registry and init logger
   AppSettings.Load;
+
   try
     //Logger.Init raises an exception when LoaFileName has incorrect path or file name
     if AppSettings.WriteLogFile then TLogger.Init(AppSettings.LogFileName);
@@ -44,14 +45,13 @@ begin
   end;
 
   var mutex := CreateMutex(nil, False, PChar('FinderX'));
+
   if GetLastError = ERROR_ALREADY_EXISTS then begin
     // copy of FinderX is already running, activating first app copy
     TLogger.Log('Another copy of FinderX app is running. Activating it.');
-    var hWnd := FindWindow('TMainForm', 'FindexX - find files quick!');
+    var hWnd := FindWindow('TMainForm', 'FinderX - find files quick!'); //TODO: main window caption should be somewehere in single place
     if hWnd = 0 then TLogger.Log('Cannot find FinderX window while mutex already exists.');
     SendMessage(hWnd, WM_RESTORE_MAINFORM_MSG, 0, 0); //send user message to restore main form from tray
-    //ShowWindow(hWnd, SW_RESTORE {SHOWNORMAL});
-    //SetForegroundWindow(hWnd);
     CloseHandle(mutex);
     TLogger.Log('Another copy is being activated. Exiting.');
     Exit;
@@ -63,23 +63,24 @@ begin
     end else begin
       CloseHandle(mutex); // important to close mutex before running new instance by ShellExecute
       var fname := Application.ExeName;
-      var res := ShellExecute(0, 'runas', PChar(fname), nil, nil, SW_SHOWNORMAL);
+      var res := ShellExecute(0, 'runas', PChar(fname), nil, nil, SW_SHOWNORMAL); // try to run app with admin rights
       if res < 33 then TLogger.Log('ShellExecute run as admin error: ' + IntToStr(res));
       Exit;
     end;
   end;
 
+  TLogger.Log('FinderX initialization checkpoint #1:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.Initialize;
   ReportMemoryLeaksOnShutdown := True;
   Application.MainFormOnTaskbar := True;
-  TLogger.Log('Application initialization time cutoff 1:' + MillisecToStr(GetTickcount - start));
+  TLogger.Log('FinderX initialization checkpoint #2:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.CreateForm(TMainForm, MainForm);
   Application.CreateForm(TAboutBox, AboutBox);
   Application.CreateForm(TIndexingLogForm, IndexingLogForm);
   Application.CreateForm(TSettingsForm1, SettingsForm1);
   Application.CreateForm(TStatisticForm1, StatisticForm1);
-  TLogger.Log('Application initialization time cutoff 2:' + MillisecToStr(GetTickcount - start));
+  TLogger.Log('FinderX initialization all forms created:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.Run;
 
-  CloseHandle(mutex); // important to close mutex in the beginning of app shutdown
+  CloseHandle(mutex); // leave mutex open while app is running, important to close mutex in the beginning of app shutdown
 end.
