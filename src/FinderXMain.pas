@@ -17,7 +17,7 @@ type
     //LastAccessStr: string;
     //CreatedStr: string;
     AttrStr: string;
-    Path: string;
+   // Path: string;
     Item: TCacheItem;
     function IsDirectory: Boolean;
  end;
@@ -137,6 +137,8 @@ type
     FCancelIndexing: Boolean;
     FFileInfoMessagesCount: Cardinal;
     FSearchResultsFileInfoThread: TThread;
+    FCaptionSplitArray: THArrayG<SplitRec>; // this array is for optimization for marking bold search term during drawing ListView
+    FSearchSplitArray: THArrayG<string>;
 
     procedure StoreColumns;
     procedure InitColumns;
@@ -156,7 +158,7 @@ type
     procedure UpdateStatusBarX(FoundItems, Percent: Cardinal);
     procedure UpdateStatusBarXX(FoundItems, SearchTime: Cardinal);
     procedure UpdateStatusBarXXX(ExecData: TArray<TVolumeExecData>);
-    function OnFileFound(FullPath: string; Item: TCacheItem): Boolean;
+    function OnFileFound({FullPath: string;} Item: TCacheItem): Boolean;
     function GetFileSizeOp(): TFileSizeCompare;
     function GetFileSizeFactor(): Cardinal;
     function GetAttributes: Cardinal;
@@ -210,27 +212,25 @@ begin
 
 end;
 
+procedure TMainForm.OnDEVICECHANGE(var Msg: TMessage);
+begin
+  TLogger.LogFmt('DEVICECHANGE detected: wparam: %d', [Msg.WParam]);
+end;
+
+
 /// <summary>During search FileCache calls this callback function only for items that successfully passed filter.</summary>
 /// <remarks>Define this method to add filtered items into ListView. TCacheItem is a class therefore passed by reference.
 /// If you modify Item's fields, new data be stored and available for next searches. </remarks>
 ///  <param name="FullPath">Full path that includes file name of the file being added</param>
 ///  <param name="Item">Item that contains other file information: size, modified date etc.</param>
 ///  <return> Returns False to stop filtering (for example when maximum number of items in ListView is reached). In other cases function should return True.</return>
-procedure TMainForm.OnDEVICECHANGE(var Msg: TMessage);
-begin
-  TLogger.LogFmt('DEVICECHANGE detected: wparam: %d', [Msg.WParam]);
-end;
-
-function TMainForm.OnFileFound(FullPath: string; Item: TCacheItem): Boolean;
+function TMainForm.OnFileFound({FullPath: string;} Item: TCacheItem): Boolean;
 var
   ResultsItem: TSearchResultsItem;
 begin
    if FSearchResults.Count >= AppSettings.MaxFoundItems then Exit(False);  // limit number of found items by value from settings
 
    ResultsItem := FSearchResultsCache.GetItem;
-
-   //if Item.FFileType = '' then  // for each Item GetFileShellInfo will be called only once. Results are cached.
-     //GetFileShellInfo(FullPath, Item);  // FullPath contains filename too
 
    if Item.IsDirectory then begin
      if Item.FDenied then begin
@@ -254,10 +254,11 @@ begin
    //Item.FIconIndex := 1; // default icon until proper icon is loaded via GetFileShellInfo
 
    ResultsItem.AttrStr := AttrStr2(Item.FFileAttrs);
-   ResultsItem.Path := FullPath;
+   //ResultsItem.Path := FullPath;
    ResultsItem.Item := Item;
 
-   // convert TFileTime to string only one time and only for found items to same memory and increase speed.
+   // convert TFileTime to string only one time and only for found items to save memory and increase speed.
+   //TODO: why don't have AttrStr field in Item? (Size and SizeStr should be left in ResultsItem)
    if Item.FCreationTimeStr = '' then begin
      Item.FModifiedTimeStr   := FileTimeToString(Item.FModifiedTime);
      Item.FLastAccessTimeStr := FileTimeToString(Item.FLastAccessTime);
@@ -272,17 +273,19 @@ end;
 // processes WM_SearchResultsShellInfo_MSG messages received from another thread.
 procedure TMainForm.OnSearchResultsShellInfo(var Msg: TMessage);
 var
-  TmpItem: TCacheItem;
+  TmpItem: TCacheItemExt;
   resItem: TSearchResultsItem;
   cnt, index: Cardinal;
 begin
   index := Cardinal(Msg.LParam); // index of item in current FSearchResults
-  TmpItem := TCacheItem(Msg.WParam); // can be nil for the last message only
+  TmpItem := TCacheItemExt(Msg.WParam); // can be nil for the last message only
 
   if Assigned(TmpItem) then begin
     if index < FSearchResults.Count then begin
       // LogMessage('[OnSearchResultsShellInfo] GetItem('+ IntToStr(TmpItem.FLevel) + ', '+ IntToStr(Msg.LParam) + ')');
       resItem := FSearchResults[index];
+
+      Assert(TmpItem.CacheItem = resItem.Item);
 
       resItem.Item.FDisplayName := TmpItem.FDisplayName;
       resItem.Item.FFileType    := TmpItem.FFileType;
@@ -400,11 +403,8 @@ begin
     var start := GetTickCount;
 
     ListView1.Items.Count := 0;
-    //ClearSorting; //FSortColumnID := -1;  // reset sorting column
-    //FInvertSort := False;
-    //Filter.StartFrom := Trim(StartSearchFolder.Text);
 
-    // fields ExactSearch and SearchStrUpper  are filled in TCache.Instance.Search() function
+    // fields ExactSearch and SearchStrUpper are filled in TCache.Instance.Search() function
     Filter.SearchStr := Trim(SearchEdit.Text);
     Filter.CaseSensitive := AppSettings.CaseSensitiveSearch;
     Filter.SearchByFileSize := SearchByFileSize.Checked;
@@ -417,7 +417,12 @@ begin
     Filter.SearchByAttributes := SearchByAttributes.Checked;
     Filter.Attributes := GetAttributes();
 
+    // we need to fill FSearchSplitArray for drawing bold search items in ListView
+    FSearchSplitArray.Clear;
+    HGetTokens(Filter.SearchStr, '*?', False, FSearchSplitArray); // add text parts into array, ? and * are not added
+
     if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.WaitFor; // wait to thread to termnate
+    Application.ProcessMessages; // it is improtant to process all "old" messages sent by FSearchResultsFileInfoThread thread while we were preparing to the new search here
     ClearSearchResults; // must be after .WairFor call
 
     SearchResult := TCache.Instance.Search(Filter, OnFileFound); // actual search
@@ -530,7 +535,6 @@ begin
   Result := Format('(l=%d, t=%d, r=%d, b=%d, w=%d, h=%d)', [rect.Left, rect.Top, rect.Right, rect.Bottom, rect.Width, rect.Height]);
 end;
  }
-var SplitArray: THArrayG<SplitRec>; // optimization for marking bold search term during drawing ListView
 
 procedure TMainForm.ListView1AdvancedCustomDrawItem(Sender: TCustomListView; Item: TListItem; State: TCustomDrawState;
   Stage: TCustomDrawStage; var DefaultDraw: Boolean);
@@ -551,9 +555,13 @@ begin
 
   if Stage = cdPostPaint then begin
 
-   srchStr := Trim(SearchEdit.Text);
-   SplitByString(Item.Caption, srchStr, SplitArray);
-   if SplitArray.Count = 0 then Exit;  // SplitArray.Count can be =0 when we doing search with wildcards.
+   //srchStr := Trim(SearchEdit.Text);
+   SplitByStrings(Item.Caption, FSearchSplitArray, FCaptionSplitArray); //TODO: optimization: save FCaptionSplitArray in Item.Data property (hope it will work)
+
+   if FCaptionSplitArray.Count = 0 then begin
+     TLogger.LogFmt('FSplitArray.Count = 0 for item: %s', [Item.Caption]);
+     Exit;  // SplitArray.Count can be =0 when we doing search with wildcards.
+   end;
 
     retOldBrush := False;
 
@@ -575,9 +583,9 @@ begin
 
     ItemRect.Inflate(-2, -2);
 
-    for i := 1 to SplitArray.Count do begin
-      tmpStr := SplitArray[i - 1].str;
-      if SplitArray[i - 1].flag = False then begin
+    for i := 1 to FCaptionSplitArray.Count do begin
+      tmpStr := FCaptionSplitArray[i - 1].str;
+      if FCaptionSplitArray[i - 1].flag = False then begin
         Sender.Canvas.TextRect(ItemRect, ItemRect.Left, ItemRect.Top, tmpStr);
         sz := Sender.Canvas.TextExtent(tmpStr);
         ItemRect.Left := ItemRect.Left + sz.cx;
@@ -675,7 +683,7 @@ begin
             fiLastAccess: Result := CompareFileTime(item1.Item.FLastAccessTime, item2.Item.FLastAccessTime);
             fiCreated: Result := CompareFileTime(item1.Item.FCreationTime, item2.Item.FCreationTime);
             fiAttributes: Result := CompareStr(item1.AttrStr, item2.AttrStr);
-            fiPath: Result := CompareStr(item1.Path, item2.Path);
+            fiPath: Result := CompareStr(item1.Item.FPath, item2.Item.FPath);
             // else Result := 'UNKNOWN';
           end;
         end else begin // case INsensitive comparison
@@ -688,7 +696,7 @@ begin
             fiLastAccess: Result := CompareFileTime(item1.Item.FLastAccessTime, item2.Item.FLastAccessTime);
             fiCreated: Result := CompareFileTime(item1.Item.FCreationTime, item2.Item.FCreationTime);
             fiAttributes: Result := CompareText(item1.AttrStr, item2.AttrStr);
-            fiPath: Result := CompareText(item1.Path, item2.Path);
+            fiPath: Result := CompareText(item1.Item.FPath, item2.Item.FPath);
             // else Result := 'UNKNOWN';
           end;
         end;
@@ -703,7 +711,8 @@ begin
   if ListView1.Selected = nil then Exit;
   var item := FSearchResults[Cardinal(ListView1.Selected.Index)];
 
-  Clipboard.AsText := item.Path;
+  Assert(item.Item.FPath <> '');
+  Clipboard.AsText := item.Item.FPath;
 end;
 
 procedure TMainForm.ListView1Data(Sender: TObject; Item: TListItem);
@@ -713,6 +722,7 @@ begin
   origItem := FSearchResults[Cardinal(Item.Index)];
 
   Assert(Item.SubItems.Count = 0);
+  Assert(origItem.Item.FPath <> '');
 
   Item.Caption := origItem.Item.FDisplayName;
   Item.ImageIndex := origItem.Item.FIconIndex;
@@ -727,7 +737,7 @@ begin
   Item.SubItems.Add(origItem.Item.FLastAccessTimeStr);
   Item.SubItems.Add(origItem.Item.FCreationTimeStr);
   Item.SubItems.Add(origItem.AttrStr);
-  Item.SubItems.Add(origItem.Path);
+  Item.SubItems.Add(origItem.Item.FPath);
 
 end;
 
@@ -739,12 +749,14 @@ begin
   if ListView1.Selected = nil then exit;
 
   var item := FSearchResults[Cardinal(ListView1.Selected.Index)];
+  Assert(item.Item.FPath <> '');
+
   if item.IsDirectory
-    then path := item.Path // this is directory
-    else path := ExtractFilePath(item.Path); // this is file, open its directory
+    then path := item.Item.FPath // this is directory
+    else path := ExtractFilePath(item.Item.FPath); // this is file, open its directory
 
 
-  res := ShellExecute(Handle, 'open', PChar('explorer.exe'), PChar('/select,' + item.path), nil, SW_SHOWNORMAL);
+  res := ShellExecute(Handle, 'open', PChar('explorer.exe'), PChar('/select,' + item.Item.FPath), nil, SW_SHOWNORMAL);
 
   //res := ShellExecute(Handle, 'explore', PChar(path), nil, nil, SW_SHOWNORMAL);
   if res < 33 then MessageDlg('ShellExecute error: ' + res.ToString, TMsgDlgType.mtError, [mbOK], 0);
@@ -994,7 +1006,7 @@ begin
   SettingsMenuItem.Enabled := False;  // main menu item. it is not TControl, we cannot pass it to .Start below
   ExitAppMenuItem.Enabled  := False;  // main menu item. it is not TControl, we cannot pass it to .Start below
   if bg
-    then FIndexingThread.Start([IndexingBitBtn], [], [], FProgressListener)
+    then FIndexingThread.Start([IndexingBitBtn], [CancelBtn, ProgressBar1, ProgressLabel], [], FProgressListener)
     else FIndexingThread.Start([IndexingBitBtn], [CancelBtn, ProgressBar1, ProgressLabel], [], FProgressListener);
 end;
 
@@ -1017,7 +1029,7 @@ begin
   MsgDlgIcons[mtInformation] := TMsgDlgIcon.mdiInformation;
   MsgDlgIcons[mtConfirmation] := TMsgDlgIcon.mdiShield;
 
-  // This call just exits if index file does not exist
+  // This call just returns if index file does not exist
   TCache.Instance.DeserializeFrom(AppSettings.IndexFileName);
 
   Timer2Timer(nil); // show yellow warning immediately after app start if IndexDB is old or absent.
@@ -1066,6 +1078,8 @@ begin
   if DaysBetween(Now(), ifsDate) > 1
     then StartIndexing(True);
 
+  FCaptionSplitArray := THArrayG<SplitRec>.Create();
+  FSearchSplitArray := THArrayG<string>.Create();
   //ListView_SetTextBkColor(ListView1.Handle, CLR_NONE); // I donot know how it works but it needed to properly repaint listview rows when active row is changes
 end;
 
@@ -1141,7 +1155,9 @@ begin
   AppSettings.SearchHistory.Assign(SearchEdit.ACStrings);
   AppSettings.Save; // save all settings including updated search history data
 
-  SearchEdit.Free;
+  SearchEdit.Free; // because we create it in code in FormaCreate()
+  FreeAndNil(FCaptionSplitArray);
+  FreeAndNil(FSearchSplitArray);
 end;
 
 procedure TMainForm.StoreColumns;
@@ -1230,6 +1246,8 @@ begin
   TLoadFSThread.Synchronize(FThread,
    procedure
    begin
+      if Notes.StartsWith('\\?\') then Notes := Copy(Notes, 5);
+
       MainForm.ProgressLabel.Caption := 'Indexing ' + Notes + '...';
       MainForm.ProgressBar1.Position := 0;
    end
@@ -1242,9 +1260,9 @@ end;
  // load file icons in background
 procedure TSearchResultsShellInfoThread.Execute;
 var
-  i: Cardinal;
+  i, SearchResCnt: Cardinal;
   start: Cardinal;
-  tmpI: TCacheItem;
+  tmpI: TCacheItemExt;
   LogPrefix: string;
 begin
   start := GetTickCount;
@@ -1259,7 +1277,10 @@ begin
       Exit;
     end;
 
-    for i := 1 to MainForm.FSearchResults.Count do begin
+    SearchResCnt := MainForm.FSearchResults.Count;
+    for i := 1 to SearchResCnt do begin
+      Assert(SearchResCnt = MainForm.FSearchResults.Count); // check that search results are not changed
+
       if ((i mod 100) = 0) then begin // repaint list of items after every 100 loaded icons
         MainForm.ListView1.Invalidate;
         if Terminated then begin
@@ -1271,9 +1292,10 @@ begin
       var resItem := MainForm.FSearchResults[i - 1];
 
       if resItem.Item.FFileType = '' then begin
-        TmpI := TCacheItem.Create;
+        TmpI := TCacheItemExt.Create;
         TmpI.Assign(resItem.Item);
-        GetFileShellInfo(resItem.Path, TmpI); // we do not need to check function return value here
+        TmpI.CacheItem := resItem.Item;
+        GetFileShellInfo(resItem.Item.FPath, TmpI); // we do not need to check function return value here
         PostMessage(MainForm.Handle, WM_SearchResultsShellInfo_MSG, WPARAM(TmpI), LPARAM(i - 1));
       end;
 
@@ -1306,8 +1328,8 @@ end;
 
 
 initialization
-  SplitArray := THArrayG<SplitRec>.Create();
+  //SplitArray := THArrayG<SplitRec>.Create();
 
 finalization
-  FreeAndNil(SplitArray);
+  //FreeAndNil(SplitArray);
 end.

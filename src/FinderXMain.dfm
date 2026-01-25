@@ -1,7 +1,7 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'FindexX - find files quick!'
+  Caption = 'FinderX - find files quick!'
   ClientHeight = 497
   ClientWidth = 1296
   Color = clBtnFace
@@ -215,14 +215,6 @@ object MainForm: TMainForm
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   TextHeight = 15
-  object ProgressLabel: TLabel
-    Left = 811
-    Top = 480
-    Width = 73
-    Height = 15
-    Caption = 'ProgressLabel'
-    Visible = False
-  end
   object CancelBtn: TSpeedButton
     Left = 1040
     Top = 480
@@ -231,6 +223,14 @@ object MainForm: TMainForm
     Caption = 'Cancel'
     Visible = False
     OnClick = CancelBtnClick
+  end
+  object ProgressLabel: TLabel
+    Left = 811
+    Top = 480
+    Width = 73
+    Height = 15
+    Caption = 'ProgressLabel'
+    Visible = False
   end
   object SearchPanel: TPanel
     Left = 0
