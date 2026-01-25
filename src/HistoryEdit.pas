@@ -62,19 +62,6 @@ implementation
 uses
   System.Win.ComObj, SysUtils, Settings;
 
-
-{procedure TForm1.FormCreate(Sender: TObject);
-begin
-  ButtonedEdit1.ACEnabled:=True;
-  ButtonedEdit1.ACOptions:=[acAutoAppend, acAutoSuggest, acUseArrowKey];
-  ButtonedEdit1.ACSource:=acsList;
-  ButtonedEdit1.ACStrings.Add('string 1');
-  ButtonedEdit1.ACStrings.Add('string 2');
-  ButtonedEdit1.ACStrings.Add('string 3');
-  ButtonedEdit1.ACStrings.Add('string 4');
-end;
- }
-
 { TEnumString }
 
 function TEnumString.Clone(out enm: IEnumString): HResult;
