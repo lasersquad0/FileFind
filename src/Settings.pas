@@ -6,7 +6,7 @@ uses System.Types, Classes;
 
 type
   // display columns
-  TFileInfo = (fiName, fiSize, fiType, fiModified, fiLastAccess, fiCreated, fiAttributes, fiPath);
+  TFileInfo = (fiName, fiSize, fiType, fiModified, fiLastAccess, fiCreated, fiAttributes, fiPath, fiItemsCount);
 
   // Column settings structure
   TColumnInfo = record
@@ -101,7 +101,8 @@ var
                                   (ColType:fiLastAccess; Visible:True; Width:140),
                                   (ColType:fiCreated;    Visible:True; Width:140),
                                   (ColType:fiAttributes; Visible:True; Width:70),
-                                  (ColType:fiPath;       Visible:True; Width:400)
+                                  (ColType:fiPath;       Visible:True; Width:400),
+                                  (ColType:fiItemsCount; Visible:True; Width:80)
                                   );
 
 
