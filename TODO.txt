@@ -12,11 +12,14 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
-- If drive added when FinderX was running, FinderX does not see this drive and does not index it.
+- calculate Items Count during FastReading NTFS.
+- BUG Assert exception is generated when change column sorting during work of ShellInfoThread in WM_SearchResultsShellInfo_MSG message handler
+- Add tooltip for values in Attributes column explaning what D---C- means.
+- If drive added when FinderX was running, FinderX does not see this drive and does not index it. Implement handler for WM_DEVICECHANGE message.
 - [DONE] Improve filter by date (Date Between) - add combo box with three dates: Modified, Last Access, Created. 
 - [DONE] create proper workaround if index file name read from registry is incorrect or app cannot create file there.
 - [DONE] Refresh Index in background - DONE one time during app start and only once a day.
-- MaskSearch optimization: parse mask one time and use it many times for applying to search strings
+- [DONE] MaskSearch optimization: parse mask one time and use it many times for applying to search strings
 - Option to specify IndexDB location
 - GUI: show row mouse over
 - Add possibility to search for composite folders e.g. 'source\repos'
