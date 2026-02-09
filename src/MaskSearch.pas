@@ -16,43 +16,11 @@ function CmpFile(FileName: string; GrepList: TStringList{; MatchCase: Boolean}):
 
 function WildcardMatch(const Text, Pattern: string): Boolean;
 
-//function GetTimeModified(a:tfiletime):string;
-
 // fills the GrepList with the parts of 'a' (divided by ',' or ';')
 //procedure SetFilters(MaskStr: string; GrepList: TStringList{; FindFile:boolean; MatchCase: Boolean});
 
 implementation
 
-{
-function GetTimeModified(a:tfiletime):string;
-// This function retrieves the last time, the given file was written to disk
-var
-  mtm :TSystemTime;
-  at  :TFileTime;
-  ds,ts:string;
-  //ds,ts:ShortString;
-const
-  MAX_DATETIME_STR = 255;
-begin
-  // Time must get converted, else there is an error of one hour
-  // Does anybody know what this function does ?
-  // Maybe something like summertime/wintertime (or what you call it out of Germany) ?
-  FileTimeToLocalFileTime(a,at);
-  FileTimeToSystemTime(at,mtm);
-  SetLength(ds, GetDateFormat(LOCALE_USER_DEFAULT, 0, @mtm, NIL, @ds[1], 255) - 1);
-  SetLength(ts, GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, @mtm, NIL, @ts[1], 255)  - 1);
-  Result:=ds+'  '+ts;
-end; // End getmod
- }
-
- {
-function CaseAware(S: string; Match: Boolean): string;
-begin
-  if Match
-  then Result := S
-  else Result := AnsiLowerCase(S);
-end;
-  }
 
 procedure FreeCompiledMask(GrepList: TStringList);
 var
