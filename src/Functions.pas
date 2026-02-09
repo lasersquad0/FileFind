@@ -32,6 +32,10 @@ type
     class procedure LogFmt(const Msg: string; Values: array of const);
   end;
 
+  EBadFileFormat = class(Exception)
+
+  end;
+
 
    // thread for background filling IconIndex, FileType string, and DisplayName fields in TCacheItem(s)
    // for each item we need make a call to ShGetFileInfo API function. It takes too much time and slows down search process.
@@ -129,7 +133,6 @@ end;
 
 // split string to array of strings using Delim as delimiter
 // does not add empty strings to output array
-//TODO: check whether DynamicArray.pas has the same function
 var gStringb: TStringBuilder;
 {procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'}{);
 var
@@ -248,9 +251,11 @@ var
   i, len: Integer;
   val: SplitRec;
 begin
-  p1 := 1;
   output.Clear;
 
+  if DelimStrList.Count = 0 then Exit;
+
+  p1 := 1;
   while True do begin
     for i := 1 to DelimStrList.Count do begin
       len := Length(DelimStrList[i - 1]);
@@ -281,6 +286,7 @@ var
   lenBytes: Integer;
 begin
   lenBytes := ByteLength(str);
+  Assert(lenBytes < MAX_PATH * sizeof(str[1]));
   OStream.WriteData<Integer>(lenBytes);
   OStream.Write(str[1], lenBytes);
 end;
@@ -290,6 +296,7 @@ var
   lenBytes: Cardinal;
 begin
   IStream.ReadData<Cardinal>(lenBytes);
+  Assert(lenBytes < MAX_PATH * sizeof(Result[1]));
   SetLength(Result, lenBytes div sizeof(Result[1]));
   IStream.Read(Result[1], lenBytes);
 end;
@@ -478,8 +485,11 @@ begin
   Result := (dt = DRIVE_REMOVABLE) OR (dt = DRIVE_CDROM);
 end;
 
-// FileName - must be full path to existing file or folder (or relative path to existing file/folder)
+{$IFOPT J+}
+  {$DEFINE WAS_WRITABLECONST_ON}
+{$ENDIF}
 {$WRITEABLECONST ON}   // needed for CallsCount static variable
+// FileName - must be full path to existing file or folder (or relative path to existing file/folder)
 function GetFileShellInfo(FullFileName: TFileName; Item: TCacheItem): Boolean;
 const
   CallsCount: Cardinal = 0;
@@ -520,7 +530,12 @@ begin
 
   Result := Res <> 0;
 end;
-{$WRITEABLECONST OFF}
+{$IFDEF WAS_WRITABLECONST_ON}
+  {$WRITEABLECONST ON}
+  {$UNDEF WAS_WRITABLECONST_ON}
+{$ELSE}
+  {$WRITEABLECONST OFF}
+{$ENDIF}
 
 
 function IsAppRunningAsAdminMode(): Boolean;
@@ -622,10 +637,13 @@ begin
   if FFileH = INVALID_HANDLE_VALUE then begin
     raise EFOpenError.CreateFmt('Cannot open log file (' + GetLastError.ToString + '): %s', [FLogFileName]);
   end;
+
+  Log('------------ Logger Start ------------');
 end;
 
 class procedure TLogger.Shutdown();
 begin
+  Log('------------ Logger Shutdown ------------');
   CloseHandle(FFileH); // close old log file
   FFileH := INVALID_HANDLE_VALUE;
   FLogFileName := '';
@@ -638,7 +656,7 @@ var
   res1: Cardinal;
   res2: LongBool;
 begin
-  if FFileH = INVALID_HANDLE_VALUE then Exit; // logger is in shutdown state or error opening file
+  if FFileH = INVALID_HANDLE_VALUE then Exit; // logger is in shutdown state or not initialized
 
   res1 := SetFilePointer(FFileH, 0, nil, FILE_END);
   if res1 = INVALID_SET_FILE_POINTER then
