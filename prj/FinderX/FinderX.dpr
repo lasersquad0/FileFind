@@ -53,7 +53,7 @@ begin
     if hWnd = 0 then TLogger.Log('Cannot find FinderX window while mutex already exists.');
     SendMessage(hWnd, WM_RESTORE_MAINFORM_MSG, 0, 0); //send user message to restore main form from tray
     CloseHandle(mutex);
-    TLogger.Log('Another copy is being activated. Exiting.');
+    TLogger.Log('Another FinderX copy is being activated. Exiting.');
     Exit;
   end;
 
