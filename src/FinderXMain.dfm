@@ -480,7 +480,7 @@ object MainForm: TMainForm
     Columns = <
       item
         Caption = 'Name'
-        Width = 250
+        Width = 200
       end
       item
         Alignment = taRightJustify
@@ -496,17 +496,17 @@ object MainForm: TMainForm
       item
         Caption = 'Modified'
         Tag = 3
-        Width = 140
+        Width = 100
       end
       item
         Caption = 'Last Access'
         Tag = 4
-        Width = 140
+        Width = 100
       end
       item
         Caption = 'Created'
         Tag = 5
-        Width = 140
+        Width = 100
       end
       item
         Caption = 'Attributes'
@@ -517,6 +517,12 @@ object MainForm: TMainForm
         Caption = 'Path'
         Tag = 7
         Width = 400
+      end
+      item
+        Alignment = taRightJustify
+        Caption = 'Items Count'
+        Tag = 8
+        Width = 80
       end>
     FullDrag = True
     OwnerData = True

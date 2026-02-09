@@ -16,7 +16,7 @@ type
     //ModifiedStr: string;
     //LastAccessStr: string;
     //CreatedStr: string;
-    AttrStr: string;
+    //AttrStr: string;
    // Path: string;
     Item: TCacheItem;
     function IsDirectory: Boolean;
@@ -209,12 +209,11 @@ begin
     sfMegabytes: begin Result := ThousandSep(Size div 1024 div 1024) + ' MB'; end;
     else Result := 'unknown';
   end;
-
 end;
 
 procedure TMainForm.OnDEVICECHANGE(var Msg: TMessage);
 begin
-  TLogger.LogFmt('DEVICECHANGE detected: wparam: %d', [Msg.WParam]);
+  TLogger.LogFmt('DEVICECHANGE detected: msg: %d, event: %d, lparam: %d', [Msg.Msg, Msg.WParam, Msg.LParam]);
 end;
 
 
@@ -253,7 +252,7 @@ begin
   // Item.FDisplayName := Item.FFileName; //TODO: why do we modify Item here?
    //Item.FIconIndex := 1; // default icon until proper icon is loaded via GetFileShellInfo
 
-   ResultsItem.AttrStr := AttrStr2(Item.FFileAttrs);
+   //ResultsItem.AttrStr := AttrStr2(Item.FFileAttrs);
    //ResultsItem.Path := FullPath;
    ResultsItem.Item := Item;
 
@@ -263,6 +262,8 @@ begin
      Item.FModifiedTimeStr   := FileTimeToString(Item.FModifiedTime);
      Item.FLastAccessTimeStr := FileTimeToString(Item.FLastAccessTime);
      Item.FCreationTimeStr   := FileTimeToString(Item.FCreationTime);
+     Item.FFileAttrsStr      := AttrStr2(Item.FFileAttrs);
+     Item.FFileCountStr      := IntToStr(Item.FFileCount);
    end;
 
    FSearchResults.AddValue(ResultsItem);
@@ -410,7 +411,6 @@ begin
     Filter.SearchByFileSize := SearchByFileSize.Checked;
     Filter.FileSize := UInt64(SearchFileSize.ValueInt) * UInt64(GetFileSizeFactor());
     Filter.FileSizeCmpType := GetFileSizeOp();
-    //Filter.SearchByModifiedDate := SearchByModifiedDate.Checked;
     Filter.SearchByDateType := TSearchDateType(DateTypeComboBox.ItemIndex);
     Filter.DateFrom := DateTimeToFileTime(DateTimePickerFrom.DateTime);
     Filter.DateTo := DateTimeToFileTime(DateTimePickerTo.DateTime);
@@ -559,7 +559,8 @@ begin
    SplitByStrings(Item.Caption, FSearchSplitArray, FCaptionSplitArray); //TODO: optimization: save FCaptionSplitArray in Item.Data property (hope it will work)
 
    if FCaptionSplitArray.Count = 0 then begin
-     TLogger.LogFmt('FSplitArray.Count = 0 for item: %s', [Item.Caption]);
+     // unusual case when FSearchSplitArray.Count > 0 AND FCaptionSplitArray.Count = 0. Log info about it. 
+     if FSearchSplitArray.Count > 0 then TLogger.LogFmt('FSplitArray.Count = 0 for item: %s', [Item.Caption]);
      Exit;  // SplitArray.Count can be =0 when we doing search with wildcards.
    end;
 
@@ -666,8 +667,6 @@ function TMainForm.CompareData2(item1, item2: TSearchResultsItem): Integer;
 begin
   Result := 0; // Defaults to equal
 
-  //var ColIndex := FColumnMap[FSortColumnID];
-
   if AppSettings.FoldersOnTop AND item1.IsDirectory AND NOT item2.IsDirectory
     then Result := -1 // directory is always 'greater' than file
     else if AppSettings.FoldersOnTop AND NOT item1.IsDirectory AND item2.IsDirectory
@@ -677,27 +676,29 @@ begin
           case TFileInfo(FSortColumnID) of
             fiName: Result := CompareStr(item1.Item.FDisplayName, item2.Item.FDisplayName);
             fiSize: if item1.Size > item2.Size then Result := 1
-                     else if item1.Size < item2.Size then Result := -1;
+                    else if item1.Size < item2.Size then Result := -1;
             fiType: Result := CompareStr(item1.Item.FFileType, item2.Item.FFileType);
             fiModified: Result := CompareFileTime(item1.Item.FModifiedTime, item2.Item.FModifiedTime);
             fiLastAccess: Result := CompareFileTime(item1.Item.FLastAccessTime, item2.Item.FLastAccessTime);
             fiCreated: Result := CompareFileTime(item1.Item.FCreationTime, item2.Item.FCreationTime);
-            fiAttributes: Result := CompareStr(item1.AttrStr, item2.AttrStr);
+            fiAttributes: Result := CompareStr(item1.Item.FFileAttrsStr, item2.Item.FFileAttrsStr);
             fiPath: Result := CompareStr(item1.Item.FPath, item2.Item.FPath);
-            // else Result := 'UNKNOWN';
+            fiItemsCount: if item1.Item.FFileCount > item2.Item.FFileCount then Result := 1
+                          else if item1.Item.FFileCount < item2.Item.FFileCount then Result := -1;
           end;
         end else begin // case INsensitive comparison
           case TFileInfo(FSortColumnID) of
             fiName: Result := CompareText(item1.Item.FDisplayName, item2.Item.FDisplayName);
             fiSize: if item1.Size > item2.Size then Result := 1
-                 else if item1.Size < item2.Size then Result := -1;
+                    else if item1.Size < item2.Size then Result := -1;
             fiType: Result := CompareText(item1.Item.FFileType, item2.Item.FFileType);
             fiModified: Result := CompareFileTime(item1.Item.FModifiedTime, item2.Item.FModifiedTime);
             fiLastAccess: Result := CompareFileTime(item1.Item.FLastAccessTime, item2.Item.FLastAccessTime);
             fiCreated: Result := CompareFileTime(item1.Item.FCreationTime, item2.Item.FCreationTime);
-            fiAttributes: Result := CompareText(item1.AttrStr, item2.AttrStr);
+            fiAttributes: Result := CompareText(item1.Item.FFileAttrsStr, item2.Item.FFileAttrsStr);
             fiPath: Result := CompareText(item1.Item.FPath, item2.Item.FPath);
-            // else Result := 'UNKNOWN';
+            fiItemsCount: if item1.Item.FFileCount > item2.Item.FFileCount then Result := 1
+                          else if item1.Item.FFileCount < item2.Item.FFileCount then Result := -1;
           end;
         end;
       end;
@@ -723,6 +724,7 @@ begin
 
   Assert(Item.SubItems.Count = 0);
   Assert(origItem.Item.FPath <> '');
+  Assert(origItem.Item.FFileCountStr <> '');
 
   Item.Caption := origItem.Item.FDisplayName;
   Item.ImageIndex := origItem.Item.FIconIndex;
@@ -731,14 +733,19 @@ begin
     then Item.StateIndex := 0 // mark denied items in the list
     else Item.StateIndex := -1;
 
+  // order of SubItems must correspond order of initially created ListView columns (done in Delphi form designer)
   Item.SubItems.Add(origItem.SizeStr);
   Item.SubItems.Add(origItem.Item.FFileType);
   Item.SubItems.Add(origItem.Item.FModifiedTimeStr);
   Item.SubItems.Add(origItem.Item.FLastAccessTimeStr);
   Item.SubItems.Add(origItem.Item.FCreationTimeStr);
-  Item.SubItems.Add(origItem.AttrStr);
+  Item.SubItems.Add(origItem.Item.FFileAttrsStr);
   Item.SubItems.Add(origItem.Item.FPath);
-
+  if origItem.Item.IsDirectory
+    then if origItem.Item.FDenied
+           then Item.SubItems.Add('N/A')
+           else Item.SubItems.Add(origItem.Item.FFileCountStr)
+    else Item.SubItems.Add('-');
 end;
 
 procedure TMainForm.ListView1DblClick(Sender: TObject);
@@ -1132,9 +1139,9 @@ begin
     end;
   end;
 
-  Top := AppSettings.MainWindow.Top;
-  Left := AppSettings.MainWindow.Left;
-  Width := AppSettings.MainWindow.Width;
+  Top    := AppSettings.MainWindow.Top;
+  Left   := AppSettings.MainWindow.Left;
+  Width  := AppSettings.MainWindow.Width;
   Height := AppSettings.MainWindow.Height;
 end;
 
@@ -1170,9 +1177,9 @@ begin
     AppSettings.ColumnInfos[i].Visible := ListView1.Columns[i].Width > 0;
   end;
 
-  AppSettings.MainWindow.Top := Top;
-  AppSettings.MainWindow.Left := Left;
-  AppSettings.MainWindow.Width := Width;
+  AppSettings.MainWindow.Top    := Top;
+  AppSettings.MainWindow.Left   := Left;
+  AppSettings.MainWindow.Width  := Width;
   AppSettings.MainWindow.Height := Height;
 end;
 
@@ -1230,7 +1237,7 @@ begin
   TLogger.Log(Error.ErrText);
 
   // do NOT show error in case of Access Denied
-  if (Error.ErrCode = NO_ERROR) OR (Error.ErrCode = ERROR_ACCESS_DENIED) then Exit;
+  if (Error.ErrCode = NO_ERROR) OR (NOT Error.IsImportant {AND Error.ErrCode = ERROR_ACCESS_DENIED}) then Exit;
 
   TLoadFSThread.Synchronize(FThread,
    procedure
