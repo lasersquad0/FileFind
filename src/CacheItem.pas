@@ -4,6 +4,8 @@ interface
 
 uses System.Classes, System.SysUtils, Windows;
 
+const NTFS_DIRECTORY_MASK = $10000000; // this is NTFS attr directory flag, we neeed to move it into DOS_DIR flag place
+
 type
 
  TCacheItemRef = record
@@ -16,18 +18,21 @@ type
  public
   // FVolume: TVolumeCache; // refers to big object root cache object for single volume
    FParent: Cardinal;
-   FLevel: Cardinal;
+   FLevel: Cardinal;  //TODO: idea: make it Word type instead of Cardinal and save two extra bytes for each CacheItem
    FFileAttrs: DWORD;
    FCreationTime: TFileTime;
    FLastAccessTime: TFileTime;
    FModifiedTime: TFileTime;
+   FFileAttrsStr: string;
    FCreationTimeStr: string;
    FLastAccessTimeStr: string;
    FModifiedTimeStr: string;
+   FFileCountStr: string;
    FFileSize: UInt64;
+   FFileCount: Integer; // count of files and dirs in current directory (only in current directory) Integer - because for files we store -1 there for proper sorting with empty dirs
    FFileName: TFileName;
    FUpperCaseName: TFileName; // name of file/dir in upper case. need for search routines
-   FDisplayName: string;
+   FDisplayName: string; // this field is NOT stored into index file
    FFileType: string;
    FPath: string; // full path to directory, for optimization filled only for items that were searched
    FIconIndex: Integer;
@@ -51,6 +56,8 @@ type
 
 
 implementation
+
+uses Functions;
 
 function MakeFileSize(hi, lo: Cardinal) : UInt64; inline;
 begin
@@ -80,6 +87,7 @@ begin
   FModifiedTime.dwLowDateTime := 0;
   FModifiedTime.dwHighDateTime := 0;
   FFileSize := 0;
+  FFileCount := -1;
   FIconIndex := 0;
   FDenied := False;
 end;
@@ -94,6 +102,7 @@ begin
   FLastAccessTime := Other.FLastAccessTime;
   FModifiedTime   := Other.FModifiedTime;
   FFileSize       := Other.FFileSize;
+  FFileCount      := Other.FFileCount;
   FUpperCaseName  := Other.FUpperCaseName;
   FDisplayName    := Other.FDisplayName;
   FFileType       := Other.FFileType;
@@ -105,16 +114,19 @@ constructor TCacheItem.Create(Parent, Level: Cardinal; var FileData: TWin32FindD
 begin
   Create(); // call default constructor to fill cache item with default values
   //FVolume := Volume;
-  FParent := Parent;
-  FLevel := Level;
-  FFileName := FileData.cFileName;
-  FDisplayName := FFileName;
-  FFileAttrs := FileData.dwFileAttributes;
+  FParent         := Parent;
+  FLevel          := Level;
+  FFileName       := FileData.cFileName;
+  FDisplayName    := FFileName;
+  FFileAttrs      := FileData.dwFileAttributes;
   FCreationTime   := FileData.ftCreationTime;
   FLastAccessTime := FileData.ftLastAccessTime;
-  FModifiedTime  := FileData.ftLastWriteTime;
-  FFileSize := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
-  FUpperCaseName := AnsiUpperCase(FFileName);
+  FModifiedTime   := FileData.ftLastWriteTime;
+  FFileSize       := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
+  FUpperCaseName  := AnsiUpperCase(FFileName);
+
+  // both DIR bits shall be either set or both cleared, compatibility with direct NTFS reader
+  if FFileAttrs AND FILE_ATTRIBUTE_DIRECTORY = FILE_ATTRIBUTE_DIRECTORY then FFileAttrs := FFileAttrs OR NTFS_DIRECTORY_MASK;
 end;
 
 procedure TCacheItem.Serialize(OStream: TStream);
@@ -125,18 +137,21 @@ begin
   OStream.WriteData<TFileTime>(FLastAccessTime);
   OStream.WriteData<TFileTime>(FModifiedTime);
   OStream.WriteData<UInt64>(FFileSize);
+  OStream.WriteData<Integer>(FFileCount); //TODO: optimization: we may not store FFileCount for files, store it only for dirs - save place in index file
   OStream.WriteData<Cardinal>(FLevel);
   OStream.WriteData<Boolean>(FDenied);
 
-  var lenBytes := ByteLength(FFileName); //StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
-  Assert(lenBytes < MAX_PATH * sizeof(FFileName[1]));
-  OStream.WriteData<Integer>(lenBytes);
-  OStream.Write(FFileName[1], lenBytes);
+  WriteStringToStream(OStream, FFileName);
+
+  //var lenBytes := ByteLength(FFileName); //StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
+  //Assert(lenBytes < MAX_PATH * sizeof(FFileName[1]));
+  //OStream.WriteData<Integer>(lenBytes);
+  //OStream.Write(FFileName[1], lenBytes);
 end;
 
 procedure TCacheItem.Deserialize(IStream: TStream);
-var
-  lenBytes: Cardinal;
+//var
+//  lenBytes: Cardinal;
 begin
   IStream.ReadData<Cardinal>(FParent);
   IStream.ReadData<Cardinal>(FFileAttrs);
@@ -144,13 +159,17 @@ begin
   IStream.ReadData<TFileTime>(FLastAccessTime);
   IStream.ReadData<TFileTime>(FModifiedTime);
   IStream.ReadData<UInt64>(FFileSize);
+  IStream.ReadData<Integer>(FFileCount); // optimization: we may not store FFileCount for files, store it only for dirs - save plave in index file
   IStream.ReadData<Cardinal>(FLevel);
   IStream.ReadData<Boolean>(FDenied);
 
-  IStream.ReadData<Cardinal>(lenBytes);
-  Assert(lenBytes < MAX_PATH * sizeof(FFileName[1]));
-  SetLength(FFileName, lenBytes div sizeof(FFileName[1])); // SetLength needs size in characters
-  IStream.Read(FFileName[1], lenBytes);
+  FFileName := ReadStringFromStream(IStream);
+
+  //IStream.ReadData<Cardinal>(lenBytes);
+  //Assert(lenBytes < MAX_PATH * sizeof(FFileName[1]));
+  //SetLength(FFileName, lenBytes div sizeof(FFileName[1])); // SetLength needs size in characters
+  //IStream.Read(FFileName[1], lenBytes);
+
   FUpperCaseName := AnsiUpperCase(FFileName);
   FDisplayName := FFileName;
 end;
