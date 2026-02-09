@@ -2,15 +2,24 @@ FinderX version 1.3.0
 
 Improvements:
 
++ Added column "Items Count" that shows number of files/dirs in the current dir. For files this columns shows '-'.
 * Improved work with settings
-
+* Highlighting bold now works for search terms with wildcards
+* Improved work when new search starts while bg thread is loading file icons.
+* Improved compatibility with fast reading NTFS method.
+* Index file now contains signature in its beginning. During loading this file signature is verified. File fails to load if sugnature is not correct (EBadFileFormat exception is raised). 
+  This is to avoid attempts to load "random" file as index file.
+* Added more data integrity checks in Check*() functions.
+* Removed global variable used by MakePthString (wrong pattern)
+* Improved search with wildcards (*, ?). Added more tests.
+* When searching with wildcards, search terms are marked bold in search results. 
 
 ---------------------------------------------------
 
 FinderX version 1.2.0
 
 Improvements:
-+ Added refreshing IndexDB in background. IT is done one time only during app start and done once per day.
++ Added refreshing IndexDB in background. It is done one time only during app start and done once per day.
 + Added new way of reading file info: "Fast NTFS file reading" - uses low level file API to read files directly NTFS filesystem. It works much faster than standard way (FindFirstFile and FindNext). For NTFS volumes new way is set by default. For non-NTFS (FAT32, etc.) previous method is used. You can turn off fast NTFS reading by setting registry key FastReadingNTFS to 0.
 + Added possibility to search by LastAccess, Modified and Created datetime fields. Can be found on advanced search panel.
 + Added 'Clear history' button on Settings form that deletes all collected history items. 
