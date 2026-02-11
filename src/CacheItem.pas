@@ -38,7 +38,7 @@ type
    FIconIndex: Integer;
    FDenied: Boolean;
 
-   constructor Create; overload;
+   //constructor Create; overload;
    constructor Create(Parent, Level: Cardinal; var FileData: TWin32FindData); overload;
    procedure Assign(Other: TCacheItem);
    procedure Serialize(OStream: TStream);
@@ -73,23 +73,45 @@ begin
   ItemLevel := level;
   ItemIndex := index;
 end;
-
+   {
 constructor TCacheItem.Create();
 begin
   //FVolume := nil;
-  FParent := 0;
-  FLevel := 0;
+  FParent    := 0;
+  FLevel     := 0;
   FFileAttrs := 0;
-  FCreationTime.dwLowDateTime := 0;
-  FCreationTime.dwHighDateTime := 0;
-  FLastAccessTime.dwLowDateTime := 0;
+  FCreationTime.dwLowDateTime    := 0;
+  FCreationTime.dwHighDateTime   := 0;
+  FLastAccessTime.dwLowDateTime  := 0;
   FLastAccessTime.dwHighDateTime := 0;
-  FModifiedTime.dwLowDateTime := 0;
-  FModifiedTime.dwHighDateTime := 0;
-  FFileSize := 0;
+  FModifiedTime.dwLowDateTime    := 0;
+  FModifiedTime.dwHighDateTime   := 0;
+  FFileSize  := 0;
   FFileCount := -1;
   FIconIndex := 0;
-  FDenied := False;
+  FDenied    := False;
+end;
+    }
+constructor TCacheItem.Create(Parent, Level: Cardinal; var FileData: TWin32FindData);
+begin
+ // Create(); // call default constructor to fill cache item with default values
+  //FVolume := Volume;
+  FParent         := Parent;
+  FLevel          := Level;
+  FFileName       := FileData.cFileName;
+  FDisplayName    := FFileName;
+  FFileAttrs      := FileData.dwFileAttributes;
+  FCreationTime   := FileData.ftCreationTime;
+  FLastAccessTime := FileData.ftLastAccessTime;
+  FModifiedTime   := FileData.ftLastWriteTime;
+  FFileSize       := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
+  FUpperCaseName  := AnsiUpperCase(FFileName);
+  FFileCount := -1;
+  FIconIndex := 0;
+  FDenied    := False;
+
+  // both DIR bits shall be either set or both cleared, compatibility with direct NTFS reader
+  if FFileAttrs AND FILE_ATTRIBUTE_DIRECTORY = FILE_ATTRIBUTE_DIRECTORY then FFileAttrs := FFileAttrs OR NTFS_DIRECTORY_MASK;
 end;
 
 procedure TCacheItem.Assign(Other: TCacheItem);
@@ -108,25 +130,6 @@ begin
   FFileType       := Other.FFileType;
   FIconIndex      := Other.FIconIndex;
   FDenied         := Other.FDenied;
-end;
-
-constructor TCacheItem.Create(Parent, Level: Cardinal; var FileData: TWin32FindData);
-begin
-  Create(); // call default constructor to fill cache item with default values
-  //FVolume := Volume;
-  FParent         := Parent;
-  FLevel          := Level;
-  FFileName       := FileData.cFileName;
-  FDisplayName    := FFileName;
-  FFileAttrs      := FileData.dwFileAttributes;
-  FCreationTime   := FileData.ftCreationTime;
-  FLastAccessTime := FileData.ftLastAccessTime;
-  FModifiedTime   := FileData.ftLastWriteTime;
-  FFileSize       := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
-  FUpperCaseName  := AnsiUpperCase(FFileName);
-
-  // both DIR bits shall be either set or both cleared, compatibility with direct NTFS reader
-  if FFileAttrs AND FILE_ATTRIBUTE_DIRECTORY = FILE_ATTRIBUTE_DIRECTORY then FFileAttrs := FFileAttrs OR NTFS_DIRECTORY_MASK;
 end;
 
 procedure TCacheItem.Serialize(OStream: TStream);
