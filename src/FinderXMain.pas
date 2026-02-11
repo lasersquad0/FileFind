@@ -1000,9 +1000,15 @@ begin
     else Result := 'Index file has not volumes. Press "Refresh Index" button to index volume(s).';
 end;
 
+// define this symbol when do performance measure with NQS tool
+{ $DEFINE NQS_METHOD_TIMER}
+
 procedure TMainForm.StartIndexing(bg: Boolean);
 var Empty: TArray<string>;
 begin
+{$IFDEF NQS_METHOD_TIMER}
+  TCache.Instance.ReadVolume(AppSettings.VolumesToIndex[0], Empty);
+{$ELSE}
   TInterlocked.Exchange(FCancelIndexing, False); // flag to stop indexing e.g. user has cancelled indexing
   FIndexingThread := TLoadFSThread.Create(AppSettings.VolumesToIndex,
                                           TTernary.IfThen(AppSettings.ExcludeFolders, AppSettings.ExcludeFoldersList, Empty),
@@ -1015,6 +1021,7 @@ begin
   if bg
     then FIndexingThread.Start([IndexingBitBtn], [CancelBtn, ProgressBar1, ProgressLabel], [], FProgressListener)
     else FIndexingThread.Start([IndexingBitBtn], [CancelBtn, ProgressBar1, ProgressLabel], [], FProgressListener);
+{$ENDIF}
 end;
 
 procedure TMainForm.IndexingBitBtnClick(Sender: TObject);
