@@ -69,11 +69,11 @@ type
     SearchStr: string;
     SearchStrUpper: string; // optimization for case insensitive search
     ExactSearch: Boolean;
+    WildcardSearch: Boolean;
     CaseSensitive: Boolean;
     SearchByFileSize: Boolean;
     FileSize: UInt64;
     FileSizeCmpType: TFileSizeCompare;
-    //SearchByModifiedDate: Boolean;
     SearchByDateType: TSearchDateType;
     DateFrom: TFileTime;
     DateTo: TFileTime;
@@ -682,12 +682,16 @@ begin
   end;
 end;
 
+
 // Filter passed by reference intentionally to avoid unnessesary copy its data during function call
 // True if Filter.SearchStr is a substring of FileName
 function CheckForFileName(var Filter: TSearchFilter; GrepList: TStringList; FileName, FileNameUpper: string): Boolean;
 begin
   //if GrepList = nil then begin
-  if (Pos('*', Filter.SearchStr) > 0) OR (Pos('?', Filter.SearchStr) > 0 ) then begin
+
+  //if (Pos('*', Filter.SearchStr) > 0) OR (Pos('?', Filter.SearchStr) > 0 ) then begin
+  //if (StrScan(PChar(Filter.SearchStr), '*') <> nil) OR (StrScan(PChar(Filter.SearchStr), '?') <> nil) then begin
+  if Filter.WildcardSearch then begin
     if Filter.CaseSensitive
       then Result := WildcardMatch(FileName, Filter.SearchStr)
       else Result := WildcardMatch(FileNameUpper, Filter.SearchStrUpper);
@@ -762,12 +766,15 @@ begin
   if len > 2 then begin // check for surrounding double quotes and single quotes
     if (Filter.SearchStr[1] = '"')  AND (Filter.SearchStr[len] = '"') OR
        (Filter.SearchStr[1] = '''') AND (Filter.SearchStr[len] = '''') then begin
-    Filter.ExactSearch := True;
-    Filter.SearchStr := Copy(Filter.SearchStr, 2, len - 2);
+      Filter.ExactSearch := True;
+      Filter.SearchStr := Copy(Filter.SearchStr, 2, len - 2);
     end;
   end;
 
+  //if (Pos('*', Filter.SearchStr) > 0) OR (Pos('?', Filter.SearchStr) > 0 ) then begin
+  Filter.WildcardSearch := (StrScan(PChar(Filter.SearchStr), '*') <> nil) OR (StrScan(PChar(Filter.SearchStr), '?') <> nil);
   Filter.SearchStrUpper := AnsiUpperCase(Filter.SearchStr);
+
   //Found := False;
 
   //startArray := THArrayG<string>.Create;
@@ -1029,7 +1036,6 @@ var
   level: TLevelType;
   i: Cardinal;
   item: TCacheItem;
-  //ref: TCacheItemRef;
 begin
   level := AddLevel(0);
 
@@ -1048,13 +1054,10 @@ begin
   end;
 
   // need to create new root items
-  //level.AddFillValues(1);
-  item := TCacheItem(TCacheItem.InitInstance(level.AddFillValues(1){level.GetAddr(level.Count - 1)}));
+  item := TCacheItem(TCacheItem.InitInstance(level.AddFillValues(1)));
   item.Create(0, 0, fileData);
-  //level.Add(item);
   Result.ItemLevel := 0;
   Result.ItemIndex := level.Count - 1;
-  //Result := ref;
 end;
 
 function TVolumeCache.AddItem(parent: Cardinal; var fileData: TWin32FindData; itemLevel: Cardinal; doSearch: Boolean = False): TCacheItemRef;
@@ -1063,10 +1066,8 @@ var
 begin
   var level := AddLevel(itemLevel);
 
-  //level.AddFillValues(1);
-  item := TCacheItem(TCacheItem.InitInstance(level.AddFillValues(1){level.GetAddr(level.Count - 1)}));
+  item := TCacheItem(TCacheItem.InitInstance(level.AddFillValues(1)));
   item.Create(parent, itemLevel, fileData);
-  //level.Add(item);
   Result.ItemLevel := itemLevel;
   Result.ItemIndex := level.Count - 1;
 end;
@@ -1257,7 +1258,15 @@ type
   TCallback = function(progress: Integer): Integer;
 
 // function from MFT DLL
+{$IFDEF CPUX64}
+function ReadVolumeDirect(Volume: PChar; var Cnt: Cardinal; var Data: Pointer; callback: TCallback): TError; stdcall; external 'MFTReaderDLL_64.dll' name 'ReadVolume';
+{$ELSE}
+{$IFDEF CPUX86}
 function ReadVolumeDirect(Volume: PChar; var Cnt: Cardinal; var Data: Pointer; callback: TCallback): TError; stdcall; external 'MFTReaderDLL.dll' name 'ReadVolume';
+{$ELSE}
+{$MESSAGE ERROR 'Neither CPUX64 nor CPUX86 is defined.'}
+{$ENDIF}
+{$ENDIF}
 
 // workaround
 // we can pass only simple function pointer to MFT DLL (cannot pass function of object)
