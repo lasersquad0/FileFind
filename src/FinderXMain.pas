@@ -195,6 +195,7 @@ uses
 {$R *.dfm}
 
 // builds string representation of file size adds suffixes KB, MB, GB depending of the value
+// do not move to Functions.pas because it uses AppSettings
 function MakeSizeStr(Size: UInt64): string;
 begin
   case AppSettings.SizeFormat of
@@ -286,6 +287,7 @@ begin
       resItem.Item.FFileType    := TmpItem.FFileType;
       resItem.Item.FIconIndex   := TmpITem.FIconIndex;
       resItem.Item.FDenied      := TmpITem.FDenied;
+      resItem.Item.FOwner       := TmpITem.FOwner;
     end;
 
     TmpItem.Free;
@@ -1317,7 +1319,7 @@ begin
     for i := 1 to SearchResCnt do begin
       Assert(SearchResCnt = MainForm.FSearchResults.Count); // check that search results are not changed
 
-      if ((i mod 100) = 0) then begin // repaint list of items after every 100 loaded icons
+      if ((i mod 500) = 0) then begin // repaint list of items after every 100 loaded icons
         MainForm.ListView1.Invalidate;
         if Terminated then begin
           TLogger.Log(LogPrefix + ' Terminated = True detected');
@@ -1327,13 +1329,14 @@ begin
 
       var resItem := MainForm.FSearchResults[i - 1];
 
-      if resItem.Item.FOwner = ''
-        then resItem.Item.FOwner := GetFileOwnerName(resItem.Item.FPath);
-
       if resItem.Item.FFileType = '' then begin
         TmpI := TCacheItemExt.Create;
         TmpI.Assign(resItem.Item);
         TmpI.CacheItem := resItem.Item;
+
+        if resItem.Item.FOwner = ''
+          then TmpI.FOwner := GetFileOwnerName(resItem.Item.FPath);
+
         GetFileShellInfo(resItem.Item.FPath, TmpI); // we do not need to check function return value here
         PostMessage(MainForm.Handle, WM_SearchResultsShellInfo_MSG, WPARAM(TmpI), LPARAM(i - 1));
       end;

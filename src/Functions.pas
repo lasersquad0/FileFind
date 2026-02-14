@@ -600,6 +600,27 @@ Cleanup:
   Result := fIsRunAsAdmin;
 end;
 
+function SidToString(Sid: PSID): string;
+var
+  StringSid: PChar;
+begin
+  StringSid := nil;
+
+  // 1. Basic validation: Check if the SID pointer is valid
+ // if not IsValidSid(Sid) then Exit;
+
+  // 2. Perform the conversion
+  if ConvertSidToStringSid(Sid, StringSid) then begin
+    Result := StringSid;
+  end else begin
+    TLogger.Log('[SidToString] WINAPI call ConvertSidToStringSid failed.');
+  end;
+
+  // 3. Important: Free the memory allocated by ConvertSidToStringSid
+  LocalFree(HLOCAL(StringSid));
+
+end;
+
 function GetFileOwnerName(FilePath: string): string;
 var
    pSidOwner: PSID;
@@ -614,6 +635,8 @@ var
  begin
    pSidOwner := nil;
    pSD := nil;
+   szOwnerName[0] := #0;
+   szDomainName[0] := #0;
    dwOwnerNameSize := MAX_PATH;
    dwDomainNameSize := MAX_PATH;
 
@@ -626,6 +649,7 @@ var
 
    if dwResult <> ERROR_SUCCESS then begin
      TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call GetNamedSecurityInfo(%s).', [dwResult, SysErrorMessage(dwResult), FilePath]));
+     LocalFree(pSD);
      Exit;
    end;
 
@@ -648,9 +672,12 @@ var
    then begin
      var err := GetLastError();
      TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call LookAccountSid(%s).', [err, SysErrorMessage(err), FilePath]));
+     Result := SidToString(pSidOwner);
+     LocalFree(pSD);
+     Exit;
    end;
 
-   if LocalFree(pSD) <> nil then TLogger.Log('[GetFileOwnerName] LocalFree is failed');
+   LocalFree(pSD);
 
    Result := szOwnerName;
  end;
