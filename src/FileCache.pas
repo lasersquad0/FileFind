@@ -262,6 +262,7 @@ end; // 0x42=66 bytes
 CACHE_ITEM = packed record
     FParent: UInt32;
     FLevel:  UInt32;
+    FFilesCount: Int32;
     FMFTRecID: MFT_REF; // MFT Id of this file
     FileAttr:ATTR_FILE_NAME; // 66 bytes. must be last field in FILELIST_ITEM because it has variable size
 
@@ -342,7 +343,7 @@ var
   SearchDir: string;
   fileData: TWin32FindData;
   hFind: THandle;
-  tmp: LARGE_INTEGER;
+  //tmp: LARGE_INTEGER;
   Err: TError;
 begin
     Assert(sizeof(UInt64) = 8);
@@ -352,7 +353,7 @@ begin
     if FExclFolders.QuickFind(CompareProcString, CurrDir) > 0 then Exit;
 
     DirSize := 0;
-    tmp.QuadPart := 0;
+    //tmp.QuadPart := 0;
 
     Assert(CurrDir[length(CurrDir)] = PathDelim); // currDir should end on '\'
 
@@ -512,8 +513,9 @@ begin
       end;
     end;
 
-    var mx: Cardinal := 0;
-    var mxDir: string;
+    var mx1: Cardinal := 0;
+    var mx2: Cardinal := 0;
+    var mxDir1, mxDir2: string;
 
     // creates a list of empty dirs in Result
     for i := 1 to table.Count do begin
@@ -526,18 +528,26 @@ begin
             Result.AddValue(MakePathString(i - 1, j - 1));
           end;
 
-          if mx < pValue^ then begin
-            mx := pValue^; // find dir with maximum child items
-            mxDir := MakePathString(i - 1, j - 1);
+          if mx1 < pValue^ then begin
+            mx1 := pValue^; // find dir with maximum child items
+            mxDir1 := MakePathString(i - 1, j - 1);
           end;
+
+          if mx2 < item.FFileCount then begin
+            mx2 := item.FFileCount;
+            mxDir2 := MakePathString(i - 1, j - 1);
+          end;
+
         end;
       end;
     end;
 
+    Assert(mx1 = mx2);
     var cnt := Result.Count; // comment these two lines to write list of empty dirs into log file
     Result.Clear;
     Result.AddValue('Empty folders count: ' + cnt.ToString {Result.Count.ToString});
-    Result.AddValue('Maximum items in Dir: ' + mx.ToString + ' - ' + mxDir);
+    Result.AddValue('[1] Maximum items in Dir: ' + mx1.ToString + ' - ' + mxDir1);
+   // Result.AddValue('[2] Maximum items in Dir: ' + mx2.ToString + ' - ' + mxDir2);
 
   finally
     table.Free;
@@ -588,6 +598,9 @@ begin
     var lv := FCacheData[i - 1];
     for j := 1 to lv.Count do begin
       item := TCacheItem(lv.GetAddr(j - 1));
+      if item.IsDirectory AND NOT item.IsReparsePoint AND NOT item.FDenied
+        then Assert(item.FFileCount >= 0)
+        else Assert(item.FFileCount = -1); // -1 is to differ from empty folders where FFileCount=0
       Assert(item.FFileAttrs > 0);
       Assert(item.FFileName <> '');
       Assert(item.FDisplayName <> '');
@@ -966,6 +979,13 @@ begin
         item.FDisplayName    := item.FFileName;
         item.FUpperCaseName  := AnsiUpperCase(item.FFileName);
         item.FDenied         := False;
+        item.FFileCount      := origItem.FFilesCount;
+        item.FIconIndex      := 0;
+
+        Assert(PInt64(@item.FCreationTime)^ > 0);
+        Assert(PInt64(@item.FLastAccessTime)^ > 0);
+        Assert(PInt64(@item.FModifiedTime)^ > 0);
+        Assert(Length(item.FFileName) > 0);
 
         origItem := PCACHE_ITEM(NativeInt(origItem) + origItem^.Size);
       end;
@@ -1892,7 +1912,7 @@ initialization
   Assert(sizeof(MFT_REF) = $8);
   Assert(sizeof(MFT_INDEX) = sizeof(MFT_REF));
   Assert(sizeof(ATTR_FILE_NAME) = $42);
-  Assert(sizeof(CACHE_ITEM) = $8 + sizeof(MFT_REF) + sizeof(ATTR_FILE_NAME));
+  Assert(sizeof(CACHE_ITEM) = $C + sizeof(MFT_REF) + sizeof(ATTR_FILE_NAME));
 finalization
   //FreeAndNil(GPathCache);
   //TCache.FreeInst; // free cache singlton
