@@ -35,6 +35,7 @@ type
    FDisplayName: string; // this field is NOT stored into index file
    FFileType: string;
    FPath: string; // full path to directory, for optimization filled only for items that were searched
+   FOwner: string;
    FIconIndex: Integer;
    FDenied: Boolean;
 
@@ -52,7 +53,7 @@ type
     CacheItem: TCacheItem;
   end;
 
- function MakeFileSize(hi, lo: Cardinal) : UInt64; inline;
+  function MakeFileSize(hi, lo: Cardinal) : UInt64; inline;
 
 
 implementation
@@ -106,7 +107,7 @@ begin
   FModifiedTime   := FileData.ftLastWriteTime;
   FFileSize       := MakeFileSize(FileData.nFileSizeHigh, FileData.nFileSizeLow);
   FUpperCaseName  := AnsiUpperCase(FFileName);
-  FFileCount := -1;
+  FFileCount := -1;  // -1 is to differ from empty folders where FFileCount=0
   FIconIndex := 0;
   FDenied    := False;
 
@@ -130,6 +131,7 @@ begin
   FFileType       := Other.FFileType;
   FIconIndex      := Other.FIconIndex;
   FDenied         := Other.FDenied;
+  FOwner          := Other.FOwner;
 end;
 
 procedure TCacheItem.Serialize(OStream: TStream);
@@ -145,6 +147,7 @@ begin
   OStream.WriteData<Boolean>(FDenied);
 
   WriteStringToStream(OStream, FFileName);
+  WriteStringToStream(OStream, FOwner);
 
   //var lenBytes := ByteLength(FFileName); //StrLen(FFileData.cFileName) * sizeof(FFileData.cFileName[0]);
   //Assert(lenBytes < MAX_PATH * sizeof(FFileName[1]));
@@ -167,6 +170,7 @@ begin
   IStream.ReadData<Boolean>(FDenied);
 
   FFileName := ReadStringFromStream(IStream);
+  FOwner := ReadStringFromStream(IStream);
 
   //IStream.ReadData<Cardinal>(lenBytes);
   //Assert(lenBytes < MAX_PATH * sizeof(FFileName[1]));

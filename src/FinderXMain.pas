@@ -76,7 +76,7 @@ type
     CancelBtn: TSpeedButton;
     StateImageList: TImageList;
     CopyFolder: TMenuItem;
-    PopupMenu2: TPopupMenu;
+    ColumnsPopupMenu: TPopupMenu;
     MenuItem1: TMenuItem;
     MenuItem2: TMenuItem;
     MenuItem3: TMenuItem;
@@ -119,8 +119,8 @@ type
       Stage: TCustomDrawStage; var DefaultDraw: Boolean);
     procedure Openfilefolder1Click(Sender: TObject);
     procedure ListView1ContextPopup(Sender: TObject; MousePos: TPoint; var Handled: Boolean);
-    procedure MenuItem8Click(Sender: TObject);
-    procedure PopupMenu2Popup(Sender: TObject);
+    procedure ColumnsMenuItemClick(Sender: TObject);
+    procedure ColumnsPopupMenuPopup(Sender: TObject);
     procedure ApplicationEvents1Minimize(Sender: TObject);
     procedure TrayIcon1DblClick(Sender: TObject);
     procedure ExitAppMenuItemClick(Sender: TObject);
@@ -140,6 +140,7 @@ type
     FCaptionSplitArray: THArrayG<SplitRec>; // this array is for optimization for marking bold search term during drawing ListView
     FSearchSplitArray: THArrayG<string>;
 
+    procedure SaveIndexFile;
     procedure StoreColumns;
     procedure InitColumns;
     procedure InitSearchEdit;
@@ -177,7 +178,6 @@ type
   protected
     procedure Execute; override;
   public
-    //procedure Start(WinHandle: THandle; CancelFlag: PBoolean; lvStart: Cardinal = 0; lvEnd: Cardinal = 0); overload;
     class function CreateAndRun(): TThread;
   end;
 
@@ -249,15 +249,9 @@ begin
      ResultsItem.SizeStr := MakeSizeStr(ResultsItem.Size);
    end;
 
-  // Item.FDisplayName := Item.FFileName; //TODO: why do we modify Item here?
-   //Item.FIconIndex := 1; // default icon until proper icon is loaded via GetFileShellInfo
-
-   //ResultsItem.AttrStr := AttrStr2(Item.FFileAttrs);
-   //ResultsItem.Path := FullPath;
    ResultsItem.Item := Item;
 
    // convert TFileTime to string only one time and only for found items to save memory and increase speed.
-   //TODO: why don't have AttrStr field in Item? (Size and SizeStr should be left in ResultsItem)
    if Item.FCreationTimeStr = '' then begin
      Item.FModifiedTimeStr   := FileTimeToString(Item.FModifiedTime);
      Item.FLastAccessTimeStr := FileTimeToString(Item.FLastAccessTime);
@@ -307,6 +301,7 @@ begin
     ProgressBarFileInfo.Position := ProgressBarFileInfo.Max;
     Application.ProcessMessages; // chance to show 100% progress
     ProgressBarFileInfo.Visible := False;
+    TLogger.LogFmt('FFileInfoMessagesCount: %d', [FFileInfoMessagesCount]);
   end;
 end;
 
@@ -320,12 +315,22 @@ begin
   ListView1DblClick(nil);
 end;
 
-procedure TMainForm.PopupMenu2Popup(Sender: TObject);
+procedure TMainForm.ColumnsPopupMenuPopup(Sender: TObject);
 var
   i: Cardinal;
+  newItem: TMenuItem;
 begin
-  for i := 0 to High(AppSettings.ColumnInfos) do
-    PopupMenu2.Items[Ord(AppSettings.ColumnInfos[i].ColType)].Checked := AppSettings.ColumnInfos[i].Visible;
+  ColumnsPopupMenu.Items.Clear;
+
+  for i := 0 to High(AppSettings.ColumnInfos) do begin
+    newItem := TMenuItem.Create(ColumnsPopupMenu);
+    newItem.Caption := ListView1.Columns[i].Caption; // assume that number and order of columns in ListView corresponds the same in AppSettings.ColumnInfos
+    newItem.Checked := AppSettings.ColumnInfos[i].Visible;
+    newItem.OnClick := ColumnsMenuItemClick;
+    newItem.Tag := ListView1.Columns[i].Tag;
+    ColumnsPopupMenu.Items.Add(newItem); // popup menu will clean menuitem itself
+    //ColumnsPopupMenu.Items[Ord(AppSettings.ColumnInfos[i].ColType)].Checked := AppSettings.ColumnInfos[i].Visible;
+  end;
 end;
 
 function TMainForm.GetFileSizeOp: TFileSizeCompare;
@@ -451,21 +456,28 @@ begin
   end;
 end;
 
-procedure TMainForm.MenuItem8Click(Sender: TObject);
+procedure TMainForm.ColumnsMenuItemClick(Sender: TObject);
 var
   i: Integer;
   item: TMenuItem;
   col: TListColumn;
+  colInfo: TColumnInfo;
 begin
+  StoreColumns; // need for the case when user resised some column and after that user tries to show/hide any column
+
   col := nil;
   item := Sender as TMenuItem;
-  for i := 0 to ListView1.Columns.Count - 1 do
-    if ListView1.Columns[i].Tag = item.Tag then begin col := ListView1.Columns[i]; break; end;
+  for i := 0 to ListView1.Columns.Count - 1 do begin
+    if ListView1.Columns[i].Tag = item.Tag then col := ListView1.Columns[i];
+    if Ord(AppSettings.ColumnInfos[i].ColType) = item.Tag then colInfo := AppSettings.ColumnInfos[i];
+  end;
+
+  Assert(colInfo.Width > 0);
 
   if col <> nil then begin
     if item.Checked
       then col.Width := 0
-      else col.Width := 50;
+      else col.Width := colInfo.Width;
   end else MessageDlg('Column not found.', TMsgDlgType.mtWarning, [mbOK], 0);
 
   item.Checked := NOT item.Checked;
@@ -559,7 +571,7 @@ begin
    SplitByStrings(Item.Caption, FSearchSplitArray, FCaptionSplitArray); //TODO: optimization: save FCaptionSplitArray in Item.Data property (hope it will work)
 
    if FCaptionSplitArray.Count = 0 then begin
-     // unusual case when FSearchSplitArray.Count > 0 AND FCaptionSplitArray.Count = 0. Log info about it. 
+     // unusual case when FSearchSplitArray.Count > 0 AND FCaptionSplitArray.Count = 0. Log info about it.
      if FSearchSplitArray.Count > 0 then TLogger.LogFmt('FSplitArray.Count = 0 for item: %s', [Item.Caption]);
      Exit;  // SplitArray.Count can be =0 when we doing search with wildcards.
    end;
@@ -645,7 +657,7 @@ begin
   GetWindowRect(ListView_GetHeader(ListView1.Handle), HeaderRect);
   Pos := ListView1.ClientToScreen(MousePos);
   if PtInRect(HeaderRect, Pos) then
-    PopupMenu2.Popup(Pos.X, Pos.Y)
+    ColumnsPopupMenu.Popup(Pos.X, Pos.Y)
   else
     PopupMenu1.Popup(Pos.X, Pos.Y);
 end;
@@ -685,6 +697,7 @@ begin
             fiPath: Result := CompareStr(item1.Item.FPath, item2.Item.FPath);
             fiItemsCount: if item1.Item.FFileCount > item2.Item.FFileCount then Result := 1
                           else if item1.Item.FFileCount < item2.Item.FFileCount then Result := -1;
+            fiOwner: Result := CompareStr(item1.Item.FOwner, item2.Item.FOwner);
           end;
         end else begin // case INsensitive comparison
           case TFileInfo(FSortColumnID) of
@@ -699,6 +712,7 @@ begin
             fiPath: Result := CompareText(item1.Item.FPath, item2.Item.FPath);
             fiItemsCount: if item1.Item.FFileCount > item2.Item.FFileCount then Result := 1
                           else if item1.Item.FFileCount < item2.Item.FFileCount then Result := -1;
+            fiOwner: Result := CompareText(item1.Item.FOwner, item2.Item.FOwner);
           end;
         end;
       end;
@@ -745,7 +759,9 @@ begin
     then if origItem.Item.FDenied
            then Item.SubItems.Add('N/A')
            else Item.SubItems.Add(origItem.Item.FFileCountStr)
-    else Item.SubItems.Add('-');
+    else Item.SubItems.Add(origItem.Item.FFileCountStr); //Item.SubItems.Add('-'); // for files
+
+  Item.SubItems.Add(origItem.Item.FOwner);
 end;
 
 procedure TMainForm.ListView1DblClick(Sender: TObject);
@@ -769,6 +785,30 @@ begin
   if res < 33 then MessageDlg('ShellExecute error: ' + res.ToString, TMsgDlgType.mtError, [mbOK], 0);
 end;
 
+procedure TMainForm.SaveIndexFile();
+begin
+  try
+    // protection against incorrect IndexFileName stored earlier in registry
+    // e.g. one of directories in file path might not exist any more
+    TCache.Instance.SerializeTo(AppSettings.IndexFileName); // save loaded data into .idx file
+  except
+    on E: EFCreateError do begin
+      try
+        // get file name only from path from registry and add current dir to this name
+        var fn := ExpandFileName(ExtractFileName(AppSettings.IndexFileName));
+        TCache.Instance.SerializeTo(fn);
+        AppSettings.IndexFileName := fn; // update registry setting, settings will be saved to registry on app closing
+      except
+        on E: EFCreateError do begin
+          // use default file name without path (current FinderX dir will be used)
+          TCache.Instance.SerializeTo(TSettings.INDEX_FILENAME);
+          AppSettings.IndexFileName := ExpandFileName(TSettings.INDEX_FILENAME); // update registry setting
+        end;
+      end;
+    end;
+  end;
+end;
+
 procedure TMainForm.OnIndexingThreadTerminate(Sender: TObject);
 begin
   FreeAndNil(FProgressListener);
@@ -786,26 +826,7 @@ begin
     //TODO: it might be dangerous to Swap here because of search results. Move Swap to the very end???
     TCache.Swap; // if there is no search results we can successfully do Swap here
 
-    try
-      // protection against incorrect IndexFileName stored earlier in registry
-      // e.g. one of directories in file path might not exist any more
-      TCache.Instance.SerializeTo(AppSettings.IndexFileName); // save loaded data into .idx file
-    except
-      on E:EFCreateError do begin
-        try
-          // get file name only from path from registry and add current dir to this name
-          var fn := ExpandFileName(ExtractFileName(AppSettings.IndexFileName));
-          TCache.Instance.SerializeTo(fn);
-          AppSettings.IndexFileName := fn; // update registry setting
-        except
-          on E:EFCreateError do begin
-            // use default file name without path (current FinderX dir will be used)
-            TCache.Instance.SerializeTo(TSettings.INDEX_FILENAME);
-            AppSettings.IndexFileName := ExpandFileName(TSettings.INDEX_FILENAME); // update registry setting
-          end;
-        end;
-      end;
-    end;
+    SaveIndexFile;
 
     IndexingBitBtn.Hint := BuildIndexingBtnHint;
     UpdateStatusBarXXX(FIndexingThread.ExecData);
@@ -1065,6 +1086,7 @@ begin
   InitSearchEdit; // must be called after AppSettings.Load;
   InitColumns;    // must be called after AppSettings.Load;
 
+
   ProgressBar1.Parent := StatusBar1;
   ProgressBar1.Width := 100;
   ProgressBar1.Height := 17;
@@ -1138,9 +1160,7 @@ begin
       Col := ListView1.Columns[j];
       if Col.Tag = ColType then begin
         Col.Index := i;
-        Col.Width := AppSettings.ColumnInfos[i].Width;
-        //FColumnMap.SetValue(Col.ID, i); // default index for Name column is 0
-        // Col.Visible := AppSettings.ColumnInfos[i].Visible;
+        Col.Width := Ifthen(AppSettings.ColumnInfos[i].Visible, AppSettings.ColumnInfos[i].Width, 0);
         break;
       end;
     end;
@@ -1166,10 +1186,11 @@ begin
   FreeAndNil(FSearchResultsFileInfoThread);
 
   StoreColumns;
+  SaveIndexFile; // We also save index file here because it contains OwnerName that is read by FSearchResultsFileInfoThread thread.
   AppSettings.SearchHistory.Assign(SearchEdit.ACStrings);
   AppSettings.Save; // save all settings including updated search history data
 
-  SearchEdit.Free; // because we create it in code in FormaCreate()
+  SearchEdit.Free; // because we create it in code in FormCreate()
   FreeAndNil(FCaptionSplitArray);
   FreeAndNil(FSearchSplitArray);
 end;
@@ -1179,7 +1200,7 @@ var
   i: Integer;
 begin
   for i := 0 to ListView1.Columns.Count - 1 do begin
-    AppSettings.ColumnInfos[i].Width   := ListView1.Columns[i].Width;
+    if ListView1.Columns[i].Width > 0 then AppSettings.ColumnInfos[i].Width := ListView1.Columns[i].Width;
     AppSettings.ColumnInfos[i].ColType := TFileInfo(ListView1.Columns[i].Tag);
     AppSettings.ColumnInfos[i].Visible := ListView1.Columns[i].Width > 0;
   end;
@@ -1278,6 +1299,7 @@ var
   start: Cardinal;
   tmpI: TCacheItemExt;
   LogPrefix: string;
+  Owner: string;
 begin
   start := GetTickCount;
 
@@ -1305,6 +1327,9 @@ begin
 
       var resItem := MainForm.FSearchResults[i - 1];
 
+      if resItem.Item.FOwner = ''
+        then resItem.Item.FOwner := GetFileOwnerName(resItem.Item.FPath);
+
       if resItem.Item.FFileType = '' then begin
         TmpI := TCacheItemExt.Create;
         TmpI.Assign(resItem.Item);
@@ -1323,17 +1348,6 @@ begin
   end;
 end;
 
-{
-procedure TSearchResultsShellInfoThread.Start(WinHandle: THandle; CancelFlag: PBoolean; lvStart: Cardinal = 0; lvEnd: Cardinal = 0);
-begin
-  FBegin := lvStart;
-  FFinish := lvEnd;
-  FCancelFlag := CancelFlag;
-  FWinHandle := WinHandle;
-  Start();
-end;
- }
-
 class function TSearchResultsShellInfoThread.CreateAndRun(): TThread;
 begin
   Result := TSearchResultsShellInfoThread.Create(True);
@@ -1341,9 +1355,4 @@ begin
 end;
 
 
-initialization
-  //SplitArray := THArrayG<SplitRec>.Create();
-
-finalization
-  //FreeAndNil(SplitArray);
 end.

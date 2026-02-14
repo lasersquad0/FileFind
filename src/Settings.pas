@@ -6,7 +6,7 @@ uses System.Types, Classes;
 
 type
   // display columns
-  TFileInfo = (fiName, fiSize, fiType, fiModified, fiLastAccess, fiCreated, fiAttributes, fiPath, fiItemsCount);
+  TFileInfo = (fiName, fiSize, fiType, fiModified, fiLastAccess, fiCreated, fiAttributes, fiPath, fiItemsCount, fiOwner);
 
   // Column settings structure
   TColumnInfo = record
@@ -92,7 +92,6 @@ uses
   System.SysUtils, WinAPI.Windows, Vcl.Dialogs, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, Registry, Functions;
 
 
-
 var
   DefColumnInfos: TColumnInfos = ((ColType:fiName;       Visible:True; Width:300),
                                   (ColType:fiSize;       Visible:True; Width:100),
@@ -102,7 +101,8 @@ var
                                   (ColType:fiCreated;    Visible:True; Width:140),
                                   (ColType:fiAttributes; Visible:True; Width:70),
                                   (ColType:fiPath;       Visible:True; Width:400),
-                                  (ColType:fiItemsCount; Visible:True; Width:80)
+                                  (ColType:fiItemsCount; Visible:True; Width:80),
+                                  (ColType:fiOwner;      Visible:True; Width:80)
                                   );
 
 

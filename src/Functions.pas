@@ -74,6 +74,7 @@ const
 
   function IsAppRunningAsAdminMode(): Boolean;
   function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; IsMember: PLongBool): LongBool; stdcall;
+  function GetFileOwnerName(FilePath: string): string;
 
   // function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
   // function  GetLocalTime(ftm: TFileTime): string;
@@ -82,7 +83,7 @@ const
 implementation
 
 uses
-  WinAPI.ShellAPI, StrUtils, IOUtils, SyncObjs, Math;
+  WinAPI.ShellAPI, WinAPI.AclAPI, WinAPI.AccCtrl, StrUtils, IOUtils, SyncObjs, Math;
 
 // need for checking if app running with admin rights
 function CheckTokenMembership; external 'advapi32.dll' name 'CheckTokenMembership';
@@ -288,7 +289,7 @@ begin
   lenBytes := ByteLength(str);
   Assert(lenBytes < MAX_PATH * sizeof(str[1]));
   OStream.WriteData<Integer>(lenBytes);
-  OStream.Write(str[1], lenBytes);
+  if lenBytes > 0 then OStream.Write(str[1], lenBytes);
 end;
 
 function ReadStringFromStream(IStream: TStream): string;
@@ -297,8 +298,10 @@ var
 begin
   IStream.ReadData<Cardinal>(lenBytes);
   Assert(lenBytes < MAX_PATH * sizeof(Result[1]));
-  SetLength(Result, lenBytes div sizeof(Result[1]));
-  IStream.Read(Result[1], lenBytes);
+  if lenBytes > 0 then begin
+    SetLength(Result, lenBytes div sizeof(Result[1]));
+    IStream.Read(Result[1], lenBytes);
+  end;
 end;
 
 // **** Use built-in SysUtils.SysErrorMessage function  *****
@@ -517,7 +520,7 @@ begin
       Item.FFileType := 'Unknown file type';
     end;
 
-    TLogger.Log(Format('Error (code=%d) "%s" in ShGetFileInfo(%s).', [err, SysErrorMessage(err), FullFileName]));
+    TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call ShGetFileInfo(%s).', [err, SysErrorMessage(err), FullFileName]));
   end
   else
   begin
@@ -596,6 +599,63 @@ Cleanup:
 
   Result := fIsRunAsAdmin;
 end;
+
+function GetFileOwnerName(FilePath: string): string;
+var
+   pSidOwner: PSID;
+   pSD: PSECURITY_DESCRIPTOR;
+   dwResult: Cardinal;
+   szOwnerName: array[0..MAX_PATH] of Char;
+   szDomainName: array[0..MAX_PATH] of Char;
+   dwOwnerNameSize:Cardinal;
+   dwDomainNameSize: Cardinal;
+   sidType: SID_NAME_USE;
+   bOwnerDefaulted: BOOL;
+ begin
+   pSidOwner := nil;
+   pSD := nil;
+   dwOwnerNameSize := MAX_PATH;
+   dwDomainNameSize := MAX_PATH;
+
+   // Get security descriptor with owner information
+   dwResult := GetNamedSecurityInfo(PChar(FilePath), // File path
+     SE_FILE_OBJECT, // Object type (file)
+     OWNER_SECURITY_INFORMATION, // Request owner info only
+     @pSidOwner, // Receives owner SID
+     nil, nil, nil, @pSD);
+
+   if dwResult <> ERROR_SUCCESS then begin
+     TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call GetNamedSecurityInfo(%s).', [dwResult, SysErrorMessage(dwResult), FilePath]));
+     Exit;
+   end;
+
+   { if pSidOwner = nil then begin
+     bOwnerDefaulted := FALSE;
+     if NOT GetSecurityDescriptorOwner(pSD, pSidOwner, &bOwnerDefaulted)
+     then TLogger.LogFmt('Failed to get owner from SD: %d', [GetLastError()])
+     else if pSidOwner = nil then TLogger.Log('SD finally has no owner');
+     end;
+   }
+
+   // Convert SID to account name
+   if NOT LookupAccountSid(nil, // Local system
+     pSidOwner, // SID to lookup
+     szOwnerName, // Account name buffer
+     dwOwnerNameSize, // Size of name buffer
+     szDomainName, // Domain name buffer
+     dwDomainNameSize, // Size of domain buffer
+     sidType) // SID type
+   then begin
+     var err := GetLastError();
+     TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call LookAccountSid(%s).', [err, SysErrorMessage(err), FilePath]));
+   end;
+
+   if LocalFree(pSD) <> nil then TLogger.Log('[GetFileOwnerName] LocalFree is failed');
+
+   Result := szOwnerName;
+ end;
+
+
 
 //const DEF_LOG_FILENAME = 'FinderX_denug.log';
 const

@@ -523,6 +523,11 @@ object MainForm: TMainForm
         Caption = 'Items Count'
         Tag = 8
         Width = 80
+      end
+      item
+        Caption = 'Owner'
+        Tag = 9
+        Width = 70
       end>
     FullDrag = True
     OwnerData = True
@@ -537,6 +542,7 @@ object MainForm: TMainForm
     OnContextPopup = ListView1ContextPopup
     OnData = ListView1Data
     OnDblClick = ListView1DblClick
+    ExplicitTop = 67
   end
   object ProgressBar1: TProgressBar
     Left = 890
@@ -1243,56 +1249,56 @@ object MainForm: TMainForm
       C003000000000000F00F00000000000000000000000000000000000000000000
       000000000000}
   end
-  object PopupMenu2: TPopupMenu
-    OnPopup = PopupMenu2Popup
+  object ColumnsPopupMenu: TPopupMenu
+    OnPopup = ColumnsPopupMenuPopup
     Left = 312
     Top = 336
     object MenuItem1: TMenuItem
       Caption = 'Name'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem2: TMenuItem
       Tag = 1
       Caption = 'Size'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem3: TMenuItem
       Tag = 2
       Caption = 'Type'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem4: TMenuItem
       Tag = 3
       Caption = 'Modified'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem5: TMenuItem
       Tag = 4
       Caption = 'Last Access'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem6: TMenuItem
       Tag = 5
       Caption = 'Created'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem7: TMenuItem
       Tag = 6
       Caption = 'Attributes'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem8: TMenuItem
       Tag = 7
       Caption = 'Path'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
   end
   object TrayIcon1: TTrayIcon
