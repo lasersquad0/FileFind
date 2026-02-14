@@ -116,6 +116,8 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <UWP_DelphiLogo44>Images\Uwp_logo44.png</UWP_DelphiLogo44>
         <AppDPIAwarenessMode>none</AppDPIAwarenessMode>
         <UWP_DelphiLogo150>Images\Uwp_logo150.png</UWP_DelphiLogo150>
+        <PostBuildEvent><![CDATA[copy /Y ..\..\Build\MFTReaderDLL_64.dll $(OutputDir)
+$(PostBuildEvent)]]></PostBuildEvent>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1)'!=''">
         <DCC_Define>DEBUG;FFDEBUG;$(DCC_Define)</DCC_Define>
@@ -136,12 +138,15 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
         <DCC_Define>PROFILE;$(DCC_Define)</DCC_Define>
         <Icon_MainIcon>Images\AppIcon.ico</Icon_MainIcon>
+        <DCC_DebugInfoInTds>true</DCC_DebugInfoInTds>
+        <VerInfo_Build>3</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.3;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.74;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=FinderX;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=Probably the best application for file search</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.81;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=FinderX;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=Probably the best application for file search</VerInfo_Keys>
         <Icon_MainIcon>Images\Uwp_logo44.ico</Icon_MainIcon>
-        <VerInfo_Build>74</VerInfo_Build>
+        <VerInfo_Build>81</VerInfo_Build>
         <DCC_DynamicBase>false</DCC_DynamicBase>
         <DCC_HighEntropyVa>false</DCC_HighEntropyVa>
         <DCC_DUPLICATE_CTOR_DTOR>false</DCC_DUPLICATE_CTOR_DTOR>
@@ -156,19 +161,24 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <VerInfo_Build>0</VerInfo_Build>
         <DCC_UNSAFE_CAST>false</DCC_UNSAFE_CAST>
         <DCC_DUPLICATE_CTOR_DTOR>false</DCC_DUPLICATE_CTOR_DTOR>
+        <DCC_AssertionsAtRuntime>false</DCC_AssertionsAtRuntime>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win32)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
         <Icon_MainIcon>Images\AppIcon.ico</Icon_MainIcon>
+        <VerInfo_Build>1</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.1.0.1;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.1.0;Comments=</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2_Win64)'!=''">
         <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
         <Icon_MainIcon>Images\AppIcon.ico</Icon_MainIcon>
         <UWP_DelphiLogo44>Images\Uwp_logo44.png</UWP_DelphiLogo44>
         <UWP_DelphiLogo150>Images\Uwp_logo150.png</UWP_DelphiLogo150>
-        <VerInfo_Build>48</VerInfo_Build>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.2.0.48;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.2.0.0;Comments=Probably the best file search application</VerInfo_Keys>
+        <VerInfo_Build>52</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.2.0.52;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.2.0.0;Comments=Probably the best file search application</VerInfo_Keys>
         <VerInfo_MinorVer>2</VerInfo_MinorVer>
+        <DCC_DynamicBase>false</DCC_DynamicBase>
+        <DCC_HighEntropyVa>false</DCC_HighEntropyVa>
     </PropertyGroup>
     <ItemGroup>
         <DelphiCompile Include="$(MainSource)">
@@ -1268,7 +1278,7 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
-        <PostBuildEvent>copy /Y ..\..\Build\MFTReaderDLL.dll $(OutputDir)</PostBuildEvent>
+        <PostBuildEvent>copy /Y ..\..\Build\MFTReaderDLL_64.dll $(OutputDir)&amp;&amp;copy /Y ..\..\Build\MFTReaderDLL.dll $(OutputDir)</PostBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Release' And '$(Platform)'=='Win32'">
@@ -1284,7 +1294,7 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <PreBuildEventIgnoreExitCode>False</PreBuildEventIgnoreExitCode>
         <PreLinkEvent/>
         <PreLinkEventIgnoreExitCode>False</PreLinkEventIgnoreExitCode>
-        <PostBuildEvent>copy /Y ..\..\Build\MFTReaderDLL.dll $(OutputDir)</PostBuildEvent>
+        <PostBuildEvent>copy /Y ..\..\Build\MFTReaderDLL_64.dll $(OutputDir)&amp;&amp;copy /Y ..\..\Build\MFTReaderDLL.dll $(OutputDir)</PostBuildEvent>
         <PostBuildEventIgnoreExitCode>False</PostBuildEventIgnoreExitCode>
     </PropertyGroup>
 </Project>
