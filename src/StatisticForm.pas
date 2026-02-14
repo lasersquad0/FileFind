@@ -259,7 +259,7 @@ begin
   var Cache: TCache := TCache.Instance;
   if Cache.VolumesCount = 0 then Exit;
 
-  vol := Cache.GetVolume(Volume); //TODO: make it work with many volumes
+  vol := Cache.GetVolume(Volume);
   for i := 1 to vol.Levels do begin
     //Level := Cache.FCacheData[i];
     for j := 1 to vol.LevelCount(i - 1) do begin
