@@ -168,7 +168,7 @@ type
     procedure RestoreMainForm();
     procedure StartIndexing(bg: Boolean);
 
-    procedure OnSearchResultsShellInfo(var Msg: TMessage); message WM_SearchResultsShellInfo_MSG;
+    procedure OnSearchResultsShellInfo(var Msg: TMessage); message WM_SEARCHRESULTSSHELLINFO_MSG;
     procedure OnRestoreFormRemote(var Msg: TMessage); message WM_RESTORE_MAINFORM_MSG;
     procedure OnDEVICECHANGE(var Msg: TMessage); message WM_DEVICECHANGE;
   end;
@@ -221,9 +221,8 @@ end;
 /// <summary>During search FileCache calls this callback function only for items that successfully passed filter.</summary>
 /// <remarks>Define this method to add filtered items into ListView. TCacheItem is a class therefore passed by reference.
 /// If you modify Item's fields, new data be stored and available for next searches. </remarks>
-///  <param name="FullPath">Full path that includes file name of the file being added</param>
-///  <param name="Item">Item that contains other file information: size, modified date etc.</param>
-///  <return> Returns False to stop filtering (for example when maximum number of items in ListView is reached). In other cases function should return True.</return>
+/// <param name="Item">Item that contains file information: size, modified date etc.</param>
+/// <return> Returns False to stop filtering (for example when maximum number of items in ListView is reached). In other cases function should return True.</return>
 function TMainForm.OnFileFound({FullPath: string;} Item: TCacheItem): Boolean;
 var
   ResultsItem: TSearchResultsItem;
@@ -266,7 +265,7 @@ begin
    Result := True;
 end;
 
-// processes WM_SearchResultsShellInfo_MSG messages received from another thread.
+// processes WM_SEARCHRESULTSSHELLINFO_MSG messages received from another thread.
 procedure TMainForm.OnSearchResultsShellInfo(var Msg: TMessage);
 var
   TmpItem: TCacheItemExt;
@@ -761,7 +760,7 @@ begin
     then if origItem.Item.FDenied
            then Item.SubItems.Add('N/A')
            else Item.SubItems.Add(origItem.Item.FFileCountStr)
-    else Item.SubItems.Add(origItem.Item.FFileCountStr); //Item.SubItems.Add('-'); // for files
+    else {Item.SubItems.Add(origItem.Item.FFileCountStr);} Item.SubItems.Add('-'); // for files
 
   Item.SubItems.Add(origItem.Item.FOwner);
 end;
@@ -1338,13 +1337,13 @@ begin
           then TmpI.FOwner := GetFileOwnerName(resItem.Item.FPath);
 
         GetFileShellInfo(resItem.Item.FPath, TmpI); // we do not need to check function return value here
-        PostMessage(MainForm.Handle, WM_SearchResultsShellInfo_MSG, WPARAM(TmpI), LPARAM(i - 1));
+        PostMessage(MainForm.Handle, WM_SEARCHRESULTSSHELLINFO_MSG, WPARAM(TmpI), LPARAM(i - 1));
       end;
 
     end;
   finally
     // sending "notification" message that work has finished
-    PostMessage(MainForm.Handle, WM_SearchResultsShellInfo_MSG, WPARAM(nil), LPARAM(MainForm.FSearchResults.Count));
+    PostMessage(MainForm.Handle, WM_SEARCHRESULTSSHELLINFO_MSG, WPARAM(nil), LPARAM(MainForm.FSearchResults.Count));
     MainForm.ListView1.Invalidate;
     CoUninitialize;
     TLogger.Log(LogPrefix + ' FINISHED. Time spent: ' + MillisecToStr(GetTickCount - start));

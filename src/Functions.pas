@@ -41,8 +41,8 @@ type
    // for each item we need make a call to ShGetFileInfo API function. It takes too much time and slows down search process.
    // it is possible to make searches during this bg process, but they will work a bit slowly because ShGetFileInfo will be called for search result item
 const
-  WM_FileShellInfo_MSG = WM_APP + 1;
-  WM_SearchResultsShellInfo_MSG = WM_APP + 2;
+  //WM_FILESHELLINFO_MSG = WM_APP + 1;
+  WM_SEARCHRESULTSSHELLINFO_MSG = WM_APP + 2;
   WM_RESTORE_MAINFORM_MSG = WM_APP + 3;
 
   // split string to array of strings using Delim as delimiter
