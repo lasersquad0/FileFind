@@ -12,7 +12,7 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
-- calculate Items Count during FastReading NTFS.
+- [DONE] Calculate Items Count during FastReading NTFS.
 - BUG Assert exception is generated when change column sorting during work of ShellInfoThread in WM_SearchResultsShellInfo_MSG message handler
 - Add tooltip for values in Attributes column explaning what D---C- means.
 - If drive added when FinderX was running, FinderX does not see this drive and does not index it. Implement handler for WM_DEVICECHANGE message.
@@ -35,7 +35,8 @@ TO DO
 - [DONE] Option to run app ad admin to index more files
 - [DONE] Select search text on mouse click (in search edit box)
 - May be usefull option to find files that have hardlinks and also .symlink files.
-- Add column: file/folder Owner, num of child folders, num of files inside dir, % of parent allocated, length of path in chars
+- [DONE] Add column: file/folder Owner, num of child files/folders. 
+- Add columns: % of parent allocated, length of path in chars
 - Statistics: "interesting facts about your filesystem":
     number of empty directories
     2 folders that have biggest number of items

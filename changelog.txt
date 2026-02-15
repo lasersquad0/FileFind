@@ -3,6 +3,8 @@ FinderX version 1.3.0
 Improvements:
 
 + Added column "Items Count" that shows number of files/dirs in the current dir. For files this columns shows '-'.
++ Added column "Owner" that shows owner of file/dir. Data of this column is saved to index file.
+* Popup menu to hide/show columns now reflects current visible order of columns.
 * Improved work with settings
 * Highlighting bold now works for search terms with wildcards
 * Improved work when new search starts while bg thread is loading file icons.
