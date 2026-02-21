@@ -19,7 +19,6 @@ uses
   ObjectsCache in '..\..\src\ObjectsCache.pas',
   Settings in '..\..\src\Settings.pas',
   SettingsForm in '..\..\src\SettingsForm.pas' {SettingsForm1},
-  StatisticForm in '..\..\src\StatisticForm.pas' {StatisticForm1},
   CacheItem in '..\..\src\CacheItem.pas',
   DynamicArray in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
   DynamicArrays in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas',
@@ -28,6 +27,7 @@ uses
   SortedArray in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas';
 
 {$R *.res}
+
 
 begin
   var start := GetTickCount;
@@ -49,7 +49,7 @@ begin
   if GetLastError = ERROR_ALREADY_EXISTS then begin
     // copy of FinderX is already running, activating first app copy
     TLogger.Log('Another copy of FinderX app is running. Activating it.');
-    var hWnd := FindWindow('TMainForm', 'FinderX - find files quick!'); //TODO: main window caption should be somewehere in single place
+    var hWnd := FindWindow('TMainForm', PChar(sMainWindowTitle));
     if hWnd = 0 then TLogger.Log('Cannot find FinderX window while mutex already exists.');
     SendMessage(hWnd, WM_RESTORE_MAINFORM_MSG, 0, 0); //send user message to restore main form from tray
     CloseHandle(mutex);
@@ -69,18 +69,18 @@ begin
     end;
   end;
 
-  TLogger.Log('FinderX initialization checkpoint #1:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
+  TLogger.Log('Before Application.Initialize:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.Initialize;
   ReportMemoryLeaksOnShutdown := True;
   Application.MainFormOnTaskbar := True;
-  TLogger.Log('FinderX initialization checkpoint #2:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
+  TLogger.Log('After Application.Initialize:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.CreateForm(TMainForm, MainForm);
   Application.CreateForm(TAboutBox, AboutBox);
   Application.CreateForm(TIndexingLogForm, IndexingLogForm);
   Application.CreateForm(TSettingsForm1, SettingsForm1);
-  Application.CreateForm(TStatisticForm1, StatisticForm1);
-  TLogger.Log('FinderX initialization all forms created:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
+  TLogger.Log('All application forms are created:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.Run;
 
+  TLogger.Log('FinderX - FINISH');
   CloseHandle(mutex); // leave mutex open while app is running, important to close mutex in the beginning of app shutdown
 end.

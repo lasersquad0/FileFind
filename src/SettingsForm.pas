@@ -86,31 +86,29 @@ implementation
 
 uses
   System.UITypes, System.StrUtils, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, WinApi.Windows, Registry, Math,
-  Settings, {IndexingLog,} Functions;
+  Settings, Functions;
 
-  {
-function  StringListToArrayTab(Strings: TStrings): TArray<string>;
-var
-  i, p1, p2: Integer;
-  str: string;
-begin
-  SetLength(Result, Strings.Count);
-  for i := 0 to Strings.Count - 1 do begin
-    str := Strings[i];
-    p1 := Pos(#9, str);
-    p2 := Pos(#9, str, p1 + 1);
-    Result[i] := Copy(str, p1 + 1, p2 - p1 - 1);
-  end;
-end;
-   }
+resourcestring
+  sRunAsAdminWarning1 = 'You selected to run FinderX as administrator. FinderX will run as adminisrator next time you start it.';
+  sRunAsAdminWarning2 = 'FinderX is running with administrator rights now. You''ve selected to run FinderX with user rights. This change will apply next time you start FinderX.';
+  sClearHistoryButtonCaption = 'Clear history (%d items)';
+  sDriveRemovable = ' (removable)';
+  sDriveFixed = ' (fixed)';
+  sDriveUnknown = ' (unknown)';
+  sDriveUnknown2 = ' (unknown2)';
+  sVolNameNotReady = '<not ready>';
+  sVolNameNoName = '<noname>';
+  sVolumeNotIndexed = '<not indexed>';
+  sHintMinMax = 'Enter value between %u and %u';
+
 
 procedure TSettingsForm1.OKButtonClick(Sender: TObject);
 begin
   if (NOT AppSettings.RunAsAdmin) AND RunAsAdminCheckBox.Checked
-    then MessageDlg('You selected to run FinderX as administrator. FinderX will run as adminisrator next time you start it.', TMsgDlgType.mtConfirmation, [mbOK], 0);
+    then MessageDlg(sRunAsAdminWarning1, TMsgDlgType.mtConfirmation, [mbOK], 0);
 
   if AppSettings.RunAsAdmin AND (NOT RunAsAdminCheckBox.Checked)
-    then MessageDlg('FinderX is running with administrator rights now. You''ve selected to run FinderX with user rights. This change will apply next time you start FinderX.', TMsgDlgType.mtConfirmation, [mbOK], 0);
+    then MessageDlg(sRunAsAdminWarning2, TMsgDlgType.mtConfirmation, [mbOK], 0);
 
   AppSettings.CaseSensitiveSearch := CaseSearchCheckBox.Checked;
   AppSettings.CaseSensitiveSort   := CaseSortCheckBox.Checked;
@@ -170,7 +168,7 @@ end;
 
 procedure TSettingsForm1.UpdateClearHistoryCaption;
 begin
-  ClearHistoryButton.Caption := Format('Clear history (%d items)', [AppSettings.SearchHistory.Count]);
+  ClearHistoryButton.Caption := Format(sClearHistoryButtonCaption, [AppSettings.SearchHistory.Count]);
 end;
 
 procedure TSettingsForm1.RemoveFolderButtonClick(Sender: TObject);
@@ -236,13 +234,13 @@ var
 begin
   dt := GetDriveType(PChar(drive));
   case dt of
-    DRIVE_REMOVABLE: Result := ' (removable)';
-    DRIVE_CDROM: Result := ' (removable)';
-    DRIVE_UNKNOWN:Result := ' (unknown)';
-    DRIVE_FIXED: Result := ' (fixed)';
-    DRIVE_RAMDISK: Result := ' (fixed)';
+    DRIVE_REMOVABLE: Result := sDriveRemovable;
+    DRIVE_CDROM: Result := sDriveRemovable;
+    DRIVE_UNKNOWN:Result := sDriveUnknown;
+    DRIVE_FIXED: Result := sDriveFixed;
+    DRIVE_RAMDISK: Result := sDriveFixed;
     else
-      Result := ' (unknown2)';
+      Result := sDriveUnknown2;
   end;
 end;
 
@@ -300,7 +298,7 @@ begin
     end;
   end;
     }
-  MaxNumFoundBox.Hint := Format('Enter value between %u and %u', [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
+  MaxNumFoundBox.Hint := Format(sHintMinMax, [Round(MaxNumFoundBox.MinValue), Round(MaxNumFoundBox.MaxValue)]);
 
   { AppSettings.VolumesToIndex already contains list of volumes read from registry and merged with volumes present on current PC
     Merging is done during loading application settings in AppSettings.Load method
@@ -316,18 +314,18 @@ begin
     if res = False then begin
       error := GetLastError;
       if error = ERROR_NOT_READY // CD-ROM is present but no disk there - we get ERROR_NOT_READY while attempting to read volume name
-        then VolName := '<not ready>'
+        then VolName := sVolNameNotReady
         else MessageDlg('GetVolumeInformation failed with error: ' + error.ToString, mtError, [mbOK], 0);
     end;
 
     VolName2 := PChar(VolName); // PChar - to avoid many zeroes in the string end?
-    if VolName2 = '' then VolName2 := '<noname>';
+    if VolName2 = '' then VolName2 := sVolNameNoName;
 
     //str := VolName2 + IfThen(Length(VolName2) > 14, ' ', #9) + CurrVol {+ #9} + GetDriveTypeString(CurrVol) + #9;
     str := Copy(VolName2, 1, 14) + #9 + CurrVol + GetDriveTypeString(CurrVol) + #9;
     var vol := TCache.Instance.VolumePresent(CurrVol);
     if vol = nil
-      then str := str + '<not indexed>'
+      then str := str + sVolumeNotIndexed
       else str := str + DateToStr(vol.IndexedDateTime);
     VolumesListBox.Items.Add(str);
     VolName := '';

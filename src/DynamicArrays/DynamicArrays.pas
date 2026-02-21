@@ -628,7 +628,7 @@ begin
 end;
 
  {$IFDEF CPUX86}
- procedure memcpyfromend(pi, po: Pointer; Count: Cardinal); stdcall;
+ procedure memcpyfromend(pi, po: Pointer; Count: Cardinal);
  asm
   pushad
   pushfd
@@ -645,7 +645,7 @@ end;
   popad
  end;
 
-procedure memcpyfrombegin(pi, po: Pointer; Count: Cardinal); stdcall;  // copying from begin
+procedure memcpyfrombegin(pi, po: Pointer; Count: Cardinal);  // copying from begin
  asm
   pushad
   pushfd
@@ -658,7 +658,7 @@ procedure memcpyfrombegin(pi, po: Pointer; Count: Cardinal); stdcall;  // copyin
   popad
 end;
 
-procedure memclr(po: Pointer; Count: Cardinal); stdcall;
+procedure memclr(po: Pointer; Count: Cardinal);
  asm
   pushad
   pushfd
@@ -671,7 +671,7 @@ procedure memclr(po: Pointer; Count: Cardinal); stdcall;
   popad
  end;
 
-procedure memset(po: Pointer; Value: Byte; Count: Cardinal); stdcall;
+procedure memset(po: Pointer; Value: Byte; Count: Cardinal);
  asm
   pushad
   pushfd
@@ -684,7 +684,7 @@ procedure memset(po: Pointer; Value: Byte; Count: Cardinal); stdcall;
   popad
  end;
 
-function memfinddword(pi: Pointer; Value: Integer; Count: Cardinal): Integer; stdcall;
+function memfinddword(pi: Pointer; Value: Integer; Count: Cardinal): Integer;
  asm
   pushad
   pushfd
@@ -706,7 +706,7 @@ function memfinddword(pi: Pointer; Value: Integer; Count: Cardinal): Integer; st
   popad
  end;
 
-function memfindbyte(pi: Pointer; Value: Byte; Count: Cardinal): Integer; stdcall;
+function memfindbyte(pi: Pointer; Value: Byte; Count: Cardinal): Integer;
  asm
   pushad
   pushfd
@@ -728,7 +728,7 @@ function memfindbyte(pi: Pointer; Value: Byte; Count: Cardinal): Integer; stdcal
   popad
  end;
 
- function memfindword(pi: Pointer; Value: Word; Count: Cardinal): Integer; stdcall;
+ function memfindword(pi: Pointer; Value: Word; Count: Cardinal): Integer;
 //label ex;
 //begin
  asm
@@ -753,7 +753,7 @@ function memfindbyte(pi: Pointer; Value: Byte; Count: Cardinal): Integer; stdcal
  end;
 //end;
 
-function memfindint64(pi: Pointer; Value: int64; Count: Cardinal): Integer; stdcall;
+function memfindint64(pi: Pointer; Value: int64; Count: Cardinal): Integer;
 asm
   pushad
   pushfd
@@ -1069,7 +1069,7 @@ function memfindgeneral(
  end;
 {$ENDIF CPUX64}
 
-procedure memcpy(pi, po: Pointer; Count: Cardinal); stdcall;
+procedure memcpy(pi, po: Pointer; Count: Cardinal);
 begin
  if ((NativeInt(pi) + NativeInt(Count)) > NativeInt(po)) and (NativeInt(pi) < NativeInt(po))
  then memcpyfromend(pi, po, Count) // copy from end

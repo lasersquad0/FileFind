@@ -9,13 +9,17 @@ type
 
   TEnumString = class(TInterfacedObject, IEnumString)
   private
-    type
+  type
      TPointerList = array[0..0] of Pointer; //avoid bug of Classes.pas declaration TPointerList = array of Pointer;
-    var
+  var
     FStrings: TStringList;
     FCurrIndex: Integer;
   public
-    //IEnumString
+    //IEnumString methods
+
+    // celt - the number of items to be retrieved.
+    // elt - an array of enumerated items.
+    // pceltFetched - the number of items that were retrieved.
     function Next(celt: Longint; out elt; pceltFetched: PLongint): HResult; stdcall;
     function Skip(celt: Longint): HResult; stdcall;
     function Reset: HResult; stdcall;
@@ -79,30 +83,32 @@ end;
 
 destructor TEnumString.Destroy;
 begin
-  FStrings.Free;
+  FreeAndNil(FStrings);
   inherited;
 end;
 
+// celt - the number of items to be retrieved.
+// elt - an array of enumerated items.
+// pceltFetched - the number of items that were retrieved.
 function TEnumString.Next(celt: Integer; out elt; pceltFetched: PLongint): HResult;
 var
   I: Integer;
-  wStr: WideString;
+  str: string;
 begin
   I := 0;
   while (I < celt) and (FCurrIndex < FStrings.Count) do begin
-    wStr := FStrings[FCurrIndex];
-    TPointerList(elt)[I] := CoTaskMemAlloc(2 * (Length(wStr) + 1));
-    StringToWideChar(wStr, TPointerList(elt)[I], 2 * (Length(wStr) + 1));
+    str := FStrings[FCurrIndex];
+    TPointerList(elt)[I] := CoTaskMemAlloc(sizeof(str[1]) * (Length(str) + 1));
+    StrCopy(TPointerList(elt)[I], PChar(str));
+    //StringToWideChar(wStr, TPointerList(elt)[I], sizeof(wStr[1]) * (Length(wStr) + 1));
     Inc(I);
     Inc(FCurrIndex);
   end;
 
-  if pceltFetched <> nil then
-    pceltFetched^ := I;
-  if I = celt then
-    Result := S_OK
-  else
-    Result := S_FALSE;
+  if pceltFetched <> nil then pceltFetched^ := I;
+  if I = celt
+    then Result := S_OK
+    else Result := S_FALSE;
 end;
 
 function TEnumString.Reset: HResult;
@@ -139,8 +145,9 @@ end;
 
 destructor TSearchEdit.Destroy;
 begin
-  //FACList := nil;
-  FACList._Release;
+
+  FACList := nil;
+  //FACList._Release;
   inherited;
 end;
 
@@ -158,7 +165,7 @@ begin
           acsHistory:Strings := CreateComObject(CLSID_ACLHistory) as IEnumString;
           acsMRU:    Strings := CreateComObject(CLSID_ACLMRU) as IEnumString;
           acsShell:  Strings := CreateComObject(CLSID_ACListISF) as IEnumString;
-        else
+        else   //acsList
           Strings := FACList as IEnumString;
         end;
         if S_OK = FAutoComplete.Init(Handle, Strings, nil, nil) then begin
@@ -167,6 +174,7 @@ begin
         end;
       end;
     except
+      //TODO: add logging here
       //CLSID_IAutoComplete is not available
     end;
   end;
@@ -188,19 +196,15 @@ end;
 
 procedure TSearchEdit.SetACEnabled(const Value: Boolean);
 begin
-  if (FAutoComplete <> nil) then begin
-    FAutoComplete.Enable(Value);
-  end;
+  if FAutoComplete <> nil then FAutoComplete.Enable(Value);
   FACEnabled := Value;
 end;
 
 procedure TSearchEdit.SetACOptions(const Value: TACOptions);
 const
-  Options : array[TACOption] of integer = (ACO_AUTOAPPEND,
-                                           ACO_AUTOSUGGEST,
-                                           ACO_UPDOWNKEYDROPSLIST);
+  Options: array[TACOption] of Integer = (ACO_AUTOAPPEND, ACO_AUTOSUGGEST, ACO_UPDOWNKEYDROPSLIST);
 var
-  Option:TACOption;
+  Option: TACOption;
   Opt: DWORD;
   AC2: IAutoComplete2;
 begin

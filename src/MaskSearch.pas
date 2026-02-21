@@ -41,9 +41,9 @@ function CompileMask(MaskStr: string): TStringList; {; FindFile: Boolean; MatchC
 var
   ct: Integer;
   b: string;
-  ps1,ps2,ps3    : Integer;
-  dontcare       : Boolean;
-  onechar        : Char;
+  ps1,ps2    : Integer;
+ // dontcare   : Boolean;
+  onechar    : Char;
   //grepItem: string;
   tmpList, GrepList: TStringList;
 begin
@@ -226,7 +226,7 @@ function WildcardMatch(const Text, Pattern: string): Boolean;
 var
   iText, iPat, lenPat: Integer;
   starPat, starText: Integer;
-  chText, chPat: Char;
+  {chText,} chPat: Char;
 
 begin
   iText := 1;

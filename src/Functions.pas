@@ -85,6 +85,14 @@ implementation
 uses
   WinAPI.ShellAPI, WinAPI.AclAPI, WinAPI.AccCtrl, StrUtils, IOUtils, SyncObjs, Math;
 
+ resourcestring
+   sFileTypeFileNotFound = 'File not found (probably deleted)';
+   sFileTypeUnknown = 'Unknown file type';
+   sMillisecLongFormat =  '%u h %u min %u sec %u ms';
+   sMillisecMiddleFormat = '%u min %u sec %u ms';
+   sMillisecShortFormat = '%u sec %u ms';
+
+
 // need for checking if app running with admin rights
 function CheckTokenMembership; external 'advapi32.dll' name 'CheckTokenMembership';
 
@@ -107,18 +115,18 @@ begin
   minutes := (ms div 60000) mod 60;
   hours := (ms div 3600000) mod 24;
 
-  //char buf[100];
   if hours > 0 then
-    Result := Format('%u h %u min %u sec %u ms', [hours, minutes, seconds, milliseconds])
+    Result := Format(sMillisecShortFormat, [hours, minutes, seconds, milliseconds])
   else if minutes > 0 then
-    Result := Format('%u min %u sec %u ms', [minutes, seconds, milliseconds])
+    Result := Format(sMillisecMiddleFormat, [minutes, seconds, milliseconds])
   else
-    Result := Format('%u sec %u ms', [seconds, milliseconds]);
+    Result := Format(sMillisecShortFormat, [seconds, milliseconds]);
 end;
 
 procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
 var
-  i, sz: Integer;
+  i: Int64;
+  sz:Int64;
 begin
   sz := Length(Arr);
   for i := 0 to sz - 1 do Strings.Add(Arr[i]);
@@ -249,8 +257,9 @@ end;
 procedure SplitByStrings(InputStr: string; DelimStrList: THArrayG<string>; var output: THArrayG<SplitRec>);
 var
   p1, p2: Integer;
-  i, len: Integer;
+  len: Integer;
   val: SplitRec;
+  i: Cardinal;
 begin
   output.Clear;
 
@@ -515,9 +524,9 @@ begin
 
     var err := GetLastError();
     if (err = ERROR_FILE_NOT_FOUND) OR (err = ERROR_PATH_NOT_FOUND) then begin // file not found error
-      Item.FFileType := 'File not found (probably deleted)';
+      Item.FFileType := sFileTypeFileNotFound;
     end else begin
-      Item.FFileType := 'Unknown file type';
+      Item.FFileType := sFileTypeUnknown;
     end;
 
     TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call ShGetFileInfo(%s).', [err, SysErrorMessage(err), FullFileName]));
@@ -631,7 +640,7 @@ var
    dwOwnerNameSize:Cardinal;
    dwDomainNameSize: Cardinal;
    sidType: SID_NAME_USE;
-   bOwnerDefaulted: BOOL;
+  // bOwnerDefaulted: BOOL;
  begin
    pSidOwner := nil;
    pSD := nil;
@@ -686,7 +695,7 @@ var
 
 //const DEF_LOG_FILENAME = 'FinderX_denug.log';
 const
-  INVALID_SET_FILE_POINTER = -1;
+  INVALID_SET_FILE_POINTER = Cardinal(-1);
 
 class constructor TLogger.Create;
 begin
@@ -707,7 +716,7 @@ begin
 end;
 
 class procedure TLogger.Init(const LogFileName: string);
-var tdir: TDirectory;
+//var tdir: TDirectory;
 begin
   // do nothing if logfilename has not changed
   if (FFileH <> INVALID_HANDLE_VALUE) AND (CompareText(FLogFileName, LogFileName) = 0) then Exit;

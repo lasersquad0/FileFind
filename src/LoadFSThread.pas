@@ -56,7 +56,8 @@ implementation
 
 uses SysUtils, System.UITypes, Vcl.Dialogs, Windows, Functions;
 
-
+ resourcestring
+   sUserCancelledIndexingOperation = 'User has cancelled file indexing operation.';
 
 { TLoadFSThread }
 
@@ -122,10 +123,16 @@ begin
   except
     on E: EOperationCancelled do begin
       TCache.FreeInst2; // clear half filled Instance2
-      Synchronize(procedure begin MessageDlg('User has cancelled file indexing operation.', mtInformation, [mbOK], 0) end);
+      Synchronize(procedure begin MessageDlg(sUserCancelledIndexingOperation, mtInformation, [mbOK], 0) end);
+    end;
+    on E: Exception do begin
+      TLogger.LogFmt('[TLoadFSThread.Execute] unhandled exception caught: %s', [E.Message]);
+      TCache.FreeInst2; // clear half filled Instance2
     end else begin
+      TLogger.Log('[TLoadFSThread.Execute] unhandled exception caught: UNKNOWN');
       TCache.FreeInst2; // clear half filled Instance2
     end;
+
   end;
 
   //var FindCloseThread := TFindCloseThread.Create(True); // thread to close all find handles

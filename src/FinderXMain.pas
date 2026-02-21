@@ -140,6 +140,7 @@ type
     FCaptionSplitArray: THArrayG<SplitRec>; // this array is for optimization for marking bold search term during drawing ListView
     FSearchSplitArray: THArrayG<string>;
 
+    procedure OnAppException(Sender: TObject; E: Exception);
     procedure SaveIndexFile;
     procedure StoreColumns;
     procedure InitColumns;
@@ -185,14 +186,37 @@ type
 var
   MainForm: TMainForm;
 
+resourcestring
+  sMainWindowTitle = 'FinderX - find files quick!';
 
 implementation
 
 uses
   System.TypInfo, WinAPI.ShellAPI, WinAPI.CommCtrl, System.UITypes, Vcl.Graphics, Math, DateUtils, ClipBrd,
-  SyncObjs, ActiveX, Settings, SettingsForm, {IndexingLog,} About, StatisticForm;
+  SyncObjs, ActiveX, Settings, SettingsForm, {IndexingLog,} About;//, StatisticForm;
 
 {$R *.dfm}
+
+resourcestring
+  sSizeUnknown = 'unknown';
+  sSizeNA = 'N/A';
+  sColumnNotFound = 'Column not found.';
+  sDeleteIndexFileWarning = 'Are you sure you want to delete index file (%s)?';
+  sCancelIndexingWarning = 'Are you sure you want to cancel indexing?';
+  sStatusBarLoad = 'Load: ';
+  sStatusBarItems = 'Items: ';
+  sStatusBarSize = 'Size: ';
+  sStatusBarSearchTime = 'Search time: %s';
+  sStatusBarFound = '  Found: %s';
+  sStatusBarFound2 = '  Found: %s (%u%%)';
+  sIndexButtonHint = 'Index file has volumes %s. Indexing date %s.';
+  sIndexButtonHint2 = 'Index file has not volumes. Press "Refresh Index" button to index volume(s).';
+  sIndexingInProgressWarning = 'Cannot close form because indexing is in progress.';
+  sProgressLabelCaption = 'Indexing progress...';
+  sProgressLabelCaption2 = 'Indexing %s...';
+  sSearchEditboxLabelCaption = 'Search here';
+  sSearchEditboxHint = 'Type your search here';
+
 
 // builds string representation of file size adds suffixes KB, MB, GB depending of the value
 // do not move to Functions.pas because it uses AppSettings
@@ -208,7 +232,7 @@ begin
     sfBytes: begin Result := ThousandSep(Size); end;
     sfKilobytes: begin Result := ThousandSep(Size div 1024) + ' KB'; end;
     sfMegabytes: begin Result := ThousandSep(Size div 1024 div 1024) + ' MB'; end;
-    else Result := 'unknown';
+    else Result := sSizeUnknown;
   end;
 end;
 
@@ -234,7 +258,7 @@ begin
    if Item.IsDirectory then begin
      if Item.FDenied then begin
        ResultsItem.Size := 0;
-       ResultsItem.SizeStr := 'N/A';
+       ResultsItem.SizeStr := sSizeNA;
      end else begin
        if AppSettings.HideFoldersSize then begin
          ResultsItem.Size := 0;
@@ -305,6 +329,12 @@ begin
     TLogger.LogFmt('FFileInfoMessagesCount: %d', [FFileInfoMessagesCount]);
   end;
 end;
+
+procedure TMainForm.OnAppException(Sender: TObject; E: Exception);
+begin
+  TLogger.LogFmt('App exception caught: %s', [E.Message]);
+end;
+
 
 procedure TMainForm.OnRestoreFormRemote(var Msg: TMessage);
 begin
@@ -479,7 +509,7 @@ begin
     if item.Checked
       then col.Width := 0
       else col.Width := colInfo.Width;
-  end else MessageDlg('Column not found.', TMsgDlgType.mtWarning, [mbOK], 0);
+  end else MessageDlg(sColumnNotFound, TMsgDlgType.mtWarning, [mbOK], 0);
 
   item.Checked := NOT item.Checked;
 
@@ -505,7 +535,7 @@ end;
 
 procedure TMainForm.DeleteIndexClick(Sender: TObject);
 begin
-   if mrYes = MessageDlg('Are you sure you want to delete index file (' + AppSettings.IndexFileName + ')?', TMsgDlgType.mtConfirmation, [mbYes, mbNo], 0, mbYes) then begin
+   if mrYes = MessageDlg(Format(sDeleteIndexFileWarning, [AppSettings.IndexFileName]), TMsgDlgType.mtConfirmation, [mbYes, mbNo], 0, mbYes) then begin
      DeleteFile(AppSettings.IndexFileName);
      ListView1.Items.Count := 0; // reset search results to zero
      ClearSearchResults;
@@ -557,7 +587,7 @@ var
   oldFont: TFontStyles;
   oldBrush: TColor;
   retOldBrush: Boolean;
-  srchStr, tmpStr: string;
+  {srchStr,} tmpStr: string;
   i: Cardinal;
 const
   HoverClr = TColor($FFF3E5);
@@ -846,7 +876,7 @@ procedure TMainForm.CancelBtnClick(Sender: TObject);
 var
   ifCancel: Integer;
 begin
-  ifCancel := MessageDlg('Are you sure you want to cancel indexing?', TMsgDlgType.mtWarning, [mbYes, mbNo], 0, mbYes);
+  ifCancel := MessageDlg(sCancelIndexingWarning, TMsgDlgType.mtWarning, [mbYes, mbNo], 0, mbYes);
   // because other threads read this variable as a signal to stop execution
   TInterlocked.Exchange(FCancelIndexing, ifCancel = mrYes);
 end;
@@ -942,7 +972,7 @@ end;
 // updates panels 2,3,4 only
 procedure TMainForm.UpdateStatusBarXXX(ExecData: TArray<TVolumeExecData>);
 var
-  i: Cardinal;
+  i: Int64;
   VolSize, LoadTime, ItemsCnt: string;
 begin
   for i := 1 to Length(ExecData) do begin
@@ -952,9 +982,9 @@ begin
   end;
 
   VolSize := VolSize + '| ' + TCache.Instance.IndexFileSaveDate.ToString;
-  StatusBar1.Panels[2].Text := 'Load: ' + LoadTime;
-  StatusBar1.Panels[3].Text := 'Items: ' + ItemsCnt;
-  StatusBar1.Panels[4].Text := 'Size: ' + VolSize;
+  StatusBar1.Panels[2].Text := sStatusBarLoad  + LoadTime;
+  StatusBar1.Panels[3].Text := sStatusBarItems + ItemsCnt;
+  StatusBar1.Panels[4].Text := sStatusBarSize  + VolSize;
 
   UpdateStatusBarPanelsWidth;
 end;
@@ -963,14 +993,14 @@ end;
 // SearchTime should be in milliseconds
 procedure TMainForm.UpdateStatusBarXX(FoundItems, SearchTime: Cardinal);
 begin
-  StatusBar1.Panels[0].Text := Format('  Found: %s', [ThousandSep(FoundItems)]);
-  StatusBar1.Panels[1].Text := Format('Search time: %s', [MillisecToStr(SearchTime)]);
+  StatusBar1.Panels[0].Text := Format(sStatusBarFound, [ThousandSep(FoundItems)]);
+  StatusBar1.Panels[1].Text := Format(sStatusBarSearchTime, [MillisecToStr(SearchTime)]);
 end;
 
 // updates panels 0 only with extra info.
 procedure TMainForm.UpdateStatusBarX(FoundItems, Percent: Cardinal);
 begin
-  StatusBar1.Panels[0].Text := Format('  Found: %s (%u%%)', [ThousandSep(FoundItems), Percent]);
+  StatusBar1.Panels[0].Text := Format(sStatusBarFound2, [ThousandSep(FoundItems), Percent]);
  // StatusBar1.Invalidate; //TODO: may be we do not need it
 end;
 
@@ -981,7 +1011,7 @@ end;
 
 procedure TMainForm.StatisticsMenuItemClick(Sender: TObject);
 begin
-  StatisticForm1.ShowModal;
+ // StatisticForm1.ShowModal;
 end;
 
 procedure TMainForm.AboutMenuItemClick(Sender: TObject);
@@ -1018,8 +1048,8 @@ function TMainForm.BuildIndexingBtnHint: string;
 begin
   var cache := TCache.Instance;
   if cache.VolumesCount > 0
-    then Result := Format('Index file has volumes %s. Indexing date %s.', [cache.GetVolumeNamesAsString, cache.IndexFileSaveDate.ToString {DateTimeToStr(cache.IndexFileSaveDate)}])
-    else Result := 'Index file has not volumes. Press "Refresh Index" button to index volume(s).';
+    then Result := Format(sIndexButtonHint, [cache.GetVolumeNamesAsString, cache.IndexFileSaveDate.ToString {DateTimeToStr(cache.IndexFileSaveDate)}])
+    else Result := sIndexButtonHint;
 end;
 
 // define this symbol when do performance measure with NQS tool
@@ -1054,7 +1084,7 @@ end;
 procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
   if Assigned(FProgressListener)
-    then MessageDlg('Cannot close form because indexing is in progress.', TMsgDlgType.mtWarning, [mbOK], 0);
+    then MessageDlg(sIndexingInProgressWarning, TMsgDlgType.mtWarning, [mbOK], 0);
 
   CanClose := NOT Assigned(FProgressListener);
 end;
@@ -1062,6 +1092,10 @@ end;
 procedure TMainForm.FormCreate(Sender: TObject);
 var ifsDate: TDateTime;
 begin
+ // Application.OnException := OnAppException; // for logging purposes
+
+  Caption := sMainWindowTitle; // for translating and for detecting first running app copy purposes
+
   MsgDlgIcons[mtInformation] := TMsgDlgIcon.mdiInformation;
   MsgDlgIcons[mtConfirmation] := TMsgDlgIcon.mdiShield;
 
@@ -1105,7 +1139,7 @@ begin
   ProgressLabel.Height := 17;
   ProgressLabel.Top := 5;
   ProgressLabel.Left := ProgressBar1.Left - ProgressLabel.Width;
-  ProgressLabel.Caption := 'Indexing progress...';
+  ProgressLabel.Caption := sProgressLabelCaption;
   ProgressLabel.Anchors := [akTop, akRight];
 
   UpdateStatusBarXXX(TCache.Instance.GetExecData);
@@ -1124,7 +1158,7 @@ procedure TMainForm.InitSearchEdit();
 begin
   SearchEdit := TSearchEdit.Create(self);
   SearchEdit.Parent := SearchPanel;
-  SearchEdit.EditLabel.Caption := 'Search here';
+  SearchEdit.EditLabel.Caption := sSearchEditboxLabelCaption;
   SearchEdit.LabelPosition := lpLeft;
   SearchEdit.Left := 70;
   SearchEdit.Top := 8;
@@ -1133,7 +1167,7 @@ begin
   SearchEdit.OnChange := SearchEditChange;
   SearchEdit.OnKeyPress := SearchEditKeyPress;
   SearchEdit.OnEnter := SearchEditEnter;
-  SearchEdit.Hint := 'Type your search here';
+  SearchEdit.Hint := sSearchEditboxHint;
   SearchEdit.ShowHint := True;
   SearchEdit.AutoSelect := True;
 
@@ -1175,25 +1209,36 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
+  TLogger.Log('[TMainForm.FormDestroy] 1.');
   if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.Terminate;
 
   // do some usefull work while thread is terminating
 
   if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.WaitFor;
 
+  TLogger.Log('[TMainForm.FormDestroy] 2.');
+
   ClearSearchResults; // to move items into FSearchResultsCache where they will be properly destroyed.
   FreeAndNil(FSearchResults);
   FreeAndNil(FSearchResultsCache);
   FreeAndNil(FSearchResultsFileInfoThread);
+
+  TLogger.Log('[TMainForm.FormDestroy] 3.');
 
   StoreColumns;
   SaveIndexFile; // We also save index file here because it contains OwnerName that is read by FSearchResultsFileInfoThread thread.
   AppSettings.SearchHistory.Assign(SearchEdit.ACStrings);
   AppSettings.Save; // save all settings including updated search history data
 
+  TLogger.Log('[TMainForm.FormDestroy] 4.');
+
   SearchEdit.Free; // because we create it in code in FormCreate()
+  TLogger.Log('[TMainForm.FormDestroy] 5.');
   FreeAndNil(FCaptionSplitArray);
+  TLogger.Log('[TMainForm.FormDestroy] 6.');
   FreeAndNil(FSearchSplitArray);
+
+  TLogger.Log('[TMainForm.FormDestroy] 7.');
 end;
 
 procedure TMainForm.StoreColumns;
@@ -1284,7 +1329,7 @@ begin
    begin
       if Notes.StartsWith('\\?\') then Notes := Copy(Notes, 5);
 
-      MainForm.ProgressLabel.Caption := 'Indexing ' + Notes + '...';
+      MainForm.ProgressLabel.Caption := Format(sProgressLabelCaption2, [Notes]); //'Indexing ' + Notes + '...';
       MainForm.ProgressBar1.Position := 0;
    end
    );
@@ -1300,53 +1345,62 @@ var
   start: Cardinal;
   tmpI: TCacheItemExt;
   LogPrefix: string;
-  Owner: string;
+  //Owner: string;
 begin
-  start := GetTickCount;
+  Start := GetTickCount;
 
   CoInitialize(nil); // this need to be called for each thread in app for proper work of ShGetFileInfo, for main thread it is called automatically by Delphi
 
-  LogPrefix := '[' + ClassName + ']['+ ThreadID.ToString + ']';
+  LogPrefix := '[' + ClassName + '][' + ThreadID.ToString + ']';
   try
-    TLogger.Log(LogPrefix + ' STARTED');
-    if Terminated then begin
-      TLogger.Log(LogPrefix + ' Terminated = True detected');
-      Exit;
-    end;
+    try
+      TLogger.Log(LogPrefix + ' STARTED');
+      if Terminated then begin
+        TLogger.Log(LogPrefix + ' Terminated = True detected');
+        Exit;
+      end;
 
-    SearchResCnt := MainForm.FSearchResults.Count;
-    for i := 1 to SearchResCnt do begin
-      Assert(SearchResCnt = MainForm.FSearchResults.Count); // check that search results are not changed
+      SearchResCnt := MainForm.FSearchResults.Count;
+      for i := 1 to SearchResCnt do begin
+        Assert(SearchResCnt = MainForm.FSearchResults.Count); // check that search results are not changed
 
-      if ((i mod 500) = 0) then begin // repaint list of items after every 100 loaded icons
-        MainForm.ListView1.Invalidate;
-        if Terminated then begin
-          TLogger.Log(LogPrefix + ' Terminated = True detected');
-          Exit;
+        if ((i mod 500) = 0) then begin // repaint list of items after every 100 loaded icons
+          MainForm.ListView1.Invalidate;
+          if Terminated then begin
+            TLogger.Log(LogPrefix + ' Terminated = True detected');
+            Exit;
+          end;
         end;
+
+        var
+        resItem := MainForm.FSearchResults[i - 1];
+
+        if resItem.Item.FFileType = '' then begin
+          tmpI := TCacheItemExt.Create;
+          tmpI.Assign(resItem.Item);
+          tmpI.CacheItem := resItem.Item;
+
+          if resItem.Item.FOwner = '' then tmpI.FOwner := GetFileOwnerName(resItem.Item.FPath);
+
+          GetFileShellInfo(resItem.Item.FPath, tmpI); // we do not need to check function return value here
+          PostMessage(MainForm.Handle, WM_SEARCHRESULTSSHELLINFO_MSG, WParam(tmpI), LParam(i - 1));
+        end;
+
       end;
-
-      var resItem := MainForm.FSearchResults[i - 1];
-
-      if resItem.Item.FFileType = '' then begin
-        TmpI := TCacheItemExt.Create;
-        TmpI.Assign(resItem.Item);
-        TmpI.CacheItem := resItem.Item;
-
-        if resItem.Item.FOwner = ''
-          then TmpI.FOwner := GetFileOwnerName(resItem.Item.FPath);
-
-        GetFileShellInfo(resItem.Item.FPath, TmpI); // we do not need to check function return value here
-        PostMessage(MainForm.Handle, WM_SEARCHRESULTSSHELLINFO_MSG, WPARAM(TmpI), LPARAM(i - 1));
+    except
+      on E: Exception do begin
+        TLogger.LogFmt('[TSearchResultsShellInfoThread.Execute] unhandled exception caught: %s', [E.Message]);
+      end else begin
+        TLogger.Log('[TSearchResultsShellInfoThread.Execute] unhandled exception caught: UNKNOWN');
       end;
-
     end;
+
   finally
     // sending "notification" message that work has finished
-    PostMessage(MainForm.Handle, WM_SEARCHRESULTSSHELLINFO_MSG, WPARAM(nil), LPARAM(MainForm.FSearchResults.Count));
+    PostMessage(MainForm.Handle, WM_SEARCHRESULTSSHELLINFO_MSG, WParam(nil), LParam(MainForm.FSearchResults.Count));
     MainForm.ListView1.Invalidate;
     CoUninitialize;
-    TLogger.Log(LogPrefix + ' FINISHED. Time spent: ' + MillisecToStr(GetTickCount - start));
+    TLogger.Log(LogPrefix + ' FINISHED. Time spent: ' + MillisecToStr(GetTickCount - Start));
   end;
 end;
 

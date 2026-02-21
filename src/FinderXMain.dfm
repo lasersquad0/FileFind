@@ -244,9 +244,9 @@ object MainForm: TMainForm
       1296
       40)
     object AdvancedSearchButton: TSpeedButton
-      Left = 1167
+      Left = 1155
       Top = 7
-      Width = 121
+      Width = 140
       Height = 26
       AllowAllUp = True
       Anchors = [akTop, akRight]
@@ -409,7 +409,7 @@ object MainForm: TMainForm
     object IndexingBitBtn: TBitBtn
       Left = 556
       Top = 7
-      Width = 121
+      Width = 140
       Height = 26
       Caption = 'Refresh Index...'
       ImageIndex = 7
@@ -542,7 +542,6 @@ object MainForm: TMainForm
     OnContextPopup = ListView1ContextPopup
     OnData = ListView1Data
     OnDblClick = ListView1DblClick
-    ExplicitTop = 67
   end
   object ProgressBar1: TProgressBar
     Left = 890

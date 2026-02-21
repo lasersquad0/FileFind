@@ -311,7 +311,7 @@ begin
        reg.WriteString(STVL[snIndexFileName].Name, IndexFileName);
        reg.WriteBool(STVL[snWriteLogFile].Name, WriteLogFile);
        reg.WriteString(STVL[snLogFileName].Name, LogFileName);
-       reg.WriteBool(STVL[snNTFSFastReading].Name, FastReadingNTFS);
+       //reg.WriteBool(STVL[snNTFSFastReading].Name, FastReadingNTFS);
      end;
      reg.CloseKey;
 
