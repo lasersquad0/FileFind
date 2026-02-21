@@ -369,7 +369,7 @@ begin
     hFind := FindFirstFileEx(PChar(SearchDir), FindExInfoBasic, @fileData, FindExSearchNameMatch, nil, FIND_FIRST_EX_LARGE_FETCH);
     //hFind := Windows.FindFirstFile(PChar(searchDir), fileData);
 
-    if (hFind = INVALID_HANDLE_VALUE) then begin
+    if hFind = INVALID_HANDLE_VALUE then begin
       Err.ErrCode := GetLastError();
       if Err.ErrCode = ERROR_ACCESS_DENIED then begin // special processing for ERROR_ACCESS_DENIED error
         Err.Msg := 'Access denied: ' + CurrDir;
@@ -390,6 +390,8 @@ begin
     end;
 
     Assert(fileData.cFileName[0] <> #0);
+
+    ItemsCount := 0;
 
     // bypass dirs '.' and '..'
     if NOT IS_DOT_DIR(fileData.cFileName) then begin
@@ -737,6 +739,7 @@ begin
     sdCreated:    Result := (CompareFileTime(item.FCreationTime, Filter.DateFrom)   >= 0) AND (CompareFileTime(item.FCreationTime, Filter.DateTo)   <= 0);
     sdLastAccess: Result := (CompareFileTime(item.FLastAccessTime, Filter.DateFrom) >= 0) AND (CompareFileTime(item.FLastAccessTime, Filter.DateTo) <= 0);
     sdNone:       Result := False;
+  else Result := False;
   end;
 end;
 
@@ -926,8 +929,8 @@ var
   origItem: PCACHE_ITEM;
   level: TLevelType;
   item: TCacheItem;
-  j, i: Integer;
-  start, err, len: Cardinal;
+  j, i: Cardinal;
+  start{, err, len}: Cardinal;
 begin
   start := GetTickCount;
 
@@ -938,6 +941,8 @@ begin
 
   for i := 1 to Count do begin
     origLevel := fileCache^;
+
+    TLogger.LogFmt('[TVolumeCache.Deserialize] reading level %d', [i]);
 
     // avoid empty levels
     if origLevel.FCount > 0 then begin
@@ -1113,7 +1118,7 @@ begin
     FillFileData(pathArrayAccum[0], fileData);
     parent := AddRootItem(fileData);
 
-    lv := 1;
+  //  lv := 1;
     Assert(lv = parent.ItemLevel + 1);
     for lv := 1 to pathArray.Count - 1 do begin
       Assert(lv = parent.ItemLevel + 1);
@@ -1218,7 +1223,7 @@ end;
 
 function TVolumeCache.ReadVolume(Volume: string; ExclusionsList: TArray<string>): UInt64;
 var
-  i: Cardinal;
+  i: Int64;
   str: string;
 begin
   var start := GetTickCount;
@@ -1340,6 +1345,8 @@ begin
     TLogger.LogFmt('Error loading volume %s. Error code: %d. Error msg: %s.', [Volume, err.ErrCode, err.Msg]);
     NotifyError(err);
     raise EInOutError.Create(err.ErrText, Volume);
+  end else begin
+    TLogger.Log('[ReadVolumeDirect] Finished successfully');
   end;
 
   Deserialize(fileCache, cnt); // this call makes FIndexedDateTime = Now;
@@ -1875,7 +1882,7 @@ begin
   // check that Volume is NTFS volume type.
   // if not - call ReadVolume function that works with all volume types (but slower)
   SetLength(fsType, MAX_PATH);
-  GetVolumeInformation(PChar(Volume), nil, 0, nil, MaxComponentLen, SystemFlags, PChar(fsType), MAX_PATH);
+  GetVolumeInformation(PChar(Volume), nil, 0, nil, MaxComponentLen, SystemFlags, PChar(fsType), MAX_PATH); //TODO: check for error?
 
   if fsType.StartsWith('NTFS', True) then begin
     vol.FProgressListeners := FProgressListeners;
@@ -1907,13 +1914,39 @@ end;
 
 
 initialization
-  //GPathCache := TObjectsCache<THArrayG<string>>.Create(3, False); //we have two threads that will work with this global objects, so 3 items should be enough
-  Assert(sizeof(NTFS_DUP_INFO) = $38);
+{$IF sizeof(MFT_REF) <> 8}
+  {$MESSAGE FATAL 'MFT_REC record size mismatch! Expected 8 bytes.'}
+{$ENDIF}
+{$IF sizeof(MFT_INDEX) <> sizeof(MFT_REF) }
+  {$MESSAGE FATAL 'MFT_INDEX and MFT_REF records must have the same size.'}
+{$ENDIF}
+{$IF sizeof(NTFS_DUP_INFO) <> 56 }
+  {$MESSAGE FATAL 'NTFS_DUP_INFO record size mismatch. Expected 56 bytes.'}
+{$ENDIF}
+{$IF sizeof(ATTR_FILE_NAME) <> 66}
+  {$MESSAGE FATAL 'ATTR_FILE_NAME record size mismatch. Excpected 66 bytes.'}
+{$ENDIF}
+{$IF sizeof(CACHE_ITEM) <> 12 + sizeof(MFT_REF) + sizeof(ATTR_FILE_NAME) }
+  {$MESSAGE FATAL 'CACHE_ITEM record size mismatch. Expected 86 bytes.'}
+{$ENDIF}
+{$IFDEF CPUX86}
+{$IF sizeof(TFileLevel) <> 8}
+  {$MESSAGE FATAL 'TFileLEvel record size mismatch. Excpected 8 bytes.'}
+{$ENDIF}
+{$ELSEIF defined(CPUX64) }
+{$IF sizeof(TFileLevel) <> 12}
+  {$MESSAGE FATAL 'TFileLEvel record size mismatch. Excpected 12 bytes.'}
+{$ENDIF}
+{$ELSE}
+  {$MESSAGE FATAL 'Neither CPUX86 nor CPUX64 are defined.'}
+{$ENDIF}
+
+{
   Assert(sizeof(MFT_REF) = $8);
   Assert(sizeof(MFT_INDEX) = sizeof(MFT_REF));
+  Assert(sizeof(NTFS_DUP_INFO) = $38);
   Assert(sizeof(ATTR_FILE_NAME) = $42);
   Assert(sizeof(CACHE_ITEM) = $C + sizeof(MFT_REF) + sizeof(ATTR_FILE_NAME));
-finalization
-  //FreeAndNil(GPathCache);
-  //TCache.FreeInst; // free cache singlton
+  Assert(sizeof(TFileLEvel) = $C);
+  }
 end.
