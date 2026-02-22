@@ -8,7 +8,7 @@ type
   // display columns
   TFileInfo = (fiName, fiSize, fiType, fiModified, fiLastAccess, fiCreated, fiAttributes, fiPath, fiItemsCount, fiOwner);
 
-  // Column settings structure
+  // Single column settings structure
   TColumnInfo = record
     ColType: TFileInfo;
     Visible: Boolean;
@@ -18,8 +18,6 @@ type
   TColumnInfos = array [0..Ord(High(TFileInfo))] of TColumnInfo;
 
   TSizeFormat = (sfAuto, sfBytes, sfKilobytes, sfMegabytes);
-  //TSizeFormatLabels = array[TSizeFormat] of string;
-
 
   TSettingInfo = record
     Name: string;
@@ -30,7 +28,7 @@ type
 
   TSettingNames = (snCaseSensitiveSearch, snCaseSensitiveSort, snHideFoldersSize, snEnableSearchHistory,
                    snFoldersOnTop, snSearchAsYouType, snSearchAfterSymbols, snShowTrayIcon, snMinimizeToTray,
-                   snRunAsAdmin, snHighlightSearchTerms, snShowRowMouseover, snStartAppWithSystem,
+                   snRunAsAdmin, snHighlightSearchTerms, snShowRowMouseover, snStartAppWithSystem, snStartMinimized,
                    snIncludeNewFixedVolumes, snIncludeNewRemovableVolumes, snRemoveOfflineVolumes, snExcludeFolders,
                    snExcludeFoldersList, snSizeFormat,  snMaxFoundItems, snVolumesToIndex, snIndexFileName,
                    snWriteLogFile, snLogFileName, snNTFSFastReading);
@@ -51,6 +49,7 @@ type
     HighlightSearchTerms: Boolean;
     ShowRowMouseover: Boolean;
     StartAppWithSystem: Boolean;
+    StartMinimized: Boolean;
     IncludeNewFixedVolumes: Boolean;
     IncludeNewRemovableVolumes: Boolean;
     RemoveOfflineVolumes: Boolean;
@@ -112,11 +111,12 @@ var
                           (Name:'SearchAfterSymbols';  DefValueI: 3),     (Name:'ShowTrayIcon';        DefValueB: True),
                           (Name:'MinimizeToTray';      DefValueB: True),  (Name:'RunAsAdmin';          DefValueB: False),
                           (Name:'HighlightSearchTerms'; DefValueB: True), (Name:'ShowRowMouseover';    DefValueB: True),
-                          (Name:'StartAppWithSystem';  DefValueB: False), (Name:'IcludeNewFixedVolumes'; DefValueB: True),
-                          (Name:'IncludeNewRemovableVolumes'; DefValueB: False), (Name:'RemoveOfflineVolumes'; DefValueB: True),
-                          (Name:'ExcludeFolders';      DefValueB: False), (Name:'ExcludeFoldersList';  DefValueS: ''),
-                          (Name:'SizeFormat';          DefValueI: Ord(sfAuto)), (Name:'MaxFoundItems'; DefValueI: 20_000),
-                          (Name:'VolumesToIndex';      DefValueS: 'C:\'), (Name:'IndexFileName';       DefValueS: TSettings.INDEX_FILENAME),
+                          (Name:'StartAppWithSystem';  DefValueB: False), (Name:'StartMinimized';      DefValueB: False),
+                          (Name:'IcludeNewFixedVolumes'; DefValueB: True),(Name:'IncludeNewRemovableVolumes'; DefValueB: False),
+                          (Name:'RemoveOfflineVolumes'; DefValueB: True), (Name:'ExcludeFolders';      DefValueB: False),
+                          (Name:'ExcludeFoldersList';  DefValueS: ''),    (Name:'SizeFormat';          DefValueI: Ord(sfAuto)),
+                          (Name:'MaxFoundItems'; DefValueI: 20_000),      (Name:'VolumesToIndex';      DefValueS: 'C:\'),
+                          (Name:'IndexFileName';       DefValueS: TSettings.INDEX_FILENAME),
                           (Name:'WriteLogFile';        DefValueB: True),  (Name:'LogFileName';         DefValueS: 'FinderX_debug.log'),
                           (Name:'FastReadingNTFS';     DefValueB: True)
                         );
@@ -141,6 +141,7 @@ begin
   HighlightSearchTerms       := STVL[snHighlightSearchTerms].DefValueB;
   ShowRowMouseover           := STVL[snShowRowMouseover].DefValueB;
   StartAppWithSystem         := STVL[snStartAppWithSystem].DefValueB;
+  StartMinimized             := STVL[snStartMinimized].DefValueB;
   IncludeNewFixedVolumes     := STVL[snIncludeNewFixedVolumes].DefValueB;
   IncludeNewRemovableVolumes := STVL[snIncludeNewRemovableVolumes].DefValueB;
   RemoveOfflineVolumes       := STVL[snRemoveOfflineVolumes].DefValueB;
@@ -193,6 +194,7 @@ begin
        if reg.ValueExists(STVL[snHighlightSearchTerms].Name)      then HighlightSearchTerms      := reg.ReadBool(STVL[snHighlightSearchTerms].Name);
        if reg.ValueExists(STVL[snShowRowMouseover].Name)          then ShowRowMouseover          := reg.ReadBool(STVL[snShowRowMouseover].Name);
        if reg.ValueExists(STVL[snStartAppWithSystem].Name)        then StartAppWithSystem        := reg.ReadBool(STVL[snStartAppWithSystem].Name);
+       if reg.ValueExists(STVL[snStartMinimized].Name)            then StartMinimized            := reg.ReadBool(STVL[snStartMinimized].Name);
        if reg.ValueExists(STVL[snIncludeNewFixedVolumes].Name)    then IncludeNewFixedVolumes    := reg.ReadBool(STVL[snIncludeNewFixedVolumes].Name);
        if reg.ValueExists(STVL[snIncludeNewRemovableVolumes].Name)then IncludeNewRemovableVolumes:= reg.ReadBool(STVL[snIncludeNewRemovableVolumes].Name);
        if reg.ValueExists(STVL[snRemoveOfflineVolumes].Name)      then RemoveOfflineVolumes      := reg.ReadBool(STVL[snRemoveOfflineVolumes].Name);
@@ -299,6 +301,7 @@ begin
        reg.WriteBool(STVL[snHighlightSearchTerms].Name, HighlightSearchTerms);
        reg.WriteBool(STVL[snShowRowMouseover].Name, ShowRowMouseover);
        reg.WriteBool(STVL[snStartAppWithSystem].Name, StartAppWithSystem);
+       reg.WriteBool(STVL[snStartMinimized].Name, StartMinimized);
        reg.WriteBool(STVL[snIncludeNewFixedVolumes].Name, IncludeNewFixedVolumes);
        reg.WriteBool(STVL[snIncludeNewRemovableVolumes].Name, IncludeNewRemovableVolumes);
        reg.WriteBool(STVL[snRemoveOfflineVolumes].Name, RemoveOfflineVolumes);

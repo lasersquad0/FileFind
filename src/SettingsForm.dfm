@@ -29,7 +29,6 @@ object SettingsForm1: TSettingsForm1
     ModalResult = 1
     TabOrder = 0
     OnClick = OKButtonClick
-    ExplicitLeft = 242
   end
   object CancelButton: TButton
     Left = 374
@@ -41,7 +40,6 @@ object SettingsForm1: TSettingsForm1
     Caption = 'Cancel'
     ModalResult = 2
     TabOrder = 1
-    ExplicitLeft = 354
   end
   object Sections: TListBox
     Left = 8
@@ -64,7 +62,7 @@ object SettingsForm1: TSettingsForm1
     Top = 10
     Width = 363
     Height = 297
-    ActiveCard = Card4
+    ActiveCard = Card3
     BevelInner = bvRaised
     BevelOuter = bvLowered
     Caption = 'SettingsPanels'
@@ -79,10 +77,9 @@ object SettingsForm1: TSettingsForm1
       ShowCaption = True
       TabOrder = 0
       VerticalAlignment = taAlignTop
-      ExplicitWidth = 335
       object LogFileLabel: TLabel
         Left = 28
-        Top = 159
+        Top = 188
         Width = 72
         Height = 15
         Caption = 'Log file name'
@@ -92,7 +89,13 @@ object SettingsForm1: TSettingsForm1
         Top = 55
         Width = 240
         Height = 21
+        Hint = 
+          'When checked application will be removed from Windows Task Bar w' +
+          'hen minimized.'#13#10'FinderX will be available from system tray where' +
+          ' icon will be shown.'
         Caption = 'Minimize to tray'
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 0
       end
       object ShowTrayIconCheckBox: TCheckBox
@@ -100,7 +103,10 @@ object SettingsForm1: TSettingsForm1
         Top = 28
         Width = 240
         Height = 21
+        Hint = 'Show FinderX icon in system tray while application is running.'
         Caption = 'Show tray icon'
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 1
         OnClick = ShowTrayIconCheckBoxClick
       end
@@ -110,9 +116,11 @@ object SettingsForm1: TSettingsForm1
         Width = 240
         Height = 21
         Hint = 
-          'If you check Run as administrator it will apply next time you la' +
-          'unch FinderX again.'
+          'If checked FinderX will Run with administrative rights next time' +
+          ' you launch FinderX again.'
         Caption = 'Run as administrator'
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 2
       end
       object StartWithWindowsCheckBox: TCheckBox
@@ -120,25 +128,45 @@ object SettingsForm1: TSettingsForm1
         Top = 106
         Width = 240
         Height = 21
+        Hint = 'Automatically run FinderX when Windows starts.'
         Caption = 'Start FinderX on system startup'
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 3
+        OnClick = StartWithWindowsCheckBoxClick
       end
       object LogFileCheckBox: TCheckBox
-        Left = 8
-        Top = 132
+        Left = 9
+        Top = 158
         Width = 250
         Height = 21
+        Hint = 
+          'Diagnostic information will be written into specified file when ' +
+          'checked.'
         Caption = 'Write diagnostic info into log file'
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 4
         OnClick = LogFileCheckBoxClick
       end
       object LogFileEdit: TEdit
         Left = 129
-        Top = 156
+        Top = 185
         Width = 159
         Height = 23
         TabOrder = 5
         Text = 'FinderX_debug.log'
+      end
+      object StartMinimizedCheckBox: TCheckBox
+        Left = 28
+        Top = 133
+        Width = 240
+        Height = 21
+        Hint = 'Start with main window minimized into system tray.'
+        Caption = 'Start minimized'
+        ParentShowHint = False
+        ShowHint = True
+        TabOrder = 6
       end
     end
     object Card2: TCard
@@ -151,7 +179,6 @@ object SettingsForm1: TSettingsForm1
       ShowCaption = True
       TabOrder = 1
       VerticalAlignment = taAlignTop
-      ExplicitWidth = 335
       object SearchAsYouTypeLabel2: TLabel
         Left = 193
         Top = 55
@@ -164,14 +191,22 @@ object SettingsForm1: TSettingsForm1
         Top = 55
         Width = 91
         Height = 15
+        Hint = 
+          'Search will start automatically only after you entered specified' +
+          ' number of symbols.'
         Caption = 'Start search after '
+        ParentShowHint = False
+        ShowHint = True
       end
       object CaseSearchCheckBox: TCheckBox
         Left = 9
         Top = 105
         Width = 200
         Height = 21
+        Hint = 'Perform case sensitive search.'
         Caption = 'Case sensitive search'
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 0
       end
       object EnableSearchHistoryCheckBox: TCheckBox
@@ -187,10 +222,15 @@ object SettingsForm1: TSettingsForm1
         Top = 51
         Width = 35
         Height = 23
+        Hint = 
+          'Search will not start automatically until you enter this number ' +
+          'of symbols.'
         Decimal = 0
         MinValue = 1.000000000000000000
         MaxValue = 100.000000000000000000
         MaxLength = 6
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 2
         Value = 3.000000000000000000
         UseMouseWheel = True
@@ -200,7 +240,14 @@ object SettingsForm1: TSettingsForm1
         Top = 28
         Width = 200
         Height = 21
+        Hint = 
+          'Do not require pressing Search button to start search. Start sea' +
+          'rch as you type symbols in search edit box.'#13#10'Search will be star' +
+          'ted only of you entered certain number of symbols. '#13#10'See '#39'Start ' +
+          'search after'#39' option.'
         Caption = 'Search as you type'
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 3
         OnClick = SearchAsYouTypeCheckBoxClick
       end
@@ -224,7 +271,6 @@ object SettingsForm1: TSettingsForm1
       ShowCaption = True
       TabOrder = 2
       VerticalAlignment = taAlignTop
-      ExplicitWidth = 335
       object Label1: TLabel
         Left = 8
         Top = 162
@@ -237,14 +283,22 @@ object SettingsForm1: TSettingsForm1
         Top = 188
         Width = 59
         Height = 15
+        Hint = 'Format in which file/folders sizes are shown in search results.'
         Caption = 'Size format'
+        ParentShowHint = False
+        ShowHint = True
       end
       object FoldersOnTopCheckBox: TCheckBox
         Left = 8
         Top = 54
         Width = 220
         Height = 21
+        Hint = 
+          'Makes Windows Explorer like sorting of folders when all folders ' +
+          'are put on top regardless of their names sorting order.'
         Caption = 'Put folders on top during sorting'
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 0
       end
       object MaxNumFoundBox: TNumberBox
@@ -275,7 +329,12 @@ object SettingsForm1: TSettingsForm1
         Top = 28
         Width = 220
         Height = 21
+        Hint = 
+          'Show '#39'-'#39' instead of folders size. This option might be useful wh' +
+          'en you are searching files by file size.'
         Caption = 'Do not show folders size'
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 3
       end
       object SizeFormatComboBox: TComboBox
@@ -306,7 +365,12 @@ object SettingsForm1: TSettingsForm1
         Top = 106
         Width = 220
         Height = 21
+        Hint = 
+          'Turn on or off highlighting of searched symbols in search result' +
+          's.'
         Caption = 'Highlight search terms'
+        ParentShowHint = False
+        ShowHint = True
         TabOrder = 6
       end
     end
@@ -326,7 +390,6 @@ object SettingsForm1: TSettingsForm1
       ShowCaption = True
       TabOrder = 3
       VerticalAlignment = taAlignTop
-      ExplicitWidth = 335
       object Label2: TLabel
         Left = 8
         Top = 216
@@ -398,7 +461,6 @@ object SettingsForm1: TSettingsForm1
       ShowCaption = True
       TabOrder = 4
       VerticalAlignment = taAlignTop
-      ExplicitWidth = 335
       object ExcludeFoldersCheckBox: TCheckBox
         Left = 8
         Top = 28

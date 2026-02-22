@@ -57,6 +57,7 @@ type
     Label2: TLabel;
     IndexLocationEdit: TEdit;
     ClearHistoryButton: TButton;
+    StartMinimizedCheckBox: TCheckBox;
     procedure OKButtonClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure SearchAsYouTypeCheckBoxClick(Sender: TObject);
@@ -71,6 +72,7 @@ type
     procedure ResetToDefaultButtonClick(Sender: TObject);
     procedure LogFileCheckBoxClick(Sender: TObject);
     procedure ClearHistoryButtonClick(Sender: TObject);
+    procedure StartWithWindowsCheckBoxClick(Sender: TObject);
   private
     FVolumes: TArray<string>;
     procedure UpdateClearHistoryCaption;
@@ -125,6 +127,7 @@ begin
   AppSettings.HighlightSearchTerms:= HighlightSearchTermsCheckBox.Checked;
   AppSettings.ShowRowMouseover    := ShowRowOnMouseOverCheckBox.Checked;
   AppSettings.StartAppWithSystem  := StartWithWindowsCheckBox.Checked;
+  AppSettings.StartMinimized      := StartMinimizedCheckBox.Checked;
   AppSettings.IncludeNewFixedVolumes := IncludeNewFixedDrivesCheckBox.Checked;
   AppSettings.IncludeNewRemovableVolumes := IncludeNewRemovableDrivesCheckBox.Checked;
   AppSettings.RemoveOfflineVolumes:= RemoveOfflineDrivesCheckBox.Checked;
@@ -164,6 +167,11 @@ end;
 procedure TSettingsForm1.ShowTrayIconCheckBoxClick(Sender: TObject);
 begin
   MinimizeToTrayCheckBox.Enabled := ShowTrayIconCheckBox.Checked;
+end;
+
+procedure TSettingsForm1.StartWithWindowsCheckBoxClick(Sender: TObject);
+begin
+  StartMinimizedCheckBox.Enabled := StartWithWindowsCheckBox.Checked;
 end;
 
 procedure TSettingsForm1.UpdateClearHistoryCaption;
@@ -270,6 +278,7 @@ begin
   HighlightSearchTermsCheckBox.Checked  := AppSettings.HighlightSearchTerms;
   ShowRowOnMouseOverCheckBox.Checked    := AppSettings.ShowRowMouseover;
   StartWithWindowsCheckBox.Checked      := AppSettings.StartAppWithSystem;
+  StartMinimizedCheckBox.Checked        := AppSettings.StartMinimized;
   IncludeNewFixedDrivesCheckBox.Checked := AppSettings.IncludeNewFixedVolumes;
   IncludeNewRemovableDrivesCheckBox.Checked := AppSettings.IncludeNewRemovableVolumes;
   RemoveOfflineDrivesCheckBox.Checked   := AppSettings.RemoveOfflineVolumes;
@@ -287,6 +296,7 @@ begin
   ExcludeFoldersCheckBoxClick(self);
   LogFileCheckBoxClick(self);
   ShowTrayIconCheckBoxClick(self);
+  StartWithWindowsCheckBoxClick(self);
   UpdateClearHistoryCaption;
 
   // exclude folders: if list from registry is empty then populate it with default values.
