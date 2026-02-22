@@ -24,7 +24,8 @@ uses
   DynamicArrays in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas',
   Hash in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas',
   Hash2 in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas',
-  SortedArray in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas';
+  SortedArray in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas',
+  Logger in '..\..\src\Logger.pas';
 
 {$R *.res}
 
@@ -48,39 +49,40 @@ begin
 
   if GetLastError = ERROR_ALREADY_EXISTS then begin
     // copy of FinderX is already running, activating first app copy
-    TLogger.Log('Another copy of FinderX app is running. Activating it.');
+    TLogger.Info('Another copy of FinderX app is running. Activating it.');
     var hWnd := FindWindow('TMainForm', PChar(sMainWindowTitle));
-    if hWnd = 0 then TLogger.Log('Cannot find FinderX window while mutex already exists.');
+    if hWnd = 0 then TLogger.Warn('Cannot find FinderX window while mutex already exists.');
     SendMessage(hWnd, WM_RESTORE_MAINFORM_MSG, 0, 0); //send user message to restore main form from tray
     CloseHandle(mutex);
-    TLogger.Log('Another FinderX copy is being activated. Exiting.');
+    TLogger.Info('Another FinderX copy is being activated. Exiting.');
     Exit;
   end;
 
   if AppSettings.RunAsAdmin then begin
     if IsAppRunningAsAdminMode then begin
-      TLogger.Log('Application is running with ADMIN RIGHTS!');
+      TLogger.Warn('Application is running with ADMIN RIGHTS!');
     end else begin
       CloseHandle(mutex); // important to close mutex before running new instance by ShellExecute
       var fname := Application.ExeName;
       var res := ShellExecute(0, 'runas', PChar(fname), nil, nil, SW_SHOWNORMAL); // try to run app with admin rights
-      if res < 33 then TLogger.Log('ShellExecute run as admin error: ' + IntToStr(res));
+      if res < 33 then TLogger.Error('ShellExecute run as admin error: ' + IntToStr(res));
       Exit;
     end;
   end;
 
-  TLogger.Log('Before Application.Initialize:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
+  TLogger.Info('Before Application.Initialize:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.Initialize;
   ReportMemoryLeaksOnShutdown := True;
   Application.MainFormOnTaskbar := True;
-  TLogger.Log('After Application.Initialize:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
+  TLogger.Info('After Application.Initialize:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.CreateForm(TMainForm, MainForm);
   Application.CreateForm(TAboutBox, AboutBox);
   Application.CreateForm(TIndexingLogForm, IndexingLogForm);
   Application.CreateForm(TSettingsForm1, SettingsForm1);
-  TLogger.Log('All application forms are created:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
+  TLogger.Info('All application forms are created:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.Run;
 
-  TLogger.Log('FinderX - FINISH');
   CloseHandle(mutex); // leave mutex open while app is running, important to close mutex in the beginning of app shutdown
+
+  TLogger.Info('FinderX - FINISH');
 end.

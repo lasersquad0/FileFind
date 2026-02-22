@@ -140,7 +140,6 @@ type
     FCaptionSplitArray: THArrayG<SplitRec>; // this array is for optimization for marking bold search term during drawing ListView
     FSearchSplitArray: THArrayG<string>;
 
-    procedure OnAppException(Sender: TObject; E: Exception);
     procedure SaveIndexFile;
     procedure StoreColumns;
     procedure InitColumns;
@@ -193,7 +192,7 @@ implementation
 
 uses
   System.TypInfo, WinAPI.ShellAPI, WinAPI.CommCtrl, System.UITypes, Vcl.Graphics, Math, DateUtils, ClipBrd,
-  SyncObjs, ActiveX, Settings, SettingsForm, {IndexingLog,} About;//, StatisticForm;
+  SyncObjs, ActiveX, Settings, SettingsForm, Logger, About;//, StatisticForm;
 
 {$R *.dfm}
 
@@ -238,7 +237,7 @@ end;
 
 procedure TMainForm.OnDEVICECHANGE(var Msg: TMessage);
 begin
-  TLogger.LogFmt('DEVICECHANGE detected: msg: %d, event: %d, lparam: %d', [Msg.Msg, Msg.WParam, Msg.LParam]);
+  TLogger.InfoFmt('DEVICECHANGE detected: msg: %d, event: %d, lparam: %d', [Msg.Msg, Msg.WParam, Msg.LParam]);
 end;
 
 
@@ -326,15 +325,9 @@ begin
     ProgressBarFileInfo.Position := ProgressBarFileInfo.Max;
     Application.ProcessMessages; // chance to show 100% progress
     ProgressBarFileInfo.Visible := False;
-    TLogger.LogFmt('FFileInfoMessagesCount: %d', [FFileInfoMessagesCount]);
+    TLogger.InfoFmt('FFileInfoMessagesCount: %d', [FFileInfoMessagesCount]);
   end;
 end;
-
-procedure TMainForm.OnAppException(Sender: TObject; E: Exception);
-begin
-  TLogger.LogFmt('App exception caught: %s', [E.Message]);
-end;
-
 
 procedure TMainForm.OnRestoreFormRemote(var Msg: TMessage);
 begin
@@ -603,7 +596,7 @@ begin
 
    if FCaptionSplitArray.Count = 0 then begin
      // unusual case when FSearchSplitArray.Count > 0 AND FCaptionSplitArray.Count = 0. Log info about it.
-     if FSearchSplitArray.Count > 0 then TLogger.LogFmt('FSplitArray.Count = 0 for item: %s', [Item.Caption]);
+     if FSearchSplitArray.Count > 0 then TLogger.InfoFmt('FSplitArray.Count = 0 for item: %s', [Item.Caption]);
      Exit;  // SplitArray.Count can be =0 when we doing search with wildcards.
    end;
 
@@ -1099,8 +1092,13 @@ begin
   MsgDlgIcons[mtInformation] := TMsgDlgIcon.mdiInformation;
   MsgDlgIcons[mtConfirmation] := TMsgDlgIcon.mdiShield;
 
-  // This call just returns if index file does not exist
-  TCache.Instance.DeserializeFrom(AppSettings.IndexFileName);
+  try
+    // This call just returns if index file does not exist
+    // this call generates an exception when index file format is wrong
+    TCache.Instance.DeserializeFrom(AppSettings.IndexFileName);
+  except
+    on E: Exception do MessageDlg(E.Message, mtError, [mbOK], 0)
+  end;
 
   Timer2Timer(nil); // show yellow warning immediately after app start if IndexDB is old or absent.
 
@@ -1209,36 +1207,36 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
-  TLogger.Log('[TMainForm.FormDestroy] 1.');
+  TLogger.Debug('[TMainForm.FormDestroy] 1.');
   if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.Terminate;
 
   // do some usefull work while thread is terminating
 
   if Assigned(FSearchResultsFileInfoThread) then FSearchResultsFileInfoThread.WaitFor;
 
-  TLogger.Log('[TMainForm.FormDestroy] 2.');
+  TLogger.Debug('[TMainForm.FormDestroy] 2.');
 
   ClearSearchResults; // to move items into FSearchResultsCache where they will be properly destroyed.
   FreeAndNil(FSearchResults);
   FreeAndNil(FSearchResultsCache);
   FreeAndNil(FSearchResultsFileInfoThread);
 
-  TLogger.Log('[TMainForm.FormDestroy] 3.');
+  TLogger.Debug('[TMainForm.FormDestroy] 3.');
 
   StoreColumns;
   SaveIndexFile; // We also save index file here because it contains OwnerName that is read by FSearchResultsFileInfoThread thread.
   AppSettings.SearchHistory.Assign(SearchEdit.ACStrings);
   AppSettings.Save; // save all settings including updated search history data
 
-  TLogger.Log('[TMainForm.FormDestroy] 4.');
+  TLogger.Debug('[TMainForm.FormDestroy] 4.');
 
   SearchEdit.Free; // because we create it in code in FormCreate()
-  TLogger.Log('[TMainForm.FormDestroy] 5.');
+  TLogger.Debug('[TMainForm.FormDestroy] 5.');
   FreeAndNil(FCaptionSplitArray);
-  TLogger.Log('[TMainForm.FormDestroy] 6.');
+  TLogger.Debug('[TMainForm.FormDestroy] 6.');
   FreeAndNil(FSearchSplitArray);
 
-  TLogger.Log('[TMainForm.FormDestroy] 7.');
+  TLogger.Debug('[TMainForm.FormDestroy] 7.');
 end;
 
 procedure TMainForm.StoreColumns;
@@ -1308,7 +1306,7 @@ end;
 
 procedure TMainFormIndexingProgress.ReportError(Error: TError);
 begin
-  TLogger.Log(Error.ErrText);
+  TLogger.Error(Error.ErrText);
 
   // do NOT show error in case of Access Denied
   if (Error.ErrCode = NO_ERROR) OR (NOT Error.IsImportant {AND Error.ErrCode = ERROR_ACCESS_DENIED}) then Exit;
@@ -1354,9 +1352,9 @@ begin
   LogPrefix := '[' + ClassName + '][' + ThreadID.ToString + ']';
   try
     try
-      TLogger.Log(LogPrefix + ' STARTED');
+      TLogger.Info(LogPrefix + ' STARTED');
       if Terminated then begin
-        TLogger.Log(LogPrefix + ' Terminated = True detected');
+        TLogger.Info(LogPrefix + ' Terminated = True detected');
         Exit;
       end;
 
@@ -1367,7 +1365,7 @@ begin
         if ((i mod 500) = 0) then begin // repaint list of items after every 100 loaded icons
           MainForm.ListView1.Invalidate;
           if Terminated then begin
-            TLogger.Log(LogPrefix + ' Terminated = True detected');
+            TLogger.Info(LogPrefix + ' Terminated = True detected');
             Exit;
           end;
         end;
@@ -1389,9 +1387,9 @@ begin
       end;
     except
       on E: Exception do begin
-        TLogger.LogFmt('[TSearchResultsShellInfoThread.Execute] unhandled exception caught: %s', [E.Message]);
+        TLogger.ErrorFmt('[TSearchResultsShellInfoThread.Execute] unhandled exception caught: %s', [E.Message]);
       end else begin
-        TLogger.Log('[TSearchResultsShellInfoThread.Execute] unhandled exception caught: UNKNOWN');
+        TLogger.Error('[TSearchResultsShellInfoThread.Execute] unhandled exception caught: UNKNOWN');
       end;
     end;
 
@@ -1400,7 +1398,7 @@ begin
     PostMessage(MainForm.Handle, WM_SEARCHRESULTSSHELLINFO_MSG, WParam(nil), LParam(MainForm.FSearchResults.Count));
     MainForm.ListView1.Invalidate;
     CoUninitialize;
-    TLogger.Log(LogPrefix + ' FINISHED. Time spent: ' + MillisecToStr(GetTickCount - Start));
+    TLogger.Info(LogPrefix + ' FINISHED. Time spent: ' + MillisecToStr(GetTickCount - Start));
   end;
 end;
 

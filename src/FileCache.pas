@@ -284,8 +284,7 @@ var
 
 implementation
 
-uses
-  System.Math, System.Generics.Defaults, Functions, MaskSearch, Hash2;
+uses System.Math, System.Generics.Defaults, Functions, MaskSearch, Hash2, Logger;
 
 const MAX_LEVELS = 100;
 const MAX_LEVEL_DIRS = 10_000;
@@ -884,7 +883,7 @@ begin
   IStream.ReadData<Cardinal>(CacheSize);
 
   if cacheSize = 0 then begin // empty volume is OK. just write a warning into log file
-    TLogger.LogFmt('[TVolumeCache.Deserialize] cache size read from index file is zero for volume "%s"!', [FName]);
+    TLogger.InfoFmt('[TVolumeCache.Deserialize] cache size read from index file is zero for volume "%s"!', [FName]);
   end;
 
   FCacheData.SetCapacity(CacheSize);
@@ -942,7 +941,7 @@ begin
   for i := 1 to Count do begin
     origLevel := fileCache^;
 
-    TLogger.LogFmt('[TVolumeCache.Deserialize] reading level %d', [i]);
+    TLogger.DebugFmt('[TVolumeCache.Deserialize] reading level %d', [i]);
 
     // avoid empty levels
     if origLevel.FCount > 0 then begin
@@ -1301,7 +1300,7 @@ var gVolCache: TVolumeCache;
 //TODO: think of making CallbackFunc class static func of TVolumeCache???
 function CallbackFunc(progress: Integer): Integer;
 begin
-  TLogger.LogFmt('Callback called. Progress: %d', [progress]);
+  TLogger.InfoFmt('Callback called. Progress: %d', [progress]);
   gVolCache.NotifyProgress(progress);
 end;
 
@@ -1342,11 +1341,11 @@ begin
   err := ReadVolumeDirect(PChar(Volume), cnt, Pointer(fileCache), CallbackFunc);
 
   if err.HasError then begin
-    TLogger.LogFmt('Error loading volume %s. Error code: %d. Error msg: %s.', [Volume, err.ErrCode, err.Msg]);
+    TLogger.ErrorFmt('Error loading volume %s. Error code: %d. Error msg: %s.', [Volume, err.ErrCode, err.Msg]);
     NotifyError(err);
     raise EInOutError.Create(err.ErrText, Volume);
   end else begin
-    TLogger.Log('[ReadVolumeDirect] Finished successfully');
+    TLogger.Info('[ReadVolumeDirect] Finished successfully');
   end;
 
   Deserialize(fileCache, cnt); // this call makes FIndexedDateTime = Now;
@@ -1585,10 +1584,11 @@ var
   i, j: Integer;
   emptyDirs: THArrayG<string>;
 begin
+  TLogger.Debug('EMPTY DIRS:');
   for i := 1 to FVolumeData.Count do begin
     emptyDirs := FVolumeData.GetPair(i - 1).Second.CheckHangingDirectories;
     for j := 1 to emptyDirs.Count do // write empty dirs to log file
-      TLogger.Log(emptyDirs.GetValue(j - 1));
+      TLogger.Debug(emptyDirs.GetValue(j - 1));
     emptyDirs.Free;
   end;
 end;
@@ -1683,7 +1683,7 @@ begin
       msin.LoadFromFile(FileName);
       Deserialize(msin);
     end else begin
-      TLogger.LogFmt('Index file "%s" is not found or not accessible.', [FileName]);
+      TLogger.WarnFmt('Index file "%s" is not found or not accessible.', [FileName]);
     end;
   finally
     msin.Free;

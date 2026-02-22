@@ -54,7 +54,7 @@ end;
 
 implementation
 
-uses SysUtils, System.UITypes, Vcl.Dialogs, Windows, Functions;
+uses SysUtils, System.UITypes, Vcl.Dialogs, Windows, Functions, Logger;
 
  resourcestring
    sUserCancelledIndexingOperation = 'User has cancelled file indexing operation.';
@@ -96,7 +96,7 @@ var
   i, start: Cardinal;
   inst2: TCache;
 begin
-  TLogger.Log('[IndexingThread] START');
+  TLogger.Info('[IndexingThread] START');
   SetReturnValue(0); // mark that thread didnt finish successfully
 
   try
@@ -115,7 +115,7 @@ begin
       ExecData[i].VolSize    := inst2.GetVolume(ExecData[i].VolumeName).Size;
       ExecData[i].ItemsCount := inst2.GetVolume(ExecData[i].VolumeName).Count;
       ExecData[i].ExecTime   := GetTickCount - start;
-      TLogger.LogFmt('[IndexingThread][%d] Finished indexing volume %s. Time spent %s', [ThreadID, ExecData[i].VolumeName, MillisecToStr(ExecData[i].ExecTime)]);
+      TLogger.InfoFmt('[IndexingThread][%d] Finished indexing volume %s. Time spent %s', [ThreadID, ExecData[i].VolumeName, MillisecToStr(ExecData[i].ExecTime)]);
     end;
 
     inst2.RemoveProgressListener(FListener);
@@ -126,10 +126,10 @@ begin
       Synchronize(procedure begin MessageDlg(sUserCancelledIndexingOperation, mtInformation, [mbOK], 0) end);
     end;
     on E: Exception do begin
-      TLogger.LogFmt('[TLoadFSThread.Execute] unhandled exception caught: %s', [E.Message]);
+      TLogger.ErrorFmt('[TLoadFSThread.Execute] unhandled exception caught: %s', [E.Message]);
       TCache.FreeInst2; // clear half filled Instance2
     end else begin
-      TLogger.Log('[TLoadFSThread.Execute] unhandled exception caught: UNKNOWN');
+      TLogger.Error('[TLoadFSThread.Execute] unhandled exception caught: UNKNOWN');
       TCache.FreeInst2; // clear half filled Instance2
     end;
 
@@ -139,7 +139,7 @@ begin
   //FindCloseThread.FreeOnTerminate := True;
   //FindCloseThread.Start(TFSC.Instance.FindHandles);
 
-  TLogger.Log('[IndexingThread] FINISH');
+  TLogger.Info('[IndexingThread] FINISH');
 end;
 
 function TLoadFSThread.GetReturnValue: Integer;

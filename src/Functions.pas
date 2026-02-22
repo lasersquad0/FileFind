@@ -15,27 +15,8 @@ type
     class function IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T;
   end;
 
-  TLogger = class
-  private
-  type
-    TErrorListHash = THash<Cardinal, string>;
-  class var
-    FLogFileName: string;
-    FFileH: THandle;
-  public
-    //class var ErrorStringIDs: TErrorListHash;
-    class constructor Create;
-    class destructor Destroy;
-    class procedure Init(const LogFileName: string);
-    class procedure Shutdown();
-    class procedure Log(const Msg: string);
-    class procedure LogFmt(const Msg: string; Values: array of const);
-  end;
-
   EBadFileFormat = class(Exception)
-
   end;
-
 
    // thread for background filling IconIndex, FileType string, and DisplayName fields in TCacheItem(s)
    // for each item we need make a call to ShGetFileInfo API function. It takes too much time and slows down search process.
@@ -83,7 +64,7 @@ const
 implementation
 
 uses
-  WinAPI.ShellAPI, WinAPI.AclAPI, WinAPI.AccCtrl, StrUtils, IOUtils, SyncObjs, Math;
+  WinAPI.ShellAPI, WinAPI.AclAPI, WinAPI.AccCtrl, StrUtils, IOUtils, SyncObjs, Math, Logger;
 
  resourcestring
    sFileTypeFileNotFound = 'File not found (probably deleted)';
@@ -484,7 +465,7 @@ begin
   Len := MAX_PATH * 3; // allocate enough storage for list of drives
   SetLength(Names, Len);
   Res := GetLogicalDriveStrings(Len, PChar(Names));
-  if Res = 0 then TLogger.Log('GetLogicalDriveStrings returned error: ' + GetLastError.ToString);
+  if Res = 0 then TLogger.Error('GetLogicalDriveStrings returned error: ' + GetLastError.ToString);
 
   Result := ZStrArrayToDelphiArray(PChar(Names));
 end;
@@ -529,7 +510,7 @@ begin
       Item.FFileType := sFileTypeUnknown;
     end;
 
-    TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call ShGetFileInfo(%s).', [err, SysErrorMessage(err), FullFileName]));
+    TLogger.ErrorFmt('Error (code=%d) "%s" in WINAPI call ShGetFileInfo(%s).', [err, SysErrorMessage(err), FullFileName]);
   end
   else
   begin
@@ -622,7 +603,7 @@ begin
   if ConvertSidToStringSid(Sid, StringSid) then begin
     Result := StringSid;
   end else begin
-    TLogger.Log('[SidToString] WINAPI call ConvertSidToStringSid failed.');
+    TLogger.Error('[SidToString] WINAPI call ConvertSidToStringSid failed.');
   end;
 
   // 3. Important: Free the memory allocated by ConvertSidToStringSid
@@ -657,7 +638,7 @@ var
      nil, nil, nil, @pSD);
 
    if dwResult <> ERROR_SUCCESS then begin
-     TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call GetNamedSecurityInfo(%s).', [dwResult, SysErrorMessage(dwResult), FilePath]));
+     TLogger.ErrorFmt('Error (code=%d) "%s" in WINAPI call GetNamedSecurityInfo(%s).', [dwResult, SysErrorMessage(dwResult), FilePath]);
      LocalFree(pSD);
      Exit;
    end;
@@ -680,7 +661,7 @@ var
      sidType) // SID type
    then begin
      var err := GetLastError();
-     TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call LookAccountSid(%s).', [err, SysErrorMessage(err), FilePath]));
+     TLogger.ErrorFmt('Error (code=%d) "%s" in WINAPI call LookAccountSid(%s).', [err, SysErrorMessage(err), FilePath]);
      Result := SidToString(pSidOwner);
      LocalFree(pSD);
      Exit;
@@ -691,85 +672,6 @@ var
    Result := szOwnerName;
  end;
 
-
-
-//const DEF_LOG_FILENAME = 'FinderX_denug.log';
-const
-  INVALID_SET_FILE_POINTER = Cardinal(-1);
-
-class constructor TLogger.Create;
-begin
-  FFileH := INVALID_HANDLE_VALUE;
-
- { ErrorStringIDs := TErrorListHash.Create;
-  ErrorStringIDs[ERROR_FILE_NOT_FOUND] := 'ERROR_FILE_NOT_FOUND'; //3
-  ErrorStringIDs[ERROR_PATH_NOT_FOUND] := 'ERROR_PATH_NOT_FOUND'; //5
-  ErrorStringIDs[ERROR_MORE_DATA]      := 'ERROR_MORE_DATA'; //234
-  ErrorStringIDs[ERROR_NO_TOKEN]       := 'ERROR_NO_TOKEN'; //1008
-  ErrorStringIDs[ERROR_NO_MORE_ITEMS]  := 'ERROR_NO_MORE_ITEMS'; //259 }
-end;
-
-class destructor TLogger.Destroy;
-begin
-  Shutdown;
-  //FreeAndNil(ErrorStringIDs);
-end;
-
-class procedure TLogger.Init(const LogFileName: string);
-//var tdir: TDirectory;
-begin
-  // do nothing if logfilename has not changed
-  if (FFileH <> INVALID_HANDLE_VALUE) AND (CompareText(FLogFileName, LogFileName) = 0) then Exit;
-
-  CloseHandle(FFileH); // close old log file
-
-  // check whether LogFileName contains path or contains file name only
-  if TPath.GetDirectoryName(LogFileName) = ''
-    then FLogFileName := TPath.GetAppPath + '\' + LogFileName
-    else FLogFileName := LogFileName;
-
-  FFileH := CreateFile(PChar(FLogFileName), GENERIC_WRITE OR GENERIC_READ, FILE_SHARE_READ OR FILE_SHARE_WRITE, nil, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
-
-  if FFileH = INVALID_HANDLE_VALUE then begin
-    raise EFOpenError.CreateFmt('Cannot open log file (' + GetLastError.ToString + '): %s', [FLogFileName]);
-  end;
-
-  Log('------------ Logger Start ------------');
-end;
-
-class procedure TLogger.Shutdown();
-begin
-  Log('------------ Logger Shutdown ------------');
-  CloseHandle(FFileH); // close old log file
-  FFileH := INVALID_HANDLE_VALUE;
-  FLogFileName := '';
-end;
-
-class procedure TLogger.Log(const Msg: string);
-var
-  MsgA: AnsiString;
-  bytesWritten: DWORD;
-  res1: Cardinal;
-  res2: LongBool;
-begin
-  if FFileH = INVALID_HANDLE_VALUE then Exit; // logger is in shutdown state or not initialized
-
-  res1 := SetFilePointer(FFileH, 0, nil, FILE_END);
-  if res1 = INVALID_SET_FILE_POINTER then
-    raise  EInOutError.CreateFmt('Cannot position to the end of file (%s). Error code: %s', [FLogFileName, GetLastError.ToString]);
-
-  MsgA := AnsiString(DateTimeToStr(Now) + ' ' + Msg) + sLineBreak; // use AnsiString here to be able to easily view log file in any file viewer.
-  res2 := WriteFile(FFileH, PAnsiChar(MsgA)^, DWORD(Length(MsgA)), bytesWritten, nil);
-  if NOT res2 then
-    raise EInOutError.CreateFmt('Write to log file error (%s). Error code: %s', [FLogFileName, GetLastError.ToString]);
-end;
-
-class procedure TLogger.LogFmt(const Msg: string; Values: array of const);
-begin
-  if FFileH = INVALID_HANDLE_VALUE then Exit; // logger is in shutdown state or error opening file
-
-  Log(Format(Msg, Values));
-end;
 
 initialization
   gStringb := TStringBuilder.Create;

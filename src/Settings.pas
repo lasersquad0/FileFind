@@ -89,7 +89,7 @@ var
 implementation
 
 uses
-  System.SysUtils, WinAPI.Windows, Vcl.Dialogs, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, Registry, Functions;
+  System.SysUtils, WinAPI.Windows, Vcl.Dialogs, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, Registry, Functions, Logger;
 
 
 var
@@ -352,28 +352,28 @@ var
   TmpFolder: PChar;
 begin
   if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then TLogger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppData.');
+    then TLogger.Error('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppData.');
   Insert(TmpFolder + '\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_LocalAppDataLow, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then TLogger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppDataLow.');
+    then TLogger.Error('SHGetKnownFolderPath failed: cannot get FOLDERID_LocalAppDataLow.');
   Insert(TmpFolder + '\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramFilesX86, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then TLogger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramFilesX86.');
+    then TLogger.Error('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramFilesX86.');
   Insert(TmpFolder + '\Microsoft\Temp', Result, Length(Result));
   Insert(TmpFolder + '\Google\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_ProgramData, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then TLogger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramData.');
+    then TLogger.Error('SHGetKnownFolderPath failed: cannot get FOLDERID_ProgramData.');
   Insert(TmpFolder + '\Microsoft\Search\Data\Temp', Result, Length(Result));
   CoTaskMemFree(TmpFolder);
 
   if S_OK <> SHGetKnownFolderPath(FOLDERID_Windows, KF_FLAG_DONT_VERIFY, 0, TmpFolder)
-    then TLogger.Log('SHGetKnownFolderPath failed: cannot get FOLDERID_Windows.');
+    then TLogger.Error('SHGetKnownFolderPath failed: cannot get FOLDERID_Windows.');
   Insert(TmpFolder + '\Temp', Result, Length(Result));
   Insert(TmpFolder + '\WinSyS\Temp', Result, Length(Result));
   Insert(TmpFolder + '\assembly\Temp', Result, Length(Result));
