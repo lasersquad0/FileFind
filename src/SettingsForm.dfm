@@ -4,7 +4,7 @@ object SettingsForm1: TSettingsForm1
   BorderStyle = bsDialog
   Caption = 'FinderX - Options'
   ClientHeight = 363
-  ClientWidth = 456
+  ClientWidth = 476
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -15,11 +15,11 @@ object SettingsForm1: TSettingsForm1
   OnCreate = FormCreate
   OnShow = FormShow
   DesignSize = (
-    456
+    476
     363)
   TextHeight = 15
   object OKButton: TButton
-    Left = 242
+    Left = 262
     Top = 330
     Width = 98
     Height = 25
@@ -29,9 +29,10 @@ object SettingsForm1: TSettingsForm1
     ModalResult = 1
     TabOrder = 0
     OnClick = OKButtonClick
+    ExplicitLeft = 242
   end
   object CancelButton: TButton
-    Left = 354
+    Left = 374
     Top = 330
     Width = 93
     Height = 25
@@ -40,6 +41,7 @@ object SettingsForm1: TSettingsForm1
     Caption = 'Cancel'
     ModalResult = 2
     TabOrder = 1
+    ExplicitLeft = 354
   end
   object Sections: TListBox
     Left = 8
@@ -60,9 +62,9 @@ object SettingsForm1: TSettingsForm1
   object SettingsPanels: TCardPanel
     Left = 110
     Top = 10
-    Width = 339
+    Width = 363
     Height = 297
-    ActiveCard = Card1
+    ActiveCard = Card4
     BevelInner = bvRaised
     BevelOuter = bvLowered
     Caption = 'SettingsPanels'
@@ -70,13 +72,14 @@ object SettingsForm1: TSettingsForm1
     object Card1: TCard
       Left = 2
       Top = 2
-      Width = 335
+      Width = 359
       Height = 293
       Caption = 'General'
       CardIndex = 0
       ShowCaption = True
       TabOrder = 0
       VerticalAlignment = taAlignTop
+      ExplicitWidth = 335
       object LogFileLabel: TLabel
         Left = 28
         Top = 159
@@ -130,7 +133,7 @@ object SettingsForm1: TSettingsForm1
         OnClick = LogFileCheckBoxClick
       end
       object LogFileEdit: TEdit
-        Left = 122
+        Left = 129
         Top = 156
         Width = 159
         Height = 23
@@ -141,13 +144,14 @@ object SettingsForm1: TSettingsForm1
     object Card2: TCard
       Left = 2
       Top = 2
-      Width = 335
+      Width = 359
       Height = 293
       Caption = 'Search'
       CardIndex = 1
       ShowCaption = True
       TabOrder = 1
       VerticalAlignment = taAlignTop
+      ExplicitWidth = 335
       object SearchAsYouTypeLabel2: TLabel
         Left = 193
         Top = 55
@@ -165,7 +169,7 @@ object SettingsForm1: TSettingsForm1
       object CaseSearchCheckBox: TCheckBox
         Left = 9
         Top = 105
-        Width = 190
+        Width = 200
         Height = 21
         Caption = 'Case sensitive search'
         TabOrder = 0
@@ -213,17 +217,18 @@ object SettingsForm1: TSettingsForm1
     object Card3: TCard
       Left = 2
       Top = 2
-      Width = 335
+      Width = 359
       Height = 293
       Caption = 'Search Results'
       CardIndex = 2
       ShowCaption = True
       TabOrder = 2
       VerticalAlignment = taAlignTop
+      ExplicitWidth = 335
       object Label1: TLabel
         Left = 8
         Top = 162
-        Width = 158
+        Width = 159
         Height = 15
         Caption = 'Max number of items to show'
       end
@@ -243,9 +248,9 @@ object SettingsForm1: TSettingsForm1
         TabOrder = 0
       end
       object MaxNumFoundBox: TNumberBox
-        Left = 184
+        Left = 190
         Top = 159
-        Width = 45
+        Width = 57
         Height = 23
         Decimal = 0
         MinValue = 1000.000000000000000000
@@ -274,7 +279,7 @@ object SettingsForm1: TSettingsForm1
         TabOrder = 3
       end
       object SizeFormatComboBox: TComboBox
-        Left = 93
+        Left = 98
         Top = 183
         Width = 64
         Height = 23
@@ -308,7 +313,7 @@ object SettingsForm1: TSettingsForm1
     object Card4: TCard
       Left = 2
       Top = 2
-      Width = 335
+      Width = 359
       Height = 293
       Caption = 'Indexing'
       CardIndex = 3
@@ -321,17 +326,18 @@ object SettingsForm1: TSettingsForm1
       ShowCaption = True
       TabOrder = 3
       VerticalAlignment = taAlignTop
+      ExplicitWidth = 335
       object Label2: TLabel
         Left = 8
         Top = 216
-        Width = 93
+        Width = 94
         Height = 15
         Caption = 'Index file location'
       end
       object IncludeNewFixedDrivesCheckBox: TCheckBox
         Left = 8
         Top = 28
-        Width = 290
+        Width = 300
         Height = 17
         Caption = 'Automatically include new fixed volumes'
         TabOrder = 0
@@ -339,7 +345,7 @@ object SettingsForm1: TSettingsForm1
       object IncludeNewRemovableDrivesCheckBox: TCheckBox
         Left = 8
         Top = 54
-        Width = 290
+        Width = 300
         Height = 17
         Caption = 'Automatically include new removable volumes'
         TabOrder = 1
@@ -347,7 +353,7 @@ object SettingsForm1: TSettingsForm1
       object RemoveOfflineDrivesCheckBox: TCheckBox
         Left = 8
         Top = 80
-        Width = 290
+        Width = 300
         Height = 17
         Caption = 'Automatically remove offline volumnes'
         TabOrder = 2
@@ -355,16 +361,16 @@ object SettingsForm1: TSettingsForm1
       object VolumesListBox: TListBox
         Left = 8
         Top = 106
-        Width = 241
+        Width = 238
         Height = 95
         ItemHeight = 15
         TabOrder = 3
         TabWidth = 50
       end
       object RemoveDriveButton: TButton
-        Left = 254
+        Left = 250
         Top = 106
-        Width = 75
+        Width = 105
         Height = 23
         Caption = 'Remove'
         TabOrder = 4
@@ -385,17 +391,18 @@ object SettingsForm1: TSettingsForm1
     object Card5: TCard
       Left = 2
       Top = 2
-      Width = 335
+      Width = 359
       Height = 293
       Caption = 'Excludes'
       CardIndex = 4
       ShowCaption = True
       TabOrder = 4
       VerticalAlignment = taAlignTop
+      ExplicitWidth = 335
       object ExcludeFoldersCheckBox: TCheckBox
         Left = 8
         Top = 28
-        Width = 220
+        Width = 260
         Height = 17
         Caption = 'Exclude folders from list below'
         TabOrder = 0
@@ -404,43 +411,43 @@ object SettingsForm1: TSettingsForm1
       object ExcludeFoldersListBox: TListBox
         Left = 8
         Top = 54
-        Width = 232
+        Width = 238
         Height = 230
         ExtendedSelect = False
         ItemHeight = 15
         TabOrder = 1
       end
       object AddFolderButton: TButton
-        Left = 243
+        Left = 250
         Top = 54
-        Width = 88
+        Width = 105
         Height = 23
         Caption = 'Add Folder...'
         TabOrder = 2
         OnClick = AddFolderButtonClick
       end
       object EditFolderButton: TButton
-        Left = 243
+        Left = 250
         Top = 79
-        Width = 88
+        Width = 105
         Height = 23
         Caption = 'Edit Folder...'
         TabOrder = 3
         OnClick = EditFolderButtonClick
       end
       object RemoveFolderButton: TButton
-        Left = 243
+        Left = 250
         Top = 108
-        Width = 88
+        Width = 105
         Height = 23
         Caption = 'Remove'
         TabOrder = 4
         OnClick = RemoveFolderButtonClick
       end
       object ResetToDefaultButton: TButton
-        Left = 243
+        Left = 250
         Top = 260
-        Width = 88
+        Width = 105
         Height = 23
         Caption = 'Reset to default'
         TabOrder = 5

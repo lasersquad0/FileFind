@@ -1313,7 +1313,7 @@ object MainForm: TMainForm
     Top = 152
   end
   object PopupMenuTray: TPopupMenu
-    Left = 760
+    Left = 768
     Top = 152
     object OpenMenuItem: TMenuItem
       Caption = '&Open FinderX'
