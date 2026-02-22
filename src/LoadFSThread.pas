@@ -93,8 +93,12 @@ end;
 
 procedure TLoadFSThread.Execute;
 var
+  MaxComponentLen, SystemFlags: DWORD;
   i, start: Cardinal;
   inst2: TCache;
+  fsType: string;
+  res: LongBool;
+  error: Cardinal;
 begin
   TLogger.Info('[IndexingThread] START');
   SetReturnValue(0); // mark that thread didnt finish successfully
@@ -108,13 +112,32 @@ begin
     for i := Low(ExecData) to High(ExecData) do begin
       start := GetTickCount;
 
-      if FFastNTFS
-        then inst2.ReadVolumeFast(ExecData[i].VolumeName, FExclusionsList)
-        else inst2.ReadVolume(ExecData[i].VolumeName, FExclusionsList);
+      if FFastNTFS then begin
+        // check that Volume has NTFS volume type to be read by fast function.
+        SetLength(fsType, MAX_PATH);
+        res := GetVolumeInformation(PChar(ExecData[i].VolumeName), nil, 0, nil, MaxComponentLen, SystemFlags, PChar(fsType), MAX_PATH);
+
+        if res = False then begin
+          error := GetLastError;  // e.g. CD-ROM is present but no disk there - we get ERROR_NOT_READY while attempting to read volume name
+          if (error = ERROR_NOT_READY) OR (error = ERROR_PATH_NOT_FOUND) then begin
+            TLogger.Warn('Cannot read information for volume '+ ExecData[i].VolumeName +'. Error code: ' + error.ToString);
+            continue; // go to the next volume. VolSize, ItemsCount and ExecTime are set to zero
+          end;
+        end;
+
+         if fsType.StartsWith('NTFS', True)
+           then inst2.ReadVolumeFast(ExecData[i].VolumeName, FExclusionsList)
+           else inst2.ReadVolume(ExecData[i].VolumeName, FExclusionsList); // if not NTFS call ReadVolume function that works with all volume types (but slower)
+
+      end else begin
+        // otherwise call ReadVolume function that works with all volume types (but slower)
+        inst2.ReadVolume(ExecData[i].VolumeName, FExclusionsList);
+      end;
 
       ExecData[i].VolSize    := inst2.GetVolume(ExecData[i].VolumeName).Size;
       ExecData[i].ItemsCount := inst2.GetVolume(ExecData[i].VolumeName).Count;
       ExecData[i].ExecTime   := GetTickCount - start;
+
       TLogger.InfoFmt('[IndexingThread][%d] Finished indexing volume %s. Time spent %s', [ThreadID, ExecData[i].VolumeName, MillisecToStr(ExecData[i].ExecTime)]);
     end;
 
