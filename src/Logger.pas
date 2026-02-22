@@ -111,7 +111,6 @@ begin
 end;
 
 class procedure TLogger.Init(const LogFileName: string);
-//var tdir: TDirectory;
 begin
   // do nothing if logfilename has not changed
   if (FFileH <> INVALID_HANDLE_VALUE) AND (CompareText(FLogFileName, LogFileName) = 0) then Exit;
@@ -140,7 +139,7 @@ end;
 class procedure TLogger.Shutdown();
 begin
   Info('------------ Logger Shutdown ------------');
-  CloseHandle(FFileH); // close old log file
+  CloseHandle(FFileH);
   FFileH := INVALID_HANDLE_VALUE;
   FLogFileName := '';
 end;
