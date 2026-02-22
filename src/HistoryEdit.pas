@@ -64,7 +64,7 @@ type
 implementation
 
 uses
-  System.Win.ComObj, SysUtils, Settings;
+  System.Win.ComObj, SysUtils, Settings, Logger;
 
 { TEnumString }
 
@@ -174,7 +174,8 @@ begin
         end;
       end;
     except
-      //TODO: add logging here
+      on E: Exception do
+       TLogger.ErrorFmt('Error in creating COM object(s) by TSerchEdit: %s', [E.Message]);
       //CLSID_IAutoComplete is not available
     end;
   end;
