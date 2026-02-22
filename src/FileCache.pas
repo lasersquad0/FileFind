@@ -101,6 +101,11 @@ type
    FExecTime: Cardinal;
    FExclFolders: THArraySorted<string>;
  class var
+   // workaround
+   // we can pass only simple function pointer to MFT DLL (cannot pass function of object). See MFTCallbackFunc.
+   // that is why we have to define volume cache class variable
+   // NOTE that will NOT work if we want to read volumes in parallel in different threads
+   FVolCache: TVolumeCache;
    FMakePathCache: TObjectsCache<THArrayString>; // optimization, global array to hold path items before converting into full path string
 
    procedure Serialize(OStream: TStream);
@@ -123,8 +128,7 @@ type
    //constructor CreatePrivate;
    //class procedure FreeInst;
    procedure StatSort(var Stat: TFileSystemStatRecord);
-   //function CallbackFunc(progress: Integer): Integer;
-
+   class function MFTCallbackFunc(progress: Integer): Integer; static;
 
  public
    class constructor Create;
@@ -210,7 +214,7 @@ type
    function  GetVolumeNamesAsString: string;
    procedure ReadVolume(Volume: string; ExclusionsList: TArray<string>);
    procedure ReadVolumeFast(Volume: string; ExclusionsList: TArray<string>);
-   procedure ReadVolumesFast(Volumes: TArray<string>; ExclusionsList: TArray<string>);
+   //procedure ReadVolumesFast(Volumes: TArray<string>; ExclusionsList: TArray<string>);
    function  Search(Filter: TSearchFilter; Callback: TFNCSearchResult): TSearchResult;
    procedure AddProgressListener(listener: IIndexingProgress);
    procedure RemoveProgressListener(listener: IIndexingProgress);
@@ -454,17 +458,30 @@ end;
 {$ENDIF}
 
 
-//TODO: shall we convert procedure to function to be able to return an error?
 procedure TVolumeCache.FillFileData(const FilePath: string; var FileData: TWin32FindData);
 var
   hf: THandle;
   fileSize: LARGE_INTEGER;
+  data: TWin32FileAttributeData;
+  res: LongBool;
 begin
-  fileSize.QuadPart := 0;
-  FileData.dwFileAttributes := Windows.GetFileAttributes(PChar(FilePath));
+  //fileSize.QuadPart := 0;
+  //FileData.dwFileAttributes := Windows.GetFileAttributes(PChar(FilePath));
+
+  res := Windows.GetFileAttributesEx(PChar(FilePath), GetFileExInfoStandard, @data);
+  if res = True then begin
+    FileData.dwFileAttributes := data.dwFileAttributes;
+    FileData.ftCreationTime   := data.ftCreationTime;
+    FileData.ftLastAccessTime := data.ftLastAccessTime;
+    FileData.ftLastWriteTime  := data.ftLastWriteTime;
+    FileData.nFileSizeHigh    := data.nFileSizeHigh;
+    FileData.nFileSizeLow     := data.nFileSizeLow;
+  end else begin
+    TLogger.WarnFmt('[GetFileAttributesEx] failed with error: %d', [GetLastError]);
+  end;
 
   // we need file handle first to get file time and file size
-  hf := Windows.CreateFile(PChar(FilePath), GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL OR FILE_FLAG_BACKUP_SEMANTICS, 0);
+  {hf := Windows.CreateFile(PChar(FilePath), GENERIC_READ, FILE_SHARE_READ, nil, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL OR FILE_FLAG_BACKUP_SEMANTICS, 0);
   try
     if hf = INVALID_HANDLE_VALUE then begin
       raise EInOutError.Create(SysErrorMessage(GetLastError()), FilePath);
@@ -472,12 +489,13 @@ begin
 
     Windows.GetFileTime(hf, @FileData.ftCreationTime, @FileData.ftLastAccessTime, @FileData.ftLastWriteTime);
     Windows.GetFileSizeEx(hf, fileSize.QuadPart);
+
     FileData.nFileSizeHigh := DWORD(fileSize.HighPart);
     FileData.nFileSizeLow := DWORD(fileSize.LowPart);
 
   finally
     Windows.CloseHandle(hf);
-  end;
+  end;  }
 end;
 
 // finds empty dirs - dirs that do not contain any files and subdirs
@@ -1292,16 +1310,12 @@ function ReadVolumeDirect(Volume: PChar; var Cnt: Cardinal; var Data: Pointer; c
 {$ENDIF}
 {$ENDIF}
 
-// workaround
-// we can pass only simple function pointer to MFT DLL (cannot pass function of object)
-// that is why we have to define global volume cache variable
-var gVolCache: TVolumeCache;
 
-//TODO: think of making CallbackFunc class static func of TVolumeCache???
-function CallbackFunc(progress: Integer): Integer;
+
+class function TVolumeCache.MFTCallbackFunc(progress: Integer): Integer;
 begin
   TLogger.InfoFmt('Callback called. Progress: %d', [progress]);
-  gVolCache.NotifyProgress(progress);
+  FVolCache.NotifyProgress(progress);
 end;
 
 function TVolumeCache.ReadVolumeFast(Volume: string; ExclusionsList: TArray<string>): UInt64;
@@ -1312,7 +1326,7 @@ var
   err: TError;
 
 begin
-  gVolCache := self;
+  FVolCache := self;
 
   var start := GetTickCount;
 
@@ -1338,7 +1352,8 @@ begin
 
   NotifyProgress(50);
 
-  err := ReadVolumeDirect(PChar(Volume), cnt, Pointer(fileCache), CallbackFunc);
+  // call DLL function
+  err := ReadVolumeDirect(PChar(Volume), cnt, Pointer(fileCache), MFTCallbackFunc);
 
   if err.HasError then begin
     TLogger.ErrorFmt('Error loading volume %s. Error code: %d. Error msg: %s.', [Volume, err.ErrCode, err.Msg]);
@@ -1353,7 +1368,6 @@ begin
   NotifyFinish();
 
   FExecTime := GetTickCount - start;
-  //FIndexedDateTime := Now;
 end;
 
 {
@@ -1393,14 +1407,14 @@ begin
       Exit;
     end;
 
-    PathBuilder.AddValue(item.FFileName); //TODO: may be we need change it
+    PathBuilder.AddValue(item.FFileName);
 
     var index := item.FParent;
     ii := Integer(ItemLevel - 1); // ii variable needs to be signed Integer
 
     while ii >= 0 do begin
       item := GetItem(Cardinal(ii), index);
-      PathBuilder.AddValue(item.FFileName); //TODO: may be we need change it
+      PathBuilder.AddValue(item.FFileName); //TODO: may be we need to change this algorithm somehow
       index := item.FParent;
       Dec(ii);
     end;
@@ -1671,8 +1685,7 @@ begin
   end;
 end;
 
-// loads nothing if file does not exist and does not report error
-//TODO: think of if this function need to raise an exception if file does not exist or not accessible
+// loads nothing if file does not exist and does not report error, that's ok.
 procedure TCache.DeserializeFrom(const FileName: string);
 var
   msin: TMemoryStream;
@@ -1870,30 +1883,19 @@ begin
   vol.FProgressListeners := nil;
 end;
 
-// works only for NTFS drives
+// tries to fast read NTFS volume.
 procedure TCache.ReadVolumeFast(Volume: string; ExclusionsList: TArray<string>);
 var
   vol: TVolumeCache;
-  MaxComponentLen, SystemFlags: DWORD;
-  fsType: string;
 begin
   vol := GetOrCreateVolume(Volume);
 
-  // check that Volume is NTFS volume type.
-  // if not - call ReadVolume function that works with all volume types (but slower)
-  SetLength(fsType, MAX_PATH);
-  GetVolumeInformation(PChar(Volume), nil, 0, nil, MaxComponentLen, SystemFlags, PChar(fsType), MAX_PATH); //TODO: check for error?
-
-  if fsType.StartsWith('NTFS', True) then begin
-    vol.FProgressListeners := FProgressListeners;
-    vol.ReadVolumeFast(Volume, ExclusionsList);
-    vol.FProgressListeners := nil;
-  end else begin
-    ReadVolume(Volume, ExclusionsList);
-  end;
-
+  vol.FProgressListeners := FProgressListeners;
+  vol.ReadVolumeFast(Volume, ExclusionsList);
+  vol.FProgressListeners := nil;
 end;
 
+{
 procedure TCache.ReadVolumesFast(Volumes: TArray<string>; ExclusionsList: TArray<string>);
 var
   i: Cardinal;
@@ -1904,7 +1906,7 @@ begin
     vol.ReadVolumeFast(Volumes[i], ExclusionsList);
   end;
 end;
-
+ }
 
 procedure TCache.RemoveProgressListener(listener: IIndexingProgress);
 begin
