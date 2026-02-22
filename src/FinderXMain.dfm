@@ -1,7 +1,7 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'FindexX - find files quick!'
+  Caption = 'FinderX - find files quick!'
   ClientHeight = 497
   ClientWidth = 1296
   Color = clBtnFace
@@ -215,14 +215,6 @@ object MainForm: TMainForm
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   TextHeight = 15
-  object ProgressLabel: TLabel
-    Left = 811
-    Top = 480
-    Width = 73
-    Height = 15
-    Caption = 'ProgressLabel'
-    Visible = False
-  end
   object CancelBtn: TSpeedButton
     Left = 1040
     Top = 480
@@ -231,6 +223,14 @@ object MainForm: TMainForm
     Caption = 'Cancel'
     Visible = False
     OnClick = CancelBtnClick
+  end
+  object ProgressLabel: TLabel
+    Left = 811
+    Top = 480
+    Width = 73
+    Height = 15
+    Caption = 'ProgressLabel'
+    Visible = False
   end
   object SearchPanel: TPanel
     Left = 0
@@ -244,9 +244,9 @@ object MainForm: TMainForm
       1296
       40)
     object AdvancedSearchButton: TSpeedButton
-      Left = 1167
+      Left = 1155
       Top = 7
-      Width = 121
+      Width = 140
       Height = 26
       AllowAllUp = True
       Anchors = [akTop, akRight]
@@ -409,7 +409,7 @@ object MainForm: TMainForm
     object IndexingBitBtn: TBitBtn
       Left = 556
       Top = 7
-      Width = 121
+      Width = 140
       Height = 26
       Caption = 'Refresh Index...'
       ImageIndex = 7
@@ -480,7 +480,7 @@ object MainForm: TMainForm
     Columns = <
       item
         Caption = 'Name'
-        Width = 250
+        Width = 200
       end
       item
         Alignment = taRightJustify
@@ -496,17 +496,17 @@ object MainForm: TMainForm
       item
         Caption = 'Modified'
         Tag = 3
-        Width = 140
+        Width = 100
       end
       item
         Caption = 'Last Access'
         Tag = 4
-        Width = 140
+        Width = 100
       end
       item
         Caption = 'Created'
         Tag = 5
-        Width = 140
+        Width = 100
       end
       item
         Caption = 'Attributes'
@@ -517,6 +517,17 @@ object MainForm: TMainForm
         Caption = 'Path'
         Tag = 7
         Width = 400
+      end
+      item
+        Alignment = taRightJustify
+        Caption = 'Items Count'
+        Tag = 8
+        Width = 80
+      end
+      item
+        Caption = 'Owner'
+        Tag = 9
+        Width = 70
       end>
     FullDrag = True
     OwnerData = True
@@ -1237,56 +1248,56 @@ object MainForm: TMainForm
       C003000000000000F00F00000000000000000000000000000000000000000000
       000000000000}
   end
-  object PopupMenu2: TPopupMenu
-    OnPopup = PopupMenu2Popup
+  object ColumnsPopupMenu: TPopupMenu
+    OnPopup = ColumnsPopupMenuPopup
     Left = 312
     Top = 336
     object MenuItem1: TMenuItem
       Caption = 'Name'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem2: TMenuItem
       Tag = 1
       Caption = 'Size'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem3: TMenuItem
       Tag = 2
       Caption = 'Type'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem4: TMenuItem
       Tag = 3
       Caption = 'Modified'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem5: TMenuItem
       Tag = 4
       Caption = 'Last Access'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem6: TMenuItem
       Tag = 5
       Caption = 'Created'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem7: TMenuItem
       Tag = 6
       Caption = 'Attributes'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
     object MenuItem8: TMenuItem
       Tag = 7
       Caption = 'Path'
       Checked = True
-      OnClick = MenuItem8Click
+      OnClick = ColumnsMenuItemClick
     end
   end
   object TrayIcon1: TTrayIcon

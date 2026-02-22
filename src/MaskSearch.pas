@@ -4,51 +4,23 @@ interface
 
 uses Classes, SysUtils, StrUtils, Windows{, ShellAPI};
 
-//function GetTimeModified(a:tfiletime):string;
 
-// fills the GrepList with the parts of 'a' (divided by ',' or ';')
-//procedure SetFilters(MaskStr: string; GrepList: TStringList{; FindFile:boolean; MatchCase: Boolean});
 function CompileMask(MaskStr: string): TStringList;
 procedure FreeCompiledMask(GrepList: TStringList);
 
 // main mask search function.
-// tests whether the string 'a' fits to the search masks in GrepList
-function CmpMask(SearchStr: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean}): Boolean;
+// tests whether the string 'SearchText' fits to the search masks in GrepList
+function CmpMask(SearchText: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean}): Boolean;
 
 function CmpFile(FileName: string; GrepList: TStringList{; MatchCase: Boolean}): Boolean;
 
+function WildcardMatch(const Text, Pattern: string): Boolean;
+
+// fills the GrepList with the parts of 'a' (divided by ',' or ';')
+//procedure SetFilters(MaskStr: string; GrepList: TStringList{; FindFile:boolean; MatchCase: Boolean});
+
 implementation
 
-{
-function GetTimeModified(a:tfiletime):string;
-// This function retrieves the last time, the given file was written to disk
-var
-  mtm :TSystemTime;
-  at  :TFileTime;
-  ds,ts:string;
-  //ds,ts:ShortString;
-const
-  MAX_DATETIME_STR = 255;
-begin
-  // Time must get converted, else there is an error of one hour
-  // Does anybody know what this function does ?
-  // Maybe something like summertime/wintertime (or what you call it out of Germany) ?
-  FileTimeToLocalFileTime(a,at);
-  FileTimeToSystemTime(at,mtm);
-  SetLength(ds, GetDateFormat(LOCALE_USER_DEFAULT, 0, @mtm, NIL, @ds[1], 255) - 1);
-  SetLength(ts, GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, @mtm, NIL, @ts[1], 255)  - 1);
-  Result:=ds+'  '+ts;
-end; // End getmod
- }
-
- {
-function CaseAware(S: string; Match: Boolean): string;
-begin
-  if Match
-  then Result := S
-  else Result := AnsiLowerCase(S);
-end;
-  }
 
 procedure FreeCompiledMask(GrepList: TStringList);
 var
@@ -60,18 +32,18 @@ begin
   end;
 end;
 
-// created GrepList and fills it with the MaskStr items (substrings of MaskStr divided by ',' or ';')
-// GrepList mut be then free with the call FreeCompiledMask
-// compiles each part of MaskStr into TStringList object added to GrepList item as GrepList.Object[i]
-// GrepList.Object[i] further used in cmpmask1 for doing mask search
+// creates StringList and fills it with the MaskStr items (substrings of MaskStr divided by ',' or ';')
+// This StringList mut be then freed with the call FreeCompiledMask
+// compiles each part of MaskStr into TStringList object added to StringList item as StringList.Object[i]
+// StringList.Object[i] further used in cmpmask1 for doing mask search
 // findfile describes whether to use for find files or text in files
 function CompileMask(MaskStr: string): TStringList; {; FindFile: Boolean; MatchCase: Boolean}
 var
   ct: Integer;
   b: string;
-  ps1,ps2,ps3    : Integer;
-  dontcare       : Boolean;
-  onechar        : Char;
+  ps1,ps2    : Integer;
+ // dontcare   : Boolean;
+  onechar    : Char;
   //grepItem: string;
   tmpList, GrepList: TStringList;
 begin
@@ -98,7 +70,7 @@ begin
      // and connect it to appropriate MaskStr item
      for ct := 0 to Pred(GrepList.Count) do begin
        b := GrepList[ct];
-       tmpList := TStringList.create;
+       tmpList := TStringList.Create;
        // divide partial strings ('?','*' or text) to tmp_list
        repeat
          onechar := b[1];
@@ -160,129 +132,154 @@ var
   sr             : string;
   ps1,ps2,ps3    : Integer;
   dontcare       : Boolean;
-  //onechar        : Char;
-  //tmp_list       : TStrings;
 begin
- {    Result := True;
-     if b = '*' then Exit; // fits always
-     if b = '*.*' then if Pos('.', a) > 0 then Exit; // fits, too
-     if (Pos('*', b) = 0) and (Pos('?', b) = 0) then
-       // if not FindFile then begin
-           if Pos(b, a) > 0 then Exit;
-           // searched text was found (searchstring IN text)
-       // end else
-       //    if a = b then exit;
-           // searched file was found (searchstring IS text)
-
-
-     Result := False;
-     if b = '' then Exit; }
-
-     //try
-        //TODO: shall we parse mask only once and apply to all search strings?
-        {tmp_list := TStringList.create;
-        // divide partial strings ('?','*' or text) to tmp_list
-        repeat
-              onechar := b[1];
-              if (onechar = '*') or (onechar = '?') then begin
-                 tmp_list.Add(onechar);
-                 Delete(b, 1, 1);
-              end else begin
-                  ps1 := Pos('?', b);
-                  if ps1 = 0 then ps1 := MaxInt;
-                  ps2 := Pos('*', b);
-                  if ps2 = 0 then ps2 := MaxInt;
-                  if ps2 > ps1 then ps2 := ps1;
-                  tmp_list.Add(Copy(b, 1, ps2 - 1));
-                  b := Copy(b, ps2, MaxInt);
-              end;
-        until b = '';}
-        // now compare the string with the partial search masks
-        dontcare := False;
-        ps2      := 1;
-        if cMask.Count > 0 then for ps1 := 0 to Pred(cMask.Count) do begin
-           sr := cMask[ps1];
-           if sr = '?' then begin
-              Inc(ps2, 1);
-              if ps2 > Length(a) then break;//Exit;
-           end else
-           if sr = '*' then
-              dontcare := True
-           else begin
-                if not dontcare then begin
-                   if Copy(a, ps2, Length(sr)) <> sr then Exit;
-                   dontcare := False;
-                   ps2 := ps2 + Length(sr);
-                end else begin
-                   ps3:= Pos(sr, Copy(a, ps2, MaxInt));
-                   if ps3 = 0 then Exit;
-                   ps2 := ps3 + length(sr);
-                   dontcare := False;
-                end;
-           end;
+  // now compare the string with the partial search masks
+  dontcare := False;
+  ps2 := 1;
+  if cMask.Count > 0 then
+    for ps1 := 0 to Pred(cMask.Count) do begin
+      sr := cMask[ps1];
+      if sr = '?' then begin
+        if ps2 > Length(a) then Exit(False); // a is over and '?' came from masks => retrun False;
+        Inc(ps2, 1);
+      end else if sr = '*' then dontcare := True
+      else begin
+        if not dontcare then begin
+          if Copy(a, ps2, Length(sr)) <> sr then Exit(False);
+          ps2 := ps2 + Length(sr);
+        end else begin
+          ps3 := Pos(sr, a, ps2); // Copy(a, ps2, MaxInt));
+          if ps3 = 0 then Exit(False);
+          ps2 := ps3 + Length(sr);
+          dontcare := False;
         end;
-        if not dontcare then if ps2 <> Length(a) + 1 then Exit;
-        Result := True;
-     //finally
-     //   tmp_list.Free;
-     //end;
+      end;
+    end;
+
+  if not dontcare then
+    if ps2 <> Length(a) + 1 then Exit(False);
+  // ps2 <= Length(a) means that part of a is not covered by masks => return False then
+  Result := True;
 end;
 
-// tests whether the string SearchStr fits to the search masks in GrepList
+// tests whether the string SearchText fits to the search masks in GrepList
 // If mask is empty (Greplist is empty), we consider that any search string fits such mask
 // Empty search string may NOT fit the mask e.g. when mask = '?'
-function CmpMask(SearchStr: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean}): Boolean;
+function CmpMask(SearchText: string; GrepList: TStringList{; FindFile: Boolean; MatchCase: Boolean}): Boolean;
 var
   ct : Integer;
   mask: string;
 begin
-     Result := True;
-     //if SearchStr = '' then exit; // if no search string, the always return TRUE
-     //a := CaseAware(a, MatchCase);
-     if (GrepList = nil) or (GrepList.Count < 1) then Exit;
-     Result := True;
-     for ct := 0 to Pred(GrepList.Count) do begin
-       mask := GrepList[ct];
-       if mask = '' then Exit;
-       if mask = '*' then Exit; // fits always
-       if mask = '*.*' then if Pos('.', SearchStr) > 0 then Exit; // fits, too
-       if (Pos('*', mask) = 0) and (Pos('?', mask) = 0) then
-         if Pos(mask, SearchStr) > 0 then Exit; // search without wildcards
+  Result := True;
+  // if SearchStr = '' then exit; // if no search string, the always return TRUE
+  // a := CaseAware(a, MatchCase);
+  if (GrepList = nil) or (GrepList.Count < 1) then Exit; // any search string fits empty mask
 
-       if cmpmask1(SearchStr, TStringList(GrepList.Objects[ct]){, FindFile}) then Exit; // compare with the whole GrepList until one fits
+  // Result := True;
+  for ct := 0 to Pred(GrepList.Count) do begin
+    mask := GrepList[ct];
+    if mask = '' then Exit; // any search string fits empty mask
+    if mask = '*' then Exit; // fits always
+    if mask = '*.*' then
+      if Pos('.', SearchText) > 0 then Exit; // fits, too
+    if (Pos('*', mask) = 0) and (Pos('?', mask) = 0) then Exit(Pos(mask, SearchText) > 0); // search without wildcards
 
-     end;
+    if cmpmask1(SearchText, TStringList(GrepList.Objects[ct]) { , FindFile } ) then Exit;
+    // compare with the whole GrepList until one fits
 
-     Result := False;
+  end;
+
+  Result := False;
 end;
 
 // tests whether a file's contents fit to the specified mask;
-function cmpfile(FileName: string; GrepList: TStringList{; MatchCase: Boolean}): Boolean;
+function CmpFile(FileName: string; GrepList: TStringList { ; MatchCase: Boolean } ): Boolean;
 var
-   fl: string;
-   ts: TFileStream;
-   //ct:Integer;
+  fl: string;
+  ts: TFileStream;
+  // ct:Integer;
 begin
-     Result := True;
-     // different handling between file find an text find
-     // true if no or each text is wanted
-     if (GrepList.Count < 1) or (GrepList[0] = '*') then exit;
+  Result := True;
+  // different handling between file find an text find
+  // true if no or each text is wanted
+  if (GrepList.Count < 1) or (GrepList[0] = '*') then Exit;
 
-     Result := False;
-     try
-       ts := TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone);
-     except
-       exit;
-     end;
-     try
-       SetLength(fl, ts.Size + 1);
-       ts.Position := 0;
-       ts.Read(fl[1], ts.Size);
-       ts.Free;
-       Result := cmpmask(fl {CaseAware(fl, MatchCase)}, GrepList{, false, MatchCase});
-     finally
-       SetLength(fl, 0);
-     end;
+  Result := False;
+  try
+    ts := TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone);
+  except
+    Exit;
+  end;
+  try
+    SetLength(fl, ts.Size + 1);
+    ts.Position := 0;
+    ts.Read(fl[1], ts.Size);
+    ts.Free;
+    Result := CmpMask(fl { CaseAware(fl, MatchCase) } , GrepList { , false, MatchCase } );
+  finally
+    SetLength(fl, 0);
+  end;
+end;
+
+  // Iterative wildcard matching (supports ? and *)
+function WildcardMatch(const Text, Pattern: string): Boolean;
+var
+  iText, iPat, lenPat: Integer;
+  starPat, starText: Integer;
+  {chText,} chPat: Char;
+
+begin
+  iText := 1;
+  iPat  := 1;
+  starPat := 0;    // remembers position of last '*' in pattern (0 = none)
+  starText := 0;   // remembers text position paired with last '*'
+  lenPat := Length(Pattern);
+
+  while (iText <= Length(Text)) do begin
+    if iPat <= lenPat // Length(Pattern)
+      then chPat := Pattern[iPat]
+      else chPat := #0;
+
+    // Multi-char wildcard '*'
+    if (chPat = '*') then begin
+      while (iPat <= lenPat {Length(Pattern)}) and (Pattern[iPat] = '*') do Inc(iPat);  // Skip consecutive '*' to normalize
+
+      // If '*' is at the end, it matches the rest of Text
+      if iPat > lenPat {Length(Pattern)} then Exit(True);
+
+      // Record positions to allow backtracking if next literal/segment fails
+      starPat := iPat;
+      starText := iText;
+      Continue;
+    end;
+
+    // Direct match or single-char wildcard '?'
+    if (chPat <> #0) and ((chPat = '?') or (UpCase(chPat) = UpCase(Text[iText]))) then begin
+      Inc(iText);
+      Inc(iPat);
+      Continue;
+    end;
+
+    // If mismatch but we had a previous '*', backtrack:
+    if (starPat <> 0) then begin
+      // Extend the match of the last '*' by one character in Text
+      Inc(starText);
+      if starText <= Length(Text) then begin
+        iText := starText;
+        iPat  := starPat; // re-check from the char after '*'
+        Continue;
+      end
+      else Exit(False);
+    end;
+
+    // No '*' to rescue the mismatch
+    Exit(False);
+  end;
+
+  // We consumed all Text; remaining Pattern must be empty or only '*'
+  while (iPat <= lenPat {Length(Pattern)}) and (Pattern[iPat] = '*') do Inc(iPat);
+
+  Result := (iPat > lenPat {Length(Pattern)});
 end;
 
 

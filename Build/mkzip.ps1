@@ -1,1 +1,1 @@
-Compress-Archive -path ..\Win64\Release\FinderX.exe,..\README.txt,..\changelog.txt -Force -DestinationPath FinderX.1.1.0.zip
+Compress-Archive -path ..\prj\FinderX\Win64\Release\FinderX.exe,MFTReaderDLL.dll,..\TODO.txt,..\README.md,..\changelog.txt -Force -DestinationPath FinderX.1.2.0.zip

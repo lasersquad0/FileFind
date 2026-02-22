@@ -1,6 +1,6 @@
 
-FinderX application for fast and easy search 
-=============================================
+FinderX app - very fast search files and folders 
+==========================================================
 
 CONTACTS
 ------------

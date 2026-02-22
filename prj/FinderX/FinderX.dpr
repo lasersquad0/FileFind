@@ -19,21 +19,22 @@ uses
   ObjectsCache in '..\..\src\ObjectsCache.pas',
   Settings in '..\..\src\Settings.pas',
   SettingsForm in '..\..\src\SettingsForm.pas' {SettingsForm1},
-  StatisticForm in '..\..\src\StatisticForm.pas' {StatisticForm1},
-  SortedArray in '..\..\..\..\..\..\..\source\repos\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas',
   CacheItem in '..\..\src\CacheItem.pas',
-  DynamicArray in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
-  DynamicArrays in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas',
-  Hash in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas',
-  Hash2 in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas';
+  DynamicArray in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
+  DynamicArrays in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas',
+  Hash in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas',
+  Hash2 in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas',
+  SortedArray in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas';
 
 {$R *.res}
+
 
 begin
   var start := GetTickCount;
 
   // first thing: load settings from registry and init logger
   AppSettings.Load;
+
   try
     //Logger.Init raises an exception when LoaFileName has incorrect path or file name
     if AppSettings.WriteLogFile then TLogger.Init(AppSettings.LogFileName);
@@ -44,16 +45,15 @@ begin
   end;
 
   var mutex := CreateMutex(nil, False, PChar('FinderX'));
+
   if GetLastError = ERROR_ALREADY_EXISTS then begin
     // copy of FinderX is already running, activating first app copy
     TLogger.Log('Another copy of FinderX app is running. Activating it.');
-    var hWnd := FindWindow('TMainForm', 'FindexX - find files quick!');
+    var hWnd := FindWindow('TMainForm', PChar(sMainWindowTitle));
     if hWnd = 0 then TLogger.Log('Cannot find FinderX window while mutex already exists.');
     SendMessage(hWnd, WM_RESTORE_MAINFORM_MSG, 0, 0); //send user message to restore main form from tray
-    //ShowWindow(hWnd, SW_RESTORE {SHOWNORMAL});
-    //SetForegroundWindow(hWnd);
     CloseHandle(mutex);
-    TLogger.Log('Another copy is being activated. Exiting.');
+    TLogger.Log('Another FinderX copy is being activated. Exiting.');
     Exit;
   end;
 
@@ -63,23 +63,24 @@ begin
     end else begin
       CloseHandle(mutex); // important to close mutex before running new instance by ShellExecute
       var fname := Application.ExeName;
-      var res := ShellExecute(0, 'runas', PChar(fname), nil, nil, SW_SHOWNORMAL);
+      var res := ShellExecute(0, 'runas', PChar(fname), nil, nil, SW_SHOWNORMAL); // try to run app with admin rights
       if res < 33 then TLogger.Log('ShellExecute run as admin error: ' + IntToStr(res));
       Exit;
     end;
   end;
 
+  TLogger.Log('Before Application.Initialize:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.Initialize;
   ReportMemoryLeaksOnShutdown := True;
   Application.MainFormOnTaskbar := True;
-  TLogger.Log('Application initialization time cutoff 1:' + MillisecToStr(GetTickcount - start));
+  TLogger.Log('After Application.Initialize:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.CreateForm(TMainForm, MainForm);
   Application.CreateForm(TAboutBox, AboutBox);
   Application.CreateForm(TIndexingLogForm, IndexingLogForm);
   Application.CreateForm(TSettingsForm1, SettingsForm1);
-  Application.CreateForm(TStatisticForm1, StatisticForm1);
-  TLogger.Log('Application initialization time cutoff 2:' + MillisecToStr(GetTickcount - start));
+  TLogger.Log('All application forms are created:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.Run;
 
-  CloseHandle(mutex); // important to close mutex in the beginning of app shutdown
+  TLogger.Log('FinderX - FINISH');
+  CloseHandle(mutex); // leave mutex open while app is running, important to close mutex in the beginning of app shutdown
 end.

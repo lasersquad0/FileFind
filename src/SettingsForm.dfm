@@ -62,7 +62,7 @@ object SettingsForm1: TSettingsForm1
     Top = 10
     Width = 339
     Height = 297
-    ActiveCard = Card2
+    ActiveCard = Card1
     BevelInner = bvRaised
     BevelOuter = bvLowered
     Caption = 'SettingsPanels'
@@ -87,7 +87,7 @@ object SettingsForm1: TSettingsForm1
       object MinimizeToTrayCheckBox: TCheckBox
         Left = 28
         Top = 55
-        Width = 153
+        Width = 240
         Height = 21
         Caption = 'Minimize to tray'
         TabOrder = 0
@@ -95,7 +95,7 @@ object SettingsForm1: TSettingsForm1
       object ShowTrayIconCheckBox: TCheckBox
         Left = 9
         Top = 28
-        Width = 153
+        Width = 240
         Height = 21
         Caption = 'Show tray icon'
         TabOrder = 1
@@ -104,7 +104,7 @@ object SettingsForm1: TSettingsForm1
       object RunAsAdminCheckBox: TCheckBox
         Left = 8
         Top = 80
-        Width = 153
+        Width = 240
         Height = 21
         Hint = 
           'If you check Run as administrator it will apply next time you la' +
@@ -115,7 +115,7 @@ object SettingsForm1: TSettingsForm1
       object StartWithWindowsCheckBox: TCheckBox
         Left = 8
         Top = 106
-        Width = 208
+        Width = 240
         Height = 21
         Caption = 'Start FinderX on system startup'
         TabOrder = 3
@@ -123,15 +123,15 @@ object SettingsForm1: TSettingsForm1
       object LogFileCheckBox: TCheckBox
         Left = 8
         Top = 132
-        Width = 232
+        Width = 250
         Height = 21
         Caption = 'Write diagnostic info into log file'
         TabOrder = 4
         OnClick = LogFileCheckBoxClick
       end
       object LogFileEdit: TEdit
-        Left = 106
-        Top = 157
+        Left = 122
+        Top = 156
         Width = 159
         Height = 23
         TabOrder = 5
@@ -165,7 +165,7 @@ object SettingsForm1: TSettingsForm1
       object CaseSearchCheckBox: TCheckBox
         Left = 9
         Top = 105
-        Width = 153
+        Width = 190
         Height = 21
         Caption = 'Case sensitive search'
         TabOrder = 0
@@ -173,7 +173,7 @@ object SettingsForm1: TSettingsForm1
       object EnableSearchHistoryCheckBox: TCheckBox
         Left = 9
         Top = 79
-        Width = 153
+        Width = 170
         Height = 21
         Caption = 'Enable search history'
         TabOrder = 1
@@ -194,14 +194,14 @@ object SettingsForm1: TSettingsForm1
       object SearchAsYouTypeCheckBox: TCheckBox
         Left = 9
         Top = 28
-        Width = 153
+        Width = 200
         Height = 21
         Caption = 'Search as you type'
         TabOrder = 3
         OnClick = SearchAsYouTypeCheckBoxClick
       end
       object ClearHistoryButton: TButton
-        Left = 147
+        Left = 183
         Top = 80
         Width = 142
         Height = 25
@@ -237,14 +237,14 @@ object SettingsForm1: TSettingsForm1
       object FoldersOnTopCheckBox: TCheckBox
         Left = 8
         Top = 54
-        Width = 209
+        Width = 220
         Height = 21
         Caption = 'Put folders on top during sorting'
         TabOrder = 0
       end
       object MaxNumFoundBox: TNumberBox
-        Left = 171
-        Top = 158
+        Left = 184
+        Top = 159
         Width = 45
         Height = 23
         Decimal = 0
@@ -260,7 +260,7 @@ object SettingsForm1: TSettingsForm1
       object CaseSortCheckBox: TCheckBox
         Left = 8
         Top = 80
-        Width = 129
+        Width = 220
         Height = 21
         Caption = 'Case sensitive sort'
         TabOrder = 2
@@ -268,14 +268,14 @@ object SettingsForm1: TSettingsForm1
       object HideFoldersSizeCheckbox: TCheckBox
         Left = 8
         Top = 28
-        Width = 177
+        Width = 220
         Height = 21
         Caption = 'Do not show folders size'
         TabOrder = 3
       end
       object SizeFormatComboBox: TComboBox
-        Left = 73
-        Top = 184
+        Left = 93
+        Top = 183
         Width = 64
         Height = 23
         Style = csDropDownList
@@ -291,7 +291,7 @@ object SettingsForm1: TSettingsForm1
       object ShowRowOnMouseOverCheckBox: TCheckBox
         Left = 8
         Top = 132
-        Width = 208
+        Width = 220
         Height = 21
         Caption = 'Show row mouseover'
         TabOrder = 5
@@ -299,7 +299,7 @@ object SettingsForm1: TSettingsForm1
       object HighlightSearchTermsCheckBox: TCheckBox
         Left = 8
         Top = 106
-        Width = 208
+        Width = 220
         Height = 21
         Caption = 'Highlight search terms'
         TabOrder = 6
@@ -331,7 +331,7 @@ object SettingsForm1: TSettingsForm1
       object IncludeNewFixedDrivesCheckBox: TCheckBox
         Left = 8
         Top = 28
-        Width = 249
+        Width = 290
         Height = 17
         Caption = 'Automatically include new fixed volumes'
         TabOrder = 0
@@ -339,7 +339,7 @@ object SettingsForm1: TSettingsForm1
       object IncludeNewRemovableDrivesCheckBox: TCheckBox
         Left = 8
         Top = 54
-        Width = 278
+        Width = 290
         Height = 17
         Caption = 'Automatically include new removable volumes'
         TabOrder = 1
@@ -347,7 +347,7 @@ object SettingsForm1: TSettingsForm1
       object RemoveOfflineDrivesCheckBox: TCheckBox
         Left = 8
         Top = 80
-        Width = 249
+        Width = 290
         Height = 17
         Caption = 'Automatically remove offline volumnes'
         TabOrder = 2
@@ -395,7 +395,7 @@ object SettingsForm1: TSettingsForm1
       object ExcludeFoldersCheckBox: TCheckBox
         Left = 8
         Top = 28
-        Width = 209
+        Width = 220
         Height = 17
         Caption = 'Exclude folders from list below'
         TabOrder = 0
@@ -452,7 +452,7 @@ object SettingsForm1: TSettingsForm1
     FavoriteLinks = <>
     FileTypes = <>
     Options = [fdoPickFolders]
-    Title = 'Select indexing folder'
+    Title = 'Select folder'
     Left = 40
     Top = 157
   end

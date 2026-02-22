@@ -11,7 +11,6 @@ type
     flag: Boolean;
   end;
 
- type
   TTernary = class
     class function IfThen<T>(Cond: Boolean; ValueTrue, ValueFalse: T): T;
   end;
@@ -24,7 +23,7 @@ type
     FLogFileName: string;
     FFileH: THandle;
   public
-    class var ErrorStringIDs: TErrorListHash;
+    //class var ErrorStringIDs: TErrorListHash;
     class constructor Create;
     class destructor Destroy;
     class procedure Init(const LogFileName: string);
@@ -33,13 +32,17 @@ type
     class procedure LogFmt(const Msg: string; Values: array of const);
   end;
 
+  EBadFileFormat = class(Exception)
+
+  end;
+
 
    // thread for background filling IconIndex, FileType string, and DisplayName fields in TCacheItem(s)
    // for each item we need make a call to ShGetFileInfo API function. It takes too much time and slows down search process.
    // it is possible to make searches during this bg process, but they will work a bit slowly because ShGetFileInfo will be called for search result item
 const
-  WM_FileShellInfo_MSG = WM_APP + 1;
-  WM_SearchResultsShellInfo_MSG = WM_APP + 2;
+  //WM_FILESHELLINFO_MSG = WM_APP + 1;
+  WM_SEARCHRESULTSSHELLINFO_MSG = WM_APP + 2;
   WM_RESTORE_MAINFORM_MSG = WM_APP + 3;
 
   // split string to array of strings using Delim as delimiter
@@ -48,22 +51,22 @@ const
   // splits string to array of strings using Delim as delimiter
   procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
 
+  procedure SplitByStrings(InputStr: string; DelimStrList: THArrayG<string>; var output: THArrayG<SplitRec>);
+
     // the same as Pos() but does case INsensitive search
   function  XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
 
   function  MillisecToStr(ms: Cardinal): string;
-//  function  GetLocalTime(ftm: TFileTime): string;
+
   function  FileTimeToString(const FileTime: TFileTime): string;
   function  StringListToArray(Strings: TStrings): TArray<string>;
   procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
   procedure WriteStringToStream(OStream: TStream; str: string);
   function  ReadStringFromStream(IStream: TStream): string;
- // function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
   function  FileTimeToDateTime(FileTime: TFileTime): TDateTime;
   function  DateTimeToFileTime(FileTime: TDateTime): TFileTime;
   function  ThousandSep(Num: UInt64): string;
-  procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
-//  function  AttrStr(Attr: DWORD): string;
+
   function  AttrStr2(Attr: DWORD): string;
   function  GetLogicalDrives: TArray<string>;
   function  IsDriveRemovable(drive: string): Boolean;
@@ -71,11 +74,24 @@ const
 
   function IsAppRunningAsAdminMode(): Boolean;
   function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; IsMember: PLongBool): LongBool; stdcall;
+  function GetFileOwnerName(FilePath: string): string;
+
+  // function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
+  // function  GetLocalTime(ftm: TFileTime): string;
+  // function  AttrStr(Attr: DWORD): string;
 
 implementation
 
 uses
-  WinAPI.ShellAPI, StrUtils, IOUtils, SyncObjs, Math;
+  WinAPI.ShellAPI, WinAPI.AclAPI, WinAPI.AccCtrl, StrUtils, IOUtils, SyncObjs, Math;
+
+ resourcestring
+   sFileTypeFileNotFound = 'File not found (probably deleted)';
+   sFileTypeUnknown = 'Unknown file type';
+   sMillisecLongFormat =  '%u h %u min %u sec %u ms';
+   sMillisecMiddleFormat = '%u min %u sec %u ms';
+   sMillisecShortFormat = '%u sec %u ms';
+
 
 // need for checking if app running with admin rights
 function CheckTokenMembership; external 'advapi32.dll' name 'CheckTokenMembership';
@@ -99,18 +115,18 @@ begin
   minutes := (ms div 60000) mod 60;
   hours := (ms div 3600000) mod 24;
 
-  //char buf[100];
   if hours > 0 then
-    Result := Format('%u h %u min %u sec %u ms', [hours, minutes, seconds, milliseconds])
+    Result := Format(sMillisecShortFormat, [hours, minutes, seconds, milliseconds])
   else if minutes > 0 then
-    Result := Format('%u min %u sec %u ms', [minutes, seconds, milliseconds])
+    Result := Format(sMillisecMiddleFormat, [minutes, seconds, milliseconds])
   else
-    Result := Format('%u sec %u ms', [seconds, milliseconds]);
+    Result := Format(sMillisecShortFormat, [seconds, milliseconds]);
 end;
 
 procedure ArrayToStringList(Arr: TArray<string>; Strings: TStrings);
 var
-  i, sz: Integer;
+  i: Int64;
+  sz:Int64;
 begin
   sz := Length(Arr);
   for i := 0 to sz - 1 do Strings.Add(Arr[i]);
@@ -125,49 +141,154 @@ begin
 end;
 
 // split string to array of strings using Delim as delimiter
-//TODO: check whether DynamicArray.pas has the same function
-procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+// does not add empty strings to output array
+var gStringb: TStringBuilder;
+{procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'}{);
 var
   i, len: Cardinal;
-  s: string;
 begin
   i := 1;
   len := Cardinal(Length(str));
-  //SetLength(s, len);
 
   while i <= len do begin
-    s := '';
+    gStringb.Clear;  // Clear sets Capacity to 16 (default capacity)
     while i <= len do begin
       if str[i] = Delim then begin
         Inc(i);
         break;
       end;
-      s := s + str[i];
+      gStringb.Append(str[i]);
       Inc(i);
     end;
 
-    if Length(s) > 0 then arr.AddValue(s);
+    if gStringb.Length > 0 then arr.AddValue(gStringb.ToString);
   end;
 end;
-
-// splits string to array of strings using Delim as delimiter
-procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+ }
+procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
 var
   i, len: Cardinal;
-  s:string;
 begin
   i := 1;
   len := Cardinal(Length(str));
-    //SetLength(s, len);
 
-  while i <= len do begin
-    if str[i] = Delim then
-      if Length(s) > 0 then arr.AddValue(s);
-      s := s + str[i];
+    gStringb.Clear;  // Clear sets Capacity to 16 (default capacity)
+    while i <= len do begin
+      if str[i] = Delim then begin
+        if gStringb.Length > 0 then arr.AddValue(gStringb.ToString);
+        gStringb.Clear;
+      end else
+        gStringb.Append(str[i]);
       Inc(i);
+    end;
+
+    if gStringb.Length > 0 then arr.AddValue(gStringb.ToString);
+end;
+
+// splits string to array of strings using Delim as delimiter
+// multiple consecutive Delims are treated as a single Delim.
+// Delims (one or several) in the end of string are ignored (do not generate items in arr)
+procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+var
+  i, len: Cardinal;
+  DelimFlag: Boolean;
+begin
+  i := 1;
+  len := Cardinal(Length(str));
+
+  gStringb.Clear;
+  DelimFlag := True;
+  while i <= len do begin
+    if str[i] = Delim then begin
+      if {Length(s) > 0} NOT DelimFlag then begin
+        arr.AddValue(gStringb.ToString);
+        gStringb.Append(str[i]);
+      end;
+      DelimFlag := True;
+    end else begin
+      gStringb.Append(str[i]);
+      DelimFlag := False;
+    end;
+    Inc(i);
   end;
 
-  if Length(s) > 0 then arr.AddValue(s);
+  if {Length(s) > 0} NOT DelimFlag then arr.AddValue(gStringb.ToString);
+end;
+
+
+// equivalent of Pos() function but does case INSENSITIVE search of substring in a given string
+// return 0 if substring is not found
+// othewise returns index of beginning SubStr in Str
+function XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
+var
+  nLen0, nLen1, nCnt, nCnt2: Integer;
+  cFirst: Char;
+begin
+  nLen0 := Length(SubStr);
+  nLen1 := Length(Str);
+
+  if nLen0 > nLen1 then Result := 0 // the substr is longer than the cString
+  else
+  if nLen0 = 0 then Result := 0 // null substr not allowed
+  else begin
+    // the outer loop finds the first matching character....
+    cFirst := UpCase(SubStr[1]);
+    Result := 0;
+
+    for nCnt := Offset to nLen1 - nLen0 + 1 do begin
+      if UpCase(Str[nCnt]) = cFirst then begin
+        // this might be the start of the substring...at least the first character matches....
+        Result := nCnt;
+        for nCnt2 := 2 to nLen0 do begin
+          if UpCase(Str[nCnt + nCnt2 - 1]) <> UpCase(SubStr[nCnt2]) then begin
+            // failed
+            Result := 0;
+            break;
+          end;
+        end;
+      end;
+
+      if Result > 0 then break;
+
+    end;
+  end;
+end;
+
+procedure SplitByStrings(InputStr: string; DelimStrList: THArrayG<string>; var output: THArrayG<SplitRec>);
+var
+  p1, p2: Integer;
+  len: Integer;
+  val: SplitRec;
+  i: Cardinal;
+begin
+  output.Clear;
+
+  if DelimStrList.Count = 0 then Exit;
+
+  p1 := 1;
+  while True do begin
+    for i := 1 to DelimStrList.Count do begin
+      len := Length(DelimStrList[i - 1]);
+
+      p2 := XPos(DelimStrList[i - 1], InputStr, p1);
+
+      if p2 = 0 then begin
+        val.str := Copy(InputStr, p1);
+        val.flag := False;
+        output.AddValue(val);
+        Exit; //break; // nothing more found
+      end else begin
+        val.str := Copy(InputStr, p1, p2 - p1);
+        val.flag := False;
+        output.AddValue(val); // adding part of string
+
+        val.str := Copy(InputStr, p2, len);
+        val.flag := True;
+        output.AddValue(val); // adding split string itself
+      end;
+      p1 := p2 + len;
+    end;
+  end;
 end;
 
 procedure WriteStringToStream(OStream: TStream; str: string);
@@ -175,8 +296,9 @@ var
   lenBytes: Integer;
 begin
   lenBytes := ByteLength(str);
+  Assert(lenBytes < MAX_PATH * sizeof(str[1]));
   OStream.WriteData<Integer>(lenBytes);
-  OStream.Write(str[1], lenBytes);
+  if lenBytes > 0 then OStream.Write(str[1], lenBytes);
 end;
 
 function ReadStringFromStream(IStream: TStream): string;
@@ -184,8 +306,11 @@ var
   lenBytes: Cardinal;
 begin
   IStream.ReadData<Cardinal>(lenBytes);
-  SetLength(Result, lenBytes div sizeof(Result[1]));
-  IStream.Read(Result[1], lenBytes);
+  Assert(lenBytes < MAX_PATH * sizeof(Result[1]));
+  if lenBytes > 0 then begin
+    SetLength(Result, lenBytes div sizeof(Result[1]));
+    IStream.Read(Result[1], lenBytes);
+  end;
 end;
 
 // **** Use built-in SysUtils.SysErrorMessage function  *****
@@ -312,74 +437,6 @@ begin
 end;
 
 
-// equivalent of Pos() function but does case INSENSITIVE search of substring in a given string
-// return 0 if substring is not found
-// othewise returns index of beginning SubStr in Str
-function XPos(const SubStr, Str: string; Offset: Integer = 1): Integer;
-var
-  nLen0, nLen1, nCnt, nCnt2: Integer;
-  cFirst: Char;
-begin
-  nLen0 := Length(SubStr);
-  nLen1 := Length(Str);
-
-  if nLen0 > nLen1 then Result := 0 // the substr is longer than the cString
-  else
-  if nLen0 = 0 then Result := 0 // null substr not allowed
-  else begin
-    // the outer loop finds the first matching character....
-    cFirst := UpCase(SubStr[1]);
-    Result := 0;
-
-    for nCnt := Offset to nLen1 - nLen0 + 1 do begin
-      if UpCase(Str[nCnt]) = cFirst then begin
-        // this might be the start of the substring...at least the first character matches....
-        Result := nCnt;
-        for nCnt2 := 2 to nLen0 do begin
-          if UpCase(Str[nCnt + nCnt2 - 1]) <> UpCase(SubStr[nCnt2]) then begin
-            // failed
-            Result := 0;
-            break;
-          end;
-        end;
-      end;
-
-      if Result > 0 then break;
-
-    end;
-  end;
-end;
-
-procedure SplitByString(InputString: string; DelimString: string; var arr: THArrayG<SplitRec>);
-var
-  p1, p2: Integer;
-  len: Integer;
-  val: SplitRec;
-begin
-  p1 := 1;
-  len := length(DelimString);
-  arr.Clear;
-  while True do begin
-    p2 := XPos(DelimString, InputString, p1);
-
-    if p2 = 0 then begin
-      val.str := Copy(InputString, p1);
-      val.flag := False;
-      arr.AddValue(val);
-      break;  // nothing more found
-    end else begin
-      val.str := Copy(InputString, p1, p2 - p1);
-      val.flag := False;
-      arr.AddValue(val); // adding part of string
-
-      val.str := Copy(InputString, p2, len);
-      val.flag := True;
-      arr.AddValue(val);  // adding split string itself
-    end;
-    p1 := p2 + len;
-  end;
-end;
-
 // returns a string with file attributes (ADRSHCTE)
 {function AttrStr(Attr: DWORD): string;
 begin
@@ -440,8 +497,11 @@ begin
   Result := (dt = DRIVE_REMOVABLE) OR (dt = DRIVE_CDROM);
 end;
 
-// FileName - must be full path to existing file or folder (or relative path to existing file/folder)
+{$IFOPT J+}
+  {$DEFINE WAS_WRITABLECONST_ON}
+{$ENDIF}
 {$WRITEABLECONST ON}   // needed for CallsCount static variable
+// FileName - must be full path to existing file or folder (or relative path to existing file/folder)
 function GetFileShellInfo(FullFileName: TFileName; Item: TCacheItem): Boolean;
 const
   CallsCount: Cardinal = 0;
@@ -464,16 +524,12 @@ begin
 
     var err := GetLastError();
     if (err = ERROR_FILE_NOT_FOUND) OR (err = ERROR_PATH_NOT_FOUND) then begin // file not found error
-      Item.FFileType := 'File not found (probably deleted)';
+      Item.FFileType := sFileTypeFileNotFound;
     end else begin
-      Item.FFileType := 'Unknown file type';
+      Item.FFileType := sFileTypeUnknown;
     end;
 
-   { if TLogger.ErrorStringIds.GetValuePointer(err) = nil //TODO: shall we use SysUtils.SysErrorMessage here?
-      then errStr := 'UNKNOWN'
-      else errStr := TLogger.ErrorStringIds[err];
-    }
-    TLogger.Log(Format('Error (code=%d) "%s" in ShGetFileInfo(%s).', [err, SysErrorMessage(err), FullFileName]));
+    TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call ShGetFileInfo(%s).', [err, SysErrorMessage(err), FullFileName]));
   end
   else
   begin
@@ -486,7 +542,12 @@ begin
 
   Result := Res <> 0;
 end;
-{$WRITEABLECONST OFF}
+{$IFDEF WAS_WRITABLECONST_ON}
+  {$WRITEABLECONST ON}
+  {$UNDEF WAS_WRITABLECONST_ON}
+{$ELSE}
+  {$WRITEABLECONST OFF}
+{$ENDIF}
 
 
 function IsAppRunningAsAdminMode(): Boolean;
@@ -548,37 +609,121 @@ Cleanup:
   Result := fIsRunAsAdmin;
 end;
 
+function SidToString(Sid: PSID): string;
+var
+  StringSid: PChar;
+begin
+  StringSid := nil;
+
+  // 1. Basic validation: Check if the SID pointer is valid
+ // if not IsValidSid(Sid) then Exit;
+
+  // 2. Perform the conversion
+  if ConvertSidToStringSid(Sid, StringSid) then begin
+    Result := StringSid;
+  end else begin
+    TLogger.Log('[SidToString] WINAPI call ConvertSidToStringSid failed.');
+  end;
+
+  // 3. Important: Free the memory allocated by ConvertSidToStringSid
+  LocalFree(HLOCAL(StringSid));
+
+end;
+
+function GetFileOwnerName(FilePath: string): string;
+var
+   pSidOwner: PSID;
+   pSD: PSECURITY_DESCRIPTOR;
+   dwResult: Cardinal;
+   szOwnerName: array[0..MAX_PATH] of Char;
+   szDomainName: array[0..MAX_PATH] of Char;
+   dwOwnerNameSize:Cardinal;
+   dwDomainNameSize: Cardinal;
+   sidType: SID_NAME_USE;
+  // bOwnerDefaulted: BOOL;
+ begin
+   pSidOwner := nil;
+   pSD := nil;
+   szOwnerName[0] := #0;
+   szDomainName[0] := #0;
+   dwOwnerNameSize := MAX_PATH;
+   dwDomainNameSize := MAX_PATH;
+
+   // Get security descriptor with owner information
+   dwResult := GetNamedSecurityInfo(PChar(FilePath), // File path
+     SE_FILE_OBJECT, // Object type (file)
+     OWNER_SECURITY_INFORMATION, // Request owner info only
+     @pSidOwner, // Receives owner SID
+     nil, nil, nil, @pSD);
+
+   if dwResult <> ERROR_SUCCESS then begin
+     TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call GetNamedSecurityInfo(%s).', [dwResult, SysErrorMessage(dwResult), FilePath]));
+     LocalFree(pSD);
+     Exit;
+   end;
+
+   { if pSidOwner = nil then begin
+     bOwnerDefaulted := FALSE;
+     if NOT GetSecurityDescriptorOwner(pSD, pSidOwner, &bOwnerDefaulted)
+     then TLogger.LogFmt('Failed to get owner from SD: %d', [GetLastError()])
+     else if pSidOwner = nil then TLogger.Log('SD finally has no owner');
+     end;
+   }
+
+   // Convert SID to account name
+   if NOT LookupAccountSid(nil, // Local system
+     pSidOwner, // SID to lookup
+     szOwnerName, // Account name buffer
+     dwOwnerNameSize, // Size of name buffer
+     szDomainName, // Domain name buffer
+     dwDomainNameSize, // Size of domain buffer
+     sidType) // SID type
+   then begin
+     var err := GetLastError();
+     TLogger.Log(Format('Error (code=%d) "%s" in WINAPI call LookAccountSid(%s).', [err, SysErrorMessage(err), FilePath]));
+     Result := SidToString(pSidOwner);
+     LocalFree(pSD);
+     Exit;
+   end;
+
+   LocalFree(pSD);
+
+   Result := szOwnerName;
+ end;
+
+
+
 //const DEF_LOG_FILENAME = 'FinderX_denug.log';
 const
-  INVALID_SET_FILE_POINTER = -1;
+  INVALID_SET_FILE_POINTER = Cardinal(-1);
 
 class constructor TLogger.Create;
 begin
   FFileH := INVALID_HANDLE_VALUE;
 
-  ErrorStringIDs := TErrorListHash.Create;
+ { ErrorStringIDs := TErrorListHash.Create;
   ErrorStringIDs[ERROR_FILE_NOT_FOUND] := 'ERROR_FILE_NOT_FOUND'; //3
   ErrorStringIDs[ERROR_PATH_NOT_FOUND] := 'ERROR_PATH_NOT_FOUND'; //5
   ErrorStringIDs[ERROR_MORE_DATA]      := 'ERROR_MORE_DATA'; //234
   ErrorStringIDs[ERROR_NO_TOKEN]       := 'ERROR_NO_TOKEN'; //1008
-  ErrorStringIDs[ERROR_NO_MORE_ITEMS]  := 'ERROR_NO_MORE_ITEMS'; //259
+  ErrorStringIDs[ERROR_NO_MORE_ITEMS]  := 'ERROR_NO_MORE_ITEMS'; //259 }
 end;
 
 class destructor TLogger.Destroy;
 begin
   Shutdown;
-  FreeAndNil(ErrorStringIDs);
+  //FreeAndNil(ErrorStringIDs);
 end;
 
 class procedure TLogger.Init(const LogFileName: string);
-var tdir: TDirectory;
+//var tdir: TDirectory;
 begin
   // do nothing if logfilename has not changed
   if (FFileH <> INVALID_HANDLE_VALUE) AND (CompareText(FLogFileName, LogFileName) = 0) then Exit;
 
   CloseHandle(FFileH); // close old log file
 
-  // check whether LogFileName contains path or not (contains file name only)
+  // check whether LogFileName contains path or contains file name only
   if TPath.GetDirectoryName(LogFileName) = ''
     then FLogFileName := TPath.GetAppPath + '\' + LogFileName
     else FLogFileName := LogFileName;
@@ -588,10 +733,13 @@ begin
   if FFileH = INVALID_HANDLE_VALUE then begin
     raise EFOpenError.CreateFmt('Cannot open log file (' + GetLastError.ToString + '): %s', [FLogFileName]);
   end;
+
+  Log('------------ Logger Start ------------');
 end;
 
 class procedure TLogger.Shutdown();
 begin
+  Log('------------ Logger Shutdown ------------');
   CloseHandle(FFileH); // close old log file
   FFileH := INVALID_HANDLE_VALUE;
   FLogFileName := '';
@@ -604,7 +752,7 @@ var
   res1: Cardinal;
   res2: LongBool;
 begin
-  if FFileH = INVALID_HANDLE_VALUE then Exit; // logger is in shutdown state or error opening file
+  if FFileH = INVALID_HANDLE_VALUE then Exit; // logger is in shutdown state or not initialized
 
   res1 := SetFilePointer(FFileH, 0, nil, FILE_END);
   if res1 = INVALID_SET_FILE_POINTER then
@@ -623,5 +771,9 @@ begin
   Log(Format(Msg, Values));
 end;
 
-end.
+initialization
+  gStringb := TStringBuilder.Create;
+finalization
+  FreeAndNil(gStringb);
 
+end.

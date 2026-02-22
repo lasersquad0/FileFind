@@ -6,7 +6,7 @@ uses System.Types, Classes;
 
 type
   // display columns
-  TFileInfo = (fiName, fiSize, fiType, fiModified, fiLastAccess, fiCreated, fiAttributes, fiPath);
+  TFileInfo = (fiName, fiSize, fiType, fiModified, fiLastAccess, fiCreated, fiAttributes, fiPath, fiItemsCount, fiOwner);
 
   // Column settings structure
   TColumnInfo = record
@@ -92,7 +92,6 @@ uses
   System.SysUtils, WinAPI.Windows, Vcl.Dialogs, ShlObj, WinApi.KnownFolders, WinApi.ActiveX, Registry, Functions;
 
 
-
 var
   DefColumnInfos: TColumnInfos = ((ColType:fiName;       Visible:True; Width:300),
                                   (ColType:fiSize;       Visible:True; Width:100),
@@ -101,7 +100,9 @@ var
                                   (ColType:fiLastAccess; Visible:True; Width:140),
                                   (ColType:fiCreated;    Visible:True; Width:140),
                                   (ColType:fiAttributes; Visible:True; Width:70),
-                                  (ColType:fiPath;       Visible:True; Width:400)
+                                  (ColType:fiPath;       Visible:True; Width:400),
+                                  (ColType:fiItemsCount; Visible:True; Width:80),
+                                  (ColType:fiOwner;      Visible:True; Width:80)
                                   );
 
 
@@ -310,7 +311,7 @@ begin
        reg.WriteString(STVL[snIndexFileName].Name, IndexFileName);
        reg.WriteBool(STVL[snWriteLogFile].Name, WriteLogFile);
        reg.WriteString(STVL[snLogFileName].Name, LogFileName);
-       reg.WriteBool(STVL[snNTFSFastReading].Name, FastReadingNTFS);
+       //reg.WriteBool(STVL[snNTFSFastReading].Name, FastReadingNTFS);
      end;
      reg.CloseKey;
 

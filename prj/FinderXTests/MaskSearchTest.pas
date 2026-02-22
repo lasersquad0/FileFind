@@ -22,34 +22,43 @@ type
     procedure TestEmpty;
 
     //    <search str>, <mask>, result (1 - true, 0 - false)
-    [TestCase('TestA1',', *, 1')] // empty search str
-    [TestCase('TestA2',' , *, 1')]
-    [TestCase('TestA3','1, *, 1')]
-    [TestCase('TestA4','aa;, *, 1')]
-    [TestCase('TestA5','aa;bb, *, 1')]
-    [TestCase('TestA6','---, *, 1')]
-    [TestCase('TestA7','*, *, 1')]
-    [TestCase('TestA8','**, *, 1')]
-    [TestCase('TestA9','?, *, 1')]
-    [TestCase('TestA10','??, *, 1')]
-    [TestCase('TestB1',', ?, 0')] // empty search str
-    [TestCase('TestB2','a, ?, 1')]
-    [TestCase('TestB3',';;, ?, 0')]
-    [TestCase('TestB4','--, ?, 0')]  // if mask str is empty then we use '*' as filter in GrepList, that is why count=1 here
-    [TestCase('TestB5','*, ?, 1')]
-    [TestCase('TestB6','?, ?, 1')]
-    [TestCase('TestB7','?*, ?, 0')]
-    [TestCase('TestB8','*?, ?, 0')]
-    [TestCase('TestB9','??, ?, 0')]
-    [TestCase('TestB10','**, ?, 0')]
-    [TestCase('TestB11','abcdef, ?, 0')]
+    [TestCase('TestA0',  ',*,1')]     // empty search str, spaces around mask will be removed
+    [TestCase('TestA1',  ', *, 1')]   // empty search str, spaces around mask will be removed
+    [TestCase('TestA2',  ' , *, 1')]
+    [TestCase('TestA3',  '1, *, 1')]
+    [TestCase('TestA4',  'aa, *, 1')]
+    [TestCase('TestA5',  'aa;, *, 1')]
+    [TestCase('TestA6',  'aa;bb, *, 1')]
+    [TestCase('TestA7',  '---, *, 1')]
+    [TestCase('TestA8',  '*, *, 1')]
+    [TestCase('TestA9',  '**, *, 1')]
+    [TestCase('TestA10',  '?, *, 1')]
+    [TestCase('TestA11', '??, *, 1')]
+    [TestCase('TestB1',  ', ?, 0')] // empty search str
+    [TestCase('TestB2',  'a, ?, 1')]
+    [TestCase('TestB3',  ';;, ?, 0')]
+    [TestCase('TestB4',  '--, ?, 0')]  // if mask str is empty then we use '*' as filter in GrepList, that is why count=1 here
+    [TestCase('TestB5',  '*, ?, 1')]
+    [TestCase('TestB6',  '?, ?, 1')]
+    [TestCase('TestB7',  '?*, ?, 0')]
+    [TestCase('TestB8',  '*?, ?, 0')]
+    [TestCase('TestB9',  '??, ?, 0')]
+    [TestCase('TestB10', '**, ?, 0')]
+    [TestCase('TestC1', 'abcdef, ?, 0')]
+    [TestCase('TestC2', 'c, ??, 0')]
+    [TestCase('TestC3', 'cc, ??, 1')]
+    [TestCase('TestC4', 'ccc, ??, 0')]
+    [TestCase('TestC5', 'c, ???, 0')]
+    [TestCase('TestC6', 'cc, ???, 0')]
+    [TestCase('TestC7', 'ccc, ???, 1')]
+    [TestCase('TestC8', 'cccc, ???, 0')]
     procedure TestOnlyWildCards(const ASearchStr: string; const AMask: string; const AResult: Integer);
 
     [Test]
     procedure TestCompileMaskEmpty;
 
     //       <mask>, <count of filters>, count of compiled items (total)
-    [TestCase('TestA1','aa, 1, 1')]
+    [TestCase('TestA1','aa, 1, 1')]  // spaces around mask will be deleted
     [TestCase('TestA2',';aa, 1, 1')]
     [TestCase('TestA3',';;aa, 1, 1')]
     [TestCase('TestB','aa;, 1, 1')]
@@ -58,6 +67,7 @@ type
     [TestCase('TestD2','aa;bb;;, 2, 2')]
     [TestCase('TestE1',';, 0, 0')]
     [TestCase('TestE2',';;, 0, 0')]
+    [TestCase('TestE3','; ;, 1, 1')]
     [TestCase('TestF',', 1, 1')]  // if mask str is empty then we use '*' as filter in GrepList, that is why count=1 here
     [TestCase('TestG1','*, 1, 1')]
     [TestCase('TestG2','**, 1, 2')]
@@ -72,16 +82,42 @@ type
     [TestCase('TestK5','?;?, 2, 2')]
     [TestCase('TestK6','*;?;, 2, 2')]
     [TestCase('TestK7',';?;*;, 2, 2')]
-    procedure TestCompileMask(const ASearchStr: string; const ACount1: Integer; const ACount2: Integer);
+    [TestCase('TestL1','a?1;*b2*;c3??, 3, 9')]
+    procedure TestCompileMask(const AMask: string; const ACount1: Integer; const ACount2: Integer);
 
-                   // <search str>,   <mask>    <result>
-    [TestCase('TestA1','Browse.VC.DB2, Browse.VC.DB?, 1')] // should be true because ? matches 2 at the end
-    [TestCase('TestA2','Browse.VC.db-, Browse.VC.db?, 1')]
-    [TestCase('TestA3','Browse.VC.db2a, Browse.VC.db?, 0')]
+    //                <search str>,   <mask>    <result>  (1 - true, 0 - false)
+    //[TestCase('TestA0','Browse.VC.DB2, Browse.VC.DB, 1')]
+    [TestCase('TestA1','Browse.VC.DB, Browse.VC.DB?, 0')]
+    [TestCase('TestA2','Browse.VC.DB, Browse.VC.DB2, 0')] // should be true because ? matches 2 at the end
+    [TestCase('TestA3','Browse.VC.DB2, Browse.VC.DB?, 1')] // should be true because ? matches 2 at the end
+    [TestCase('TestA4','Browse.VC.DB-, Browse.VC.db?, 1')]
+    [TestCase('TestA5','Browse.VC.db2a, Browse.VC.db?, 0')]
     [TestCase('TestB1','arith, ?rith, 1')]
     [TestCase('TestB2','r, ?rith, 0')]
     [TestCase('TestB3','R, ?rith, 0')]
-    [TestCase('TestB4','arith, ?rith, 0')]
+    [TestCase('TestB4','RR, ?rith, 0')]
+    [TestCase('TestB5','RRrrRRrr, ?rith, 0')]
+    [TestCase('TestB6','arith, *rith, 1')]
+    [TestCase('TestB7','arith, *arith, 1')]
+    [TestCase('TestB8','arith, arith*, 1')]
+    [TestCase('TestB9','arith, *rit*, 1')]
+    [TestCase('TestC1','roma, rom?*, 1')]
+    [TestCase('TestC2','Roma, rom?*, 1')]
+    [TestCase('TestC3','rom, rom?*, 0')]
+    [TestCase('TestC4','roma, rom*?*, 1')]
+    [TestCase('TestC5','roma, rom??, 0')]
+    [TestCase('TestC6','roma, ro?, 0')]
+    [TestCase('TestC7','roma, ro?a, 1')]
+    [TestCase('TestC8','rota, ro*a, 1')]
+    [TestCase('TestD1','rotttttar, ro*ar, 1')]
+    [TestCase('TestD2','roa, ro*a, 1')]
+    [TestCase('TestD3','rotarota34 , ro*a34 , 1')]
+    [TestCase('TestD4','andrey time roma good papa roma,andrey*roma, 1')]
+    [TestCase('TestD5','andrey time roma papa roma andrey roma,andrey*roma, 1')]
+    [TestCase('TestD6','andrey time roma good papa roman,andrey*roma?, 1')]
+    [TestCase('TestD7','andrey time roma good papa roma,andrey*roma?*, 1')]
+    [TestCase('TestD8','andrey time roma papa roma andrey roma,andrey*roma*, 1')]
+    [TestCase('TestD9','andrey time roma papa roma andrey roma,andrey*roma?*, 1')]
     procedure TestWildCards(const ASearchStr: string; const AMask: string; const AResult: Integer);
   end;
 
@@ -113,17 +149,19 @@ end;
 procedure TMaskSearchTest.TestOnlyWildCards(const ASearchStr: string; const AMask: string; const AResult: Integer);
 var cmask: TStringList;
 begin
-  cmask := CompileMask(Trim(AMask));
-  Assert.AreEqual(AResult = 1, CmpMask(Trim(ASearchStr), cmask)); // 1 - true, 0 - false
-  FreeCompiledMask(cmask);
+  //cmask := CompileMask(Trim(AMask));
+  //Assert.AreEqual(AResult = 1, CmpMask(Trim(ASearchStr), cmask)); // 1 - true, 0 - false
+  //FreeCompiledMask(cmask);
+
+  Assert.AreEqual(AResult = 1, WildcardMatch(Trim(ASearchStr), Trim(AMask)));
 end;
 
-procedure TMaskSearchTest.TestCompileMask(const ASearchStr: string; const ACount1: Integer; const ACount2: Integer);
+procedure TMaskSearchTest.TestCompileMask(const AMask: string; const ACount1: Integer; const ACount2: Integer);
 var
   cmask: TStringList;
   i, total: Integer;
 begin
-  cmask := CompileMask(Trim(ASearchStr));
+  cmask := CompileMask(Trim(AMask));
   Assert.AreEqual(ACount1, cmask.Count);
   total := 0;
   for i := 0 to cmask.Count - 1 do total := total + TStringList(cmask.Objects[i]).Count;
@@ -163,9 +201,11 @@ end;
 procedure TMaskSearchTest.TestWildCards(const ASearchStr, AMask: string; const AResult: Integer);
 var cmask: TStringList;
 begin
-  cmask := CompileMask(Trim(AMask));
-  Assert.AreEqual(AResult = 1, CmpMask(Trim(ASearchStr), cmask)); // 1 - true, 0 - false
-  FreeCompiledMask(cmask);
+ // cmask := CompileMask(Trim(AMask));
+ // Assert.AreEqual(AResult = 1, CmpMask(Trim(ASearchStr), cmask)); // 1 - true, 0 - false
+ // FreeCompiledMask(cmask);
+
+  Assert.AreEqual(AResult = 1, WildcardMatch(Trim(ASearchStr), Trim(AMask)));
 end;
 
 
