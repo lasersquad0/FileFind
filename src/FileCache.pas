@@ -1116,10 +1116,10 @@ begin
     lstrcpy(fileData.cFileName, PWideChar(pathArray[0]));
 
     FillFileData(pathArrayAccum[0], fileData);
-    parent := AddRootItem(fileData);
 
-  //  lv := 1;
-    Assert(lv = parent.ItemLevel + 1);
+    parent := AddRootItem(fileData);
+    Assert(parent.ItemLevel = 0);
+
     for lv := 1 to pathArray.Count - 1 do begin
       Assert(lv = parent.ItemLevel + 1);
       lstrcpy(fileData.cFileName, PWideChar(pathArray[lv]));
