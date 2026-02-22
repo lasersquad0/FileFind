@@ -37,7 +37,7 @@ begin
   AppSettings.Load;
 
   try
-    //Logger.Init raises an exception when LoaFileName has incorrect path or file name
+    //Logger.Init raises an exception when LogFileName has incorrect path or file name
     if AppSettings.WriteLogFile then TLogger.Init(AppSettings.LogFileName);
   except
     on ex: EFOpenError do begin
@@ -72,8 +72,11 @@ begin
 
   TLogger.Info('Before Application.Initialize:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.Initialize;
+  {$IFNDEF RELEASE}
   ReportMemoryLeaksOnShutdown := True;
+  {$ENDIF}
   Application.MainFormOnTaskbar := True;
+  Application.HintHidePause := 4000;
   TLogger.Info('After Application.Initialize:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.CreateForm(TMainForm, MainForm);
   Application.CreateForm(TAboutBox, AboutBox);
