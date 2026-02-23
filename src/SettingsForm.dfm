@@ -62,7 +62,7 @@ object SettingsForm1: TSettingsForm1
     Top = 10
     Width = 363
     Height = 297
-    ActiveCard = Card3
+    ActiveCard = Card1
     BevelInner = bvRaised
     BevelOuter = bvLowered
     Caption = 'SettingsPanels'
@@ -87,7 +87,7 @@ object SettingsForm1: TSettingsForm1
       object MinimizeToTrayCheckBox: TCheckBox
         Left = 28
         Top = 55
-        Width = 240
+        Width = 290
         Height = 21
         Hint = 
           'When checked application will be removed from Windows Task Bar w' +
@@ -96,24 +96,24 @@ object SettingsForm1: TSettingsForm1
         Caption = 'Minimize to tray'
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 0
+        TabOrder = 1
       end
       object ShowTrayIconCheckBox: TCheckBox
         Left = 9
         Top = 28
-        Width = 240
+        Width = 320
         Height = 21
         Hint = 'Show FinderX icon in system tray while application is running.'
         Caption = 'Show tray icon'
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 1
+        TabOrder = 0
         OnClick = ShowTrayIconCheckBoxClick
       end
       object RunAsAdminCheckBox: TCheckBox
         Left = 8
         Top = 80
-        Width = 240
+        Width = 320
         Height = 21
         Hint = 
           'If checked FinderX will Run with administrative rights next time' +
@@ -126,7 +126,7 @@ object SettingsForm1: TSettingsForm1
       object StartWithWindowsCheckBox: TCheckBox
         Left = 8
         Top = 106
-        Width = 240
+        Width = 320
         Height = 21
         Hint = 'Automatically run FinderX when Windows starts.'
         Caption = 'Start FinderX on system startup'
@@ -135,10 +135,29 @@ object SettingsForm1: TSettingsForm1
         TabOrder = 3
         OnClick = StartWithWindowsCheckBoxClick
       end
+      object LogFileEdit: TEdit
+        Left = 129
+        Top = 185
+        Width = 159
+        Height = 23
+        TabOrder = 6
+        Text = 'FinderX_debug.log'
+      end
+      object StartMinimizedCheckBox: TCheckBox
+        Left = 28
+        Top = 133
+        Width = 290
+        Height = 21
+        Hint = 'Start with main window minimized into system tray.'
+        Caption = 'Start minimized'
+        ParentShowHint = False
+        ShowHint = True
+        TabOrder = 4
+      end
       object LogFileCheckBox: TCheckBox
         Left = 9
         Top = 158
-        Width = 250
+        Width = 344
         Height = 21
         Hint = 
           'Diagnostic information will be written into specified file when ' +
@@ -146,27 +165,8 @@ object SettingsForm1: TSettingsForm1
         Caption = 'Write diagnostic info into log file'
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 4
-        OnClick = LogFileCheckBoxClick
-      end
-      object LogFileEdit: TEdit
-        Left = 129
-        Top = 185
-        Width = 159
-        Height = 23
         TabOrder = 5
-        Text = 'FinderX_debug.log'
-      end
-      object StartMinimizedCheckBox: TCheckBox
-        Left = 28
-        Top = 133
-        Width = 240
-        Height = 21
-        Hint = 'Start with main window minimized into system tray.'
-        Caption = 'Start minimized'
-        ParentShowHint = False
-        ShowHint = True
-        TabOrder = 6
+        OnClick = LogFileCheckBoxClick
       end
     end
     object Card2: TCard
@@ -207,7 +207,7 @@ object SettingsForm1: TSettingsForm1
         Caption = 'Case sensitive search'
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 0
+        TabOrder = 4
       end
       object EnableSearchHistoryCheckBox: TCheckBox
         Left = 9
@@ -215,7 +215,7 @@ object SettingsForm1: TSettingsForm1
         Width = 170
         Height = 21
         Caption = 'Enable search history'
-        TabOrder = 1
+        TabOrder = 2
       end
       object SearchAfterNumberBox: TNumberBox
         Left = 147
@@ -231,7 +231,7 @@ object SettingsForm1: TSettingsForm1
         MaxLength = 6
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 2
+        TabOrder = 1
         Value = 3.000000000000000000
         UseMouseWheel = True
       end
@@ -248,7 +248,7 @@ object SettingsForm1: TSettingsForm1
         Caption = 'Search as you type'
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 3
+        TabOrder = 0
         OnClick = SearchAsYouTypeCheckBoxClick
       end
       object ClearHistoryButton: TButton
@@ -257,7 +257,7 @@ object SettingsForm1: TSettingsForm1
         Width = 142
         Height = 25
         Caption = 'Clear history (90 items)'
-        TabOrder = 4
+        TabOrder = 3
         OnClick = ClearHistoryButtonClick
       end
     end
@@ -274,7 +274,7 @@ object SettingsForm1: TSettingsForm1
       object Label1: TLabel
         Left = 8
         Top = 162
-        Width = 159
+        Width = 158
         Height = 15
         Caption = 'Max number of items to show'
       end
@@ -291,7 +291,7 @@ object SettingsForm1: TSettingsForm1
       object FoldersOnTopCheckBox: TCheckBox
         Left = 8
         Top = 54
-        Width = 220
+        Width = 290
         Height = 21
         Hint = 
           'Makes Windows Explorer like sorting of folders when all folders ' +
@@ -299,7 +299,7 @@ object SettingsForm1: TSettingsForm1
         Caption = 'Put folders on top during sorting'
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 0
+        TabOrder = 1
       end
       object MaxNumFoundBox: TNumberBox
         Left = 190
@@ -312,14 +312,14 @@ object SettingsForm1: TSettingsForm1
         MaxLength = 6
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 1
+        TabOrder = 5
         Value = 20000.000000000000000000
         UseMouseWheel = True
       end
       object CaseSortCheckBox: TCheckBox
         Left = 8
         Top = 80
-        Width = 220
+        Width = 290
         Height = 21
         Caption = 'Case sensitive sort'
         TabOrder = 2
@@ -327,7 +327,7 @@ object SettingsForm1: TSettingsForm1
       object HideFoldersSizeCheckbox: TCheckBox
         Left = 8
         Top = 28
-        Width = 220
+        Width = 290
         Height = 21
         Hint = 
           'Show '#39'-'#39' instead of folders size. This option might be useful wh' +
@@ -335,7 +335,7 @@ object SettingsForm1: TSettingsForm1
         Caption = 'Do not show folders size'
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 3
+        TabOrder = 0
       end
       object SizeFormatComboBox: TComboBox
         Left = 98
@@ -344,7 +344,7 @@ object SettingsForm1: TSettingsForm1
         Height = 23
         Style = csDropDownList
         ItemIndex = 0
-        TabOrder = 4
+        TabOrder = 6
         Text = 'auto'
         Items.Strings = (
           'auto'
@@ -355,15 +355,15 @@ object SettingsForm1: TSettingsForm1
       object ShowRowOnMouseOverCheckBox: TCheckBox
         Left = 8
         Top = 132
-        Width = 220
+        Width = 290
         Height = 21
         Caption = 'Show row mouseover'
-        TabOrder = 5
+        TabOrder = 4
       end
       object HighlightSearchTermsCheckBox: TCheckBox
         Left = 8
         Top = 106
-        Width = 220
+        Width = 290
         Height = 21
         Hint = 
           'Turn on or off highlighting of searched symbols in search result' +
@@ -371,7 +371,7 @@ object SettingsForm1: TSettingsForm1
         Caption = 'Highlight search terms'
         ParentShowHint = False
         ShowHint = True
-        TabOrder = 6
+        TabOrder = 3
       end
     end
     object Card4: TCard
@@ -393,14 +393,14 @@ object SettingsForm1: TSettingsForm1
       object Label2: TLabel
         Left = 8
         Top = 216
-        Width = 94
+        Width = 93
         Height = 15
         Caption = 'Index file location'
       end
       object IncludeNewFixedDrivesCheckBox: TCheckBox
         Left = 8
         Top = 28
-        Width = 300
+        Width = 345
         Height = 17
         Caption = 'Automatically include new fixed volumes'
         TabOrder = 0
@@ -408,7 +408,7 @@ object SettingsForm1: TSettingsForm1
       object IncludeNewRemovableDrivesCheckBox: TCheckBox
         Left = 8
         Top = 54
-        Width = 300
+        Width = 345
         Height = 17
         Caption = 'Automatically include new removable volumes'
         TabOrder = 1
@@ -416,7 +416,7 @@ object SettingsForm1: TSettingsForm1
       object RemoveOfflineDrivesCheckBox: TCheckBox
         Left = 8
         Top = 80
-        Width = 300
+        Width = 345
         Height = 17
         Caption = 'Automatically remove offline volumnes'
         TabOrder = 2
@@ -464,7 +464,7 @@ object SettingsForm1: TSettingsForm1
       object ExcludeFoldersCheckBox: TCheckBox
         Left = 8
         Top = 28
-        Width = 260
+        Width = 320
         Height = 17
         Caption = 'Exclude folders from list below'
         TabOrder = 0

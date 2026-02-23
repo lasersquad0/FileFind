@@ -244,9 +244,9 @@ object MainForm: TMainForm
       1296
       40)
     object AdvancedSearchButton: TSpeedButton
-      Left = 1155
+      Left = 1140
       Top = 7
-      Width = 140
+      Width = 150
       Height = 26
       AllowAllUp = True
       Anchors = [akTop, akRight]
@@ -340,23 +340,23 @@ object MainForm: TMainForm
       OnClick = SearchByAttributesClick
     end
     object AttrArchive: TCheckBox
-      Left = 201
+      Left = 200
       Top = 108
-      Width = 65
+      Width = 79
       Height = 17
       Caption = 'Archive'
       TabOrder = 7
     end
     object AttrHidden: TCheckBox
-      Left = 443
+      Left = 455
       Top = 108
-      Width = 74
+      Width = 79
       Height = 17
       Caption = 'Hidden'
       TabOrder = 8
     end
     object AttrDirectory: TCheckBox
-      Left = 114
+      Left = 115
       Top = 108
       Width = 81
       Height = 17
@@ -364,23 +364,23 @@ object MainForm: TMainForm
       TabOrder = 9
     end
     object AttrEncrypted: TCheckBox
-      Left = 720
+      Left = 735
       Top = 108
-      Width = 85
+      Width = 122
       Height = 17
       Caption = 'Encrypted'
       TabOrder = 10
     end
     object AttrCompressed: TCheckBox
-      Left = 519
+      Left = 540
       Top = 108
-      Width = 85
+      Width = 89
       Height = 17
       Caption = 'Compressed'
       TabOrder = 11
     end
     object AttrReadonly: TCheckBox
-      Left = 279
+      Left = 285
       Top = 108
       Width = 80
       Height = 17
@@ -388,9 +388,9 @@ object MainForm: TMainForm
       TabOrder = 12
     end
     object AttrSystem: TCheckBox
-      Left = 365
+      Left = 370
       Top = 108
-      Width = 59
+      Width = 79
       Height = 17
       Caption = 'System'
       TabOrder = 13
@@ -436,9 +436,9 @@ object MainForm: TMainForm
         'Last access')
     end
     object AttrTemp: TCheckBox
-      Left = 624
+      Left = 635
       Top = 108
-      Width = 85
+      Width = 100
       Height = 17
       Caption = 'Temporary'
       TabOrder = 17
@@ -542,6 +542,8 @@ object MainForm: TMainForm
     OnContextPopup = ListView1ContextPopup
     OnData = ListView1Data
     OnDblClick = ListView1DblClick
+    ExplicitTop = 200
+    ExplicitHeight = 270
   end
   object ProgressBar1: TProgressBar
     Left = 890
