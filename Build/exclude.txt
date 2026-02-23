@@ -1,0 +1,12 @@
+*\Win32\
+*\Win64\
+*\__history\
+*\__recovery\
+*.~*
+*.exe
+*.local
+*.dsk
+*.dsv
+*.identcache
+*.tvsconfig
+
