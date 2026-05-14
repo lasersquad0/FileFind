@@ -3,8 +3,8 @@
 ## CONTACTS
 
 Any questions or suggestions are welcome. <br>
-Author: Andrey Romanchenko (lasersquad@gmail.com) <p>
-Web site: https://github.com/lasersquad0/FileFind   
+Author: Andrey Romanchenko (lasersquad@gmail.com) <br>
+Web site: https://github.com/lasersquad0/FileFind <br>  
 Questions/comments: https://github.com/lasersquad0/FileFind/discussions
 
 
