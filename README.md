@@ -1,5 +1,4 @@
 # FinderX - search at the speed of thought
-========================================
 
 ## CONTACTS
 
