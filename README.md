@@ -1,7 +1,7 @@
-FinderX - search at the speed of thought
+# FinderX - search at the speed of thought
 ========================================
 
-CONTACTS
+## CONTACTS
 ------------
 
 Any questions or suggestions are welcome to this email: <br>
@@ -11,7 +11,7 @@ Any questions or suggestions are welcome to this email: <br>
 Sources are available here
 https://github.com/lasersquad0/FileFind   
 
-SUMMARY
+## SUMMARY
 -------
 
 FinderX - application for searching files/folders faster than you can type. 
@@ -19,7 +19,7 @@ FinderX loads all files and folders (names and their attributes) into memory and
 Most of searches take less then one second.
 
 
-GETTING STARTED
+## GETTING STARTED
 ---------------
 
 FinderX application does not require installation.
@@ -33,7 +33,7 @@ On first run:
 - You are all set and ready for fast search!
 - Push button "Refresh Index" from time to time to update search index. If you don't do it you will see "It's time to refresh..." message on the top.
 
-DESCRIPTION
+## DESCRIPTION
 -----------
 Application is built with Delphi 12.1 and tested on Windows 10 and 11. 
 It also should work with older Windows versions back to Windows 7.
@@ -46,14 +46,16 @@ When you think your file system has significantly changed (contains many news fi
 You don't need to re-build filesystem index every search, do it once a week or so.
 
 
-FEATURES
+## FEATURES
 --------
 
 - Fast search, less than a second
 - Fast indexing anf automatic discovering and indexing new volumes e.g. removable one.
 - When you are typing text serch is started in 0.5 sec after you stopped typing, you do not need to press Search button 
 - You can do wildcards search. Two wildcards are supported: * and ?.
-- You can do whole word search. If search string enclosed in quotes ("myfile" or 'myfile') then it will search for a file with exact name "myfile" (without quotes). It means that files with names like myfile.exe, myfilename, supermyfile.log will NOT appear in search results. This feature helps to find files by name that a part of other commonly used name like "win" or "system".
+- You can do whole word search. If search string enclosed in quotes ("myfile" or 'myfile') then it will search for a file with exact name "myfile" (without quotes). 
+  It means that files with names like myfile.exe, myfilename, supermyfile.log will NOT appear in search results. 
+  This feature helps to find files by name that a part of other commonly used name like "win" or "system".
 - Search term is automatically highlighted in search results for your convenience
 - All your searches are stored in search history and automatically shown once you type new search
 - In addition to by name you can do search by file/folder size, modified/created/access date, and file attributes. Press Advanced search button to see additional search options. 
