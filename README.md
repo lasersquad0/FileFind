@@ -2,17 +2,14 @@
 ========================================
 
 ## CONTACTS
-------------
 
-Any questions or suggestions are welcome to this email: <br>
-   Andrey Romanchenko <p>
-   lasersquad@gmail.com <p>
+Any questions or suggestions are welcome. <br>
+Author: Andrey Romanchenko (lasersquad@gmail.com) <p>
+Web site: https://github.com/lasersquad0/FileFind   
+Questions/comments: https://github.com/lasersquad0/FileFind/discussions
 
-Sources are available here
-https://github.com/lasersquad0/FileFind   
 
 ## SUMMARY
--------
 
 FinderX - application for searching files/folders faster than you can type. 
 FinderX loads all files and folders (names and their attributes) into memory and does memory search from there. That is why search is extremely fast. 
@@ -20,7 +17,6 @@ Most of searches take less then one second.
 
 
 ## GETTING STARTED
----------------
 
 FinderX application does not require installation.
 Just unpack .zip file into any suitable folder on you PC and run FinderX.exe
@@ -34,7 +30,7 @@ On first run:
 - Push button "Refresh Index" from time to time to update search index. If you don't do it you will see "It's time to refresh..." message on the top.
 
 ## DESCRIPTION
------------
+
 Application is built with Delphi 12.1 and tested on Windows 10 and 11. 
 It also should work with older Windows versions back to Windows 7.
 
@@ -47,7 +43,6 @@ You don't need to re-build filesystem index every search, do it once a week or s
 
 
 ## FEATURES
---------
 
 - Fast search, less than a second
 - Fast indexing anf automatic discovering and indexing new volumes e.g. removable one.
