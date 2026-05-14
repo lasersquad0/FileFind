@@ -1,13 +1,12 @@
-
 FinderX - search at the speed of thought
 ========================================
 
 CONTACTS
 ------------
 
-Any questions or suggestions are welcome to this email: 
-   Andrey Romanchenko
-   lasersquad@gmail.com
+Any questions or suggestions are welcome to this email: <br>
+   Andrey Romanchenko <p>
+   lasersquad@gmail.com <p>
 
 Sources are available here
 https://github.com/lasersquad0/FileFind   
