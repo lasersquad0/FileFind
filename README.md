@@ -22,12 +22,12 @@ Most of searches take less then one second.
 Just unpack **FinderX-x.y.z.zip** file into any suitable folder on you PC and run **FinderX.exe**.
 
 On first run:
-- You will see yellow line on top of the main window telling "It's time to refresh search index..."
-- To refresh search index, press "Refresh Index" button and wait several seacond while app reads files and folders
+- You will see yellow line on top of the main window telling "**It's time to refresh search index...**"
+- To refresh search index, press "**Refresh Index**" button and wait several seacond while app reads files and folders
 - Progrees bar will be shown in the bottom of main window together with button Cancel.
 - Once finished will can see statistics on the status bar.
 - You are all set and ready for fast search!
-- Push button "Refresh Index" from time to time to update search index. If you don't do it you will see "It's time to refresh..." message on the top.
+- Push button "**Refresh Index**" from time to time to update search index. If you don't do it you will see "**It's time to refresh search index...**" message on the top.
 
 ## DESCRIPTION
 
@@ -39,9 +39,9 @@ Search is done by file and folder names and by its main attributes such as: file
 
 Search by file content is not supported yet.
 
-Once you created filesystem search index by pressing "Refresh Index" button you can quickly do your searches unlimited number of times.
+Once you created filesystem search index by pressing "**Refresh Index**" button you can quickly do your searches unlimited number of times.
 
-When you think your file system has significantly changed (contains many news files, etc.) - re-build filesystem index by pressing "Refresh Index" button.
+When you think your file system has significantly changed (contains many news files, etc.) - re-build filesystem index by pressing "**Refresh Index**" button.
 You don't need to re-build filesystem index every search, do it once a week or so.
 
 
@@ -51,7 +51,7 @@ You don't need to re-build filesystem index every search, do it once a week or s
 - **Fast indexing**. Automatic discovering and indexing new volumes e.g. removable one.
 - **Don't need to press Search button**. When you are typing text, search starts in 0.5 sec after you stopped typing, you do not need to press Search button.
 - **Wildcards supported**. You can do wildcards search. Two wildcards are supported: **\*** and **?**.
-- ***Match hole word**. You can do whole word search. If search string enclosed in quotes (**"myfile"** or **'myfile'**) then it will search for a file with exact name "**myfile**" (without quotes).
+- **Match whole word**. You can do whole word search. If search string enclosed in quotes (**"myfile"** or **'myfile'**) then it will search for a file with exact name "**myfile**" (without quotes).
   It means that files with names like **myfile.exe, myfilename, supermyfile.log** will NOT appear in search results. 
   This feature helps to find files by name that a part of other commonly used name like "**win**" or "**system**".
 - **Search results highlighting**. Search term is automatically highlighted in search results for your convenience.
