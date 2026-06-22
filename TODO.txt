@@ -12,6 +12,10 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
+- during first run on clean laptop it tells error that access is denied and yellow message about need to index disappeared.
+- add option Fast NTFS read/other_method to Setttings screen OR do it automatically if Fast returned error then turn off it locally and use s
+  tandard reading method.
+
 - [DONE] Calculate Items Count during FastReading NTFS.
 - BUG Assert exception is generated when change column sorting during work of ShellInfoThread in WM_SearchResultsShellInfo_MSG message handler
 - Add tooltip for values in Attributes column explaning what D---C- means.
