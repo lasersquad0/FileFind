@@ -12,6 +12,7 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
+- change registry path where settings are saved
 - during first run on clean laptop it tells error that access is denied and yellow message about need to index disappeared.
 - add option Fast NTFS read/other_method to Setttings screen OR do it automatically if Fast returned error then turn off it locally and use s
   tandard reading method.
