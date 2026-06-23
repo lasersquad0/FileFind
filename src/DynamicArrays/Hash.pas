@@ -8,13 +8,15 @@ resourcestring
   SKeyNotFound = 'Element is not found in Hash!';
   SCannotModifyReadOnly  = 'Cannot modify Read-only hash!';
 
-{************************************************************************************************************
- *  THash
- * THash class stores pairs of values Key (K) (can be any type) and Value (V) (can be any type too)
- * Values can be accessed by Key or also by integer Index (like usual array).
- * Indexes of Values (not Keys) are not preserved and may change depending on which pairs Key:Value are stored in the hash
- * Comparator Cmp used to order Keys in THash for fater search (binary search used to find keys)
- ************************************************************************************************************}
+(***************************************************************************************************************************)
+(*  THash                                                                                                                  *)
+(*                                                                                                                         *)
+(* THash class stores pairs of values Key (K) (can be any type) and Value (V) (can be any type too)                        *)
+(* Values can be accessed by Key or also by integer Index (like usual array).                                              *)
+(* Indexes of Values (not Keys) are not preserved and may change depending on which pairs Key:Value are stored in the hash *)
+(* Comparator Cmp used to order Keys in THash for fater search (binary search used to find keys)                           *)
+(*                                                                                                                         *)
+(***************************************************************************************************************************)
 
  type
   THash<K; V> = class

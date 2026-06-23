@@ -18,12 +18,11 @@ type
  THArrayG<T> = class
  public type
 
-   {
-   Compare callback functions. Return values must be:
-   0 - elements are equal
-   1 - arr[i] > arr[j]
-  -1 - arr[i] < arr[j]
-  }
+ (*       Compare callback functions.    *)
+ (*  Return values must be:              *)
+ (*    0 - elements are equal            *)
+ (*    1 - arr[i] > arr[j]               *)
+ (*   -1 - arr[i] < arr[j]               *)
 
   // this function is useful when you need access to other elements than arr[i], arr[j] for comparing
   // or you have quicker method of access ith and jth elements in the array

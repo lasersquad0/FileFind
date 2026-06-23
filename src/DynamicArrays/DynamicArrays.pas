@@ -24,7 +24,15 @@ unit DynamicArrays;
 
 interface
 
-uses Classes, {Windows,} SysUtils;
+{$IF CompilerVersion >= 22} // unit names like Data.Bind.Consts, introduced in Delphi XE
+{$DEFINE UNIT_PREFIXES}
+{$IFEND}
+
+{$IF CompilerVersion >=20}
+{$DEFINE TBYTES}
+{$IFEND}
+
+uses Classes, SysUtils;
 
  resourcestring
    SItemNotFound = 'Element with index %d not found !';
@@ -32,58 +40,78 @@ uses Classes, {Windows,} SysUtils;
    SNoCompareProc = 'Cannot sort without CompareProc!';
    SNoFindProc = 'Cannot do QuickFind without FindProc!';
    SWrongCallSetItemSize = 'Impossible to set item size for array contining defined types.';
-   SUseCreateSizeConsructor = 'Constructor T*.Create() is prohibited, use T*.CreateSize(Size: Cardinal) instead.';
+   SUseCreateSizeConsructor = 'Constructor %0:s.Create() is prohibited, use %0:s.CreateSize(SizeOfItem: Cardinal) instead.';
 
  type
 
+  // Delphi7 generates Internal compiler error if pointer arithmetic done via NativeUInt
+  // Hovewer it compiles well when we use NativeInt.
+  // This define makes use NativeInt for old Delphi versions and NativeUInt for newer
+  ConvertInt = {$IFDEF UNIT_PREFIXES}type NativeUInt;{$ELSE} type NativeInt;{$ENDIF}
+
   THarray = class;
-  {Compare callback function. Return values must be:
-   0 - elements are equal
-   1 - arr[i] > arr[j]
-  -1 - arr[i] < arr[j] }
-  TCompareProc = function(arr : THArray; i,j : Cardinal) : Integer of object;
-  {Find callback function.
-   FindData - pointer to the seaching data. Seaching data can be int, float, string and any other type.
-   Return values must be.
-   0 - arr[i] = FindData as <needed type>
-   1 - arr[i] > FindData as <needed type>
-  -1 - arr[i] < FindData as <needed type>
-   See example application how to use TFindProc.
-  }
+
+  (**************************************************************)
+  (*          Compare callback functions                        *)
+  (*  Return values must be:                                    *)
+  (*    0 - elements are equal                                  *)
+  (*    1 - arr[i] > arr[j]                                     *)
+  (*   -1 - arr[i] < arr[j] }                                   *)
+  (**************************************************************)
+
+  TCompareProc = function(arr : THArray; i, j : Cardinal) : Integer of object;
+
+  (**************************************************************)
+  (*          Find callback function                            *)
+  (* FindData - pointer to the seaching data.                   *)
+  (* Seaching data can be int, float, string and any other type.*)
+  (* Return values must be.                                     *)
+  (*   0 - arr[i] = FindData as <needed type>                   *)
+  (*   1 - arr[i] > FindData as <needed type>                   *)
+  (*  -1 - arr[i] < FindData as <needed type>                   *)
+  (* See example application how to use TFindProc.              *)
+  (**************************************************************)
+
   TFindProc = function(arr : THArray; i : Cardinal; FindData: Pointer): Integer of object;
   TSwapProc = procedure(arr : THArray; i, j : Cardinal) of object;
 
-(***********************************************************)
-(*  Arrays                                                 *)
-(***********************************************************)
 
+  (***********************   THArray   **************************)
+  (*  Common class of all dynamic arrays.                       *)
+  (*  Does not depend on a type of stored data.                 *)
+  (*  Stores data as pieces of memory with ItemSize size each   *)
+  (**************************************************************)
 
-  THArray = class  //common class of all dynamic arrays, does not depend on a type of stored data
+  THArray = class
   private
    FCount:    Cardinal;         // number of elements
    FCapacity: Cardinal;         // number of elements on which memory is allocated
-   FItemSize: Cardinal;         // size of one element in bytes
-   procedure SetItemSize(Size: Cardinal); virtual;
+   FHelperBuf: Pointer;
+   FHelperBufSize: Cardinal;
   protected
    FValues: Pointer;
+   FItemSize: Cardinal;         // size of one element in bytes
    procedure Error(Value, MaxValue: Cardinal);
-   function CalcAddr(Index: Cardinal): Pointer; virtual;
+   function  CalcAddr(Index: Cardinal): Pointer; virtual;
+   procedure SetItemSize(Size: Cardinal); virtual;
+   //procedure InternalInsertSort(CompareProc: TCompareProc; L, R: Cardinal);
    procedure InternalQuickSort(CompareProc: TCompareProc; SwapProc: TSwapProc; L,R: Cardinal);
-   function InternalQuickFind(FindProc: TFindProc; FindData: Pointer; L, R: Cardinal): Integer;
+   function  InternalQuickFind(FindProc: TFindProc; FindData: Pointer; L, R: Cardinal): Integer;
 
   public
-   //type InnerType = Byte;
+   type InnerType = Byte; //TODO: it is difficult to define type for THArray, byte for now.
    constructor Create; virtual;
    destructor Destroy; override;
    procedure Clear; virtual;
    procedure ClearMem; virtual;
    function  Add(pValue: Pointer): Cardinal; virtual;
    procedure AddMany(pValue: Pointer; Cnt: Cardinal);
-   function  AddFillValues(Cnt: Cardinal): Pointer;
+   function  AddFillValues(Cnt: Cardinal; Value: Byte = 0): Pointer;
    procedure Delete(Index: Cardinal); virtual;
    procedure Hold;
-   procedure Get(Index: Cardinal; pValue: Pointer); virtual;
    function  GetAddr(Index: Cardinal): Pointer;
+   procedure Get(Index: Cardinal; pValue: Pointer); virtual;
+   function  GetMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal): Cardinal;
    procedure Grow;
    procedure GrowTo(Cnt: Cardinal);
    function  Insert(Index: Cardinal; pValue: Pointer): Cardinal; virtual;
@@ -93,15 +121,20 @@ uses Classes, {Windows,} SysUtils;
    procedure MoveData(FromPos, Cnt: Cardinal; Offset: Integer); virtual;
    procedure SetCapacity(Value: Cardinal);
    procedure Update(Index: Cardinal; pValue: Pointer); virtual; // fills Index value with zero if pValue=nil
-   procedure UpdateMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal);
+   // Expand parameter: whether to automatically expand array if StartIndex+Cnt>Count or (Expand=False) generate and Index out of bounds exception
+   procedure UpdateMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal; Expand: Boolean = False);
    procedure Zero;
    procedure LoadFromStream(s: TStream); virtual; // read values will be added to existing ones
    procedure SaveToStream(s: TStream); virtual;
+{$IFDEF TBYTES}
    function  ToBytes: TBytes;
-   procedure Swap(Index1, Index2: Cardinal);virtual;
+{$ENDIF}
+   procedure Swap(Index1, Index2: Cardinal); virtual;
    procedure BubbleSort(CompareProc: TCompareProc);
-   procedure Sort(CompareProc : TCompareProc);
-   procedure QuickSort(CompareProc: TCompareProc; SwapProc: TSwapProc = nil);
+   procedure SelectionSort(CompareProc : TCompareProc);
+   //procedure InsertSort(CompareProc : TCompareProc);
+   procedure ShakerSort(CompareProc : TCompareProc);
+   procedure QuickSort(CompareProc: TCompareProc);
    function  QuickFind(FindProc: TFindProc; FindData: Pointer): Integer; // Finds value in SORTED array!!
 
    property Capacity: Cardinal read FCapacity;
@@ -115,7 +148,7 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): TObject;
    procedure SetValue(Index: Cardinal; const Value: TObject);
   public
-   //type InnerType = TObject;
+   type InnerType = TObject;
    constructor Create; override;
    procedure ClearMem; override;              // (!) destroyes all saved objects! and deletes all references on them.
    procedure SafeClearMem;                    // deletes only references on all stored objects. Objects are leave safe
@@ -127,11 +160,27 @@ uses Classes, {Windows,} SysUtils;
    property Value[Index: Cardinal]: TObject read GetValue write SetValue; default;
   end;
 
+  THArrayShortInt = class(THArray)
+  private
+   procedure SetItemSize(Size: Cardinal); override;
+  protected
+   function GetValue(Index: Cardinal): ShortInt;
+   procedure SetValue(Index: Cardinal; Value: ShortInt);
+  public
+   type InnerType = ShortInt;
+   constructor Create; override;
+   function AddValue(Value: ShortInt): Cardinal;
+   function IndexOf(Value: ShortInt): Integer;
+   function IndexOfFrom(Value: ShortInt; Start: Cardinal): Integer;
+   property Value[Index: Cardinal]: ShortInt read GetValue write SetValue; default;
+  end;
+
   THArrayByte = class(THArray)
   protected
    function GetValue(Index: Cardinal): Byte;
    procedure SetValue(Index: Cardinal; Value: Byte);
   public
+   type InnerType = Byte;
    constructor Create; override;
    function AddValue(Value: Byte): Cardinal;
    function IndexOf(Value: Byte): Integer;
@@ -146,6 +195,7 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): SmallInt;
    procedure SetValue(Index: Cardinal; Value: SmallInt);
   public
+   type InnerType = SmallInt;
    constructor Create; override;
    function AddValue(Value: SmallInt): Cardinal;
    function IndexOf(Value: SmallInt): Integer;
@@ -158,8 +208,10 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): Word;
    procedure SetValue(Index: Cardinal; Value: Word);
   public
+   type InnerType = Word;
    constructor Create; override;
    function AddValue(Value: word): Cardinal;
+   function InsertValue(Index: Cardinal; Value: Word): Cardinal;
    function IndexOf(Value: word): Integer;
    function IndexOfFrom(Value: word; Start: Cardinal): Integer;
    property Value[Index: Cardinal]: word read GetValue write SetValue; default;
@@ -170,7 +222,7 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): int64;
    procedure SetValue(Index: Cardinal; Value: int64);
   public
-   //type InnerType = Int64;
+   type InnerType = Int64;
    constructor Create; override;
    function AddValue(Value: int64): Cardinal;
    function IndexOf(Value: int64): Integer;
@@ -183,6 +235,7 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): UInt64;
    procedure SetValue(Index: Cardinal; Value: UInt64);
   public
+   type InnerType = UInt64;
    constructor Create; override;
    function AddValue(Value: UInt64): Cardinal;
    function IndexOf(Value: UInt64): Integer;
@@ -195,6 +248,7 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): LongWord;
    procedure SetValue(Index: Cardinal; Value: LongWord);
   public
+   type InnerType = LongWord;
    constructor Create; override;
    function AddValue(Value: LongWord): Cardinal;
    function IndexOf(Value: LongWord): Integer;
@@ -202,12 +256,15 @@ uses Classes, {Windows,} SysUtils;
    property Value[Index: Cardinal]:LongWord read GetValue write SetValue; default;
   end;
 
+  //TODO: InnerType might be wrong for THArrayCardinal here
+  THArrayCardinal = THArrayLongWord; // alias
+
   THArrayInteger = class(THArray)
   protected
    function GetValue(Index: Cardinal): Integer;
    procedure SetValue(Index: Cardinal; Value: Integer);
   public
-   //type InnerType = Integer;
+   type InnerType = Integer;
    constructor Create; override;
    function IndexOf(Value: Integer): Integer;
    function IndexOfFrom(Value: Integer; Start: Cardinal): Integer;
@@ -227,6 +284,7 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): Pointer;
    procedure SetValue(Index: Cardinal; Value: Pointer);
   public
+   type InnerType = Pointer;
    constructor Create; override;
    function IndexOf(Value: Pointer): Integer;
    function IndexOfFrom(Value: Pointer; Start: Cardinal): Integer;
@@ -239,8 +297,10 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): Boolean;
    procedure SetValue(Index: Cardinal; Value: Boolean);
   public
+   type InnerType = Boolean;
    constructor Create; override;
    function AddValue(Value: Boolean): Cardinal;
+   function InsertValue(Index: Cardinal; Value: Boolean): Cardinal;
    function IndexOf(Value: Boolean): Integer;
    function IndexOfFrom(Value: Boolean; Start: Cardinal): Integer;
    property Value[Index:Cardinal]: Boolean read GetValue write SetValue; default;
@@ -251,6 +311,7 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): Double;
    procedure SetValue(Index: Cardinal; Value: Double);
   public
+   type InnerType = Double;
    constructor Create; override;
    function AddValue(Value: Double): Cardinal;
    function IndexOf(Value: Double): Integer;
@@ -263,6 +324,7 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): Currency;
    procedure SetValue(Index: Cardinal; Value: Currency);
   public
+   type InnerType = Currency;
    constructor Create; override;
    function AddValue(Value: Currency): Cardinal;
    function IndexOf(Value: Currency):Integer;
@@ -275,6 +337,7 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): Extended;
    procedure SetValue(Index: Cardinal; Value: Extended);
   public
+   type InnerType = Extended;
    constructor Create; override;
    function AddValue(Value: Extended): Cardinal;
    function IndexOf(Value: Extended): Integer;
@@ -282,8 +345,22 @@ uses Classes, {Windows,} SysUtils;
    property Value[Index:Cardinal]: Extended read GetValue write SetValue; default;
   end;
 
+  THArraySingle = class(THArray)
+  protected
+   function GetValue(Index: Cardinal): Single;
+   procedure SetValue(Index: Cardinal; Value: Single);
+  public
+   type InnerType = Single;
+   constructor Create; override;
+   function AddValue(Value: Single): Cardinal;
+   function IndexOf(Value: Single): Integer;
+   function IndexOfFrom(Value: Single; Start: Cardinal): Integer;
+   property Value[Index:Cardinal]: Single read GetValue write SetValue; default;
+  end;
+
   TWideString = class
-   Str: WideString;
+  private
+   FStr: WideString;
   public
    constructor Create(Value: WideString);
   end;
@@ -293,6 +370,7 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): WideString;
    procedure SetValue(Index: Cardinal; Value: WideString);
   public
+   type InnerType = WideString;
    function AddValue(Value: WideString): Cardinal;
    function IndexOf(Value: WideString): Integer;
    function IndexOfFrom(Value: WideString; Start: Cardinal): Integer;
@@ -332,13 +410,14 @@ uses Classes, {Windows,} SysUtils;
    function GetValue(Index: Cardinal): string;
    procedure SetValue(Index: Cardinal; Value: string);
   public
+   type InnerType = string;
    destructor Destroy; override;
    procedure Clear; override;
    procedure ClearMem; override;
    function Add(pValue: Pointer): Cardinal; override;
    function AddValue(Value: string): Cardinal;
    procedure Delete(num: Cardinal); override;
-   function Insert(num: Cardinal; pValue: Pointer): Cardinal; overload; override;
+   //function Insert(num: Cardinal; pValue: Pointer): Cardinal; overload; override;
    function Insert(num: Cardinal; Value: string): Cardinal; reintroduce; overload;
    procedure Update(num: Cardinal; pValue: Pointer); override;
    function IndexOf(Value: string): Integer;
@@ -350,22 +429,32 @@ uses Classes, {Windows,} SysUtils;
 
   THArrayAnsiStringFix = class(THArray)
   protected
+   FHelperBuf: PAnsiChar;
+   FHelperBufSize: Cardinal;
+
    function GetValue(Index: Cardinal): AnsiString;
    procedure SetValue(Index: Cardinal; Value: AnsiString);
+   procedure SetItemSize(Size: Cardinal); override;
   public
+   type InnerType = AnsiString;
    constructor Create; override;
-   constructor CreateSize(Size: Cardinal);
+   constructor CreateSize(SizeOfItem: Cardinal);
+   destructor Destroy; override;
    function AddValue(Value: AnsiString): Cardinal;
    function IndexOf(Value: AnsiString): Integer;
    function IndexOfFrom(Value: AnsiString; Start: Cardinal): Integer;
-   property Value[Index:Cardinal]: AnsiString read GetValue write SetValue; default;
+   property Value[Index: Cardinal]: AnsiString read GetValue write SetValue; default;
   end;
 
   THArrayStringFix = class(THArray)
   protected
+   //HelperBuf: PChar;
+
    function GetValue(Index: Cardinal): string;
    procedure SetValue(Index: Cardinal; Value: string);
+   procedure SetItemSize(Size: Cardinal); override;
   public
+   type InnerType = string;
    constructor Create; override;
    constructor CreateSize(SizeOfItem: Cardinal);
    function AddValue(Value: string): Cardinal;
@@ -380,6 +469,7 @@ uses Classes, {Windows,} SysUtils;
 (*                                                         *)
 (* Keys are always Integer type, Values may be any type    *)
 (***********************************************************)
+
   THash = class
   private
    FReadOnly: Boolean;
@@ -568,6 +658,14 @@ uses Classes, {Windows,} SysUtils;
    property Value[MainIndex, Index: Integer]: string read GetValue write SetValue; default;
   end;
 
+  
+{$IF CompilerVersion <21}
+EArgumentException = class(Exception);
+ENotSupportedException = class(Exception);
+PUInt64 = ^UInt64;
+{$IFEND}
+
+
 procedure memcpy(pi, po: Pointer; Count: Cardinal); stdcall;
 procedure memclr(po: Pointer; Count: Cardinal); stdcall;
 procedure memset(po: Pointer; Value: Byte; Count: Cardinal); stdcall;
@@ -582,7 +680,7 @@ function HGetTokenCount(InputString:string; Delimiters:string; OnlyOneDelimiter:
 
 implementation
 
-uses AnsiStrings;
+uses Math, StrUtils;
 
 //const
 // BLOCK=1024;
@@ -627,7 +725,8 @@ begin
   //Result := Result;
 end;
 
- {$IFDEF CPUX86}
+
+{$IFDEF CPUX86}
  procedure memcpyfromend(pi, po: Pointer; Count: Cardinal);
  asm
   pushad
@@ -851,13 +950,13 @@ procedure memcpyfrombegin(pi, po: Pointer; Count: Cardinal);  // copying from be
 asm
   push RDI
   push RSI
-  push RCX
+//  push RCX
   mov RSI, RCX   // pi is in RCX
   mov RDI, RDX   // po is in RDX
   mov RCX, R8    // count is in R8
   cld
   repne MOVSB
-  pop RCX
+//  pop RCX
   pop RSI
   pop RDI
 end;
@@ -1071,13 +1170,14 @@ function memfindgeneral(
 
 procedure memcpy(pi, po: Pointer; Count: Cardinal);
 begin
- if ((NativeInt(pi) + NativeInt(Count)) > NativeInt(po)) and (NativeInt(pi) < NativeInt(po))
+ if ((ConvertInt(pi) + ConvertInt(Count)) > ConvertInt(po)) and (ConvertInt(pi) < ConvertInt(po))
  then memcpyfromend(pi, po, Count) // copy from end
  else memcpyfrombegin(pi, po, Count); //Move(PPointer(pi)^, PPointer(po)^, Count);
 
 end;
 
  { THArray }
+
 constructor THArray.Create;
 begin
   inherited Create;
@@ -1085,12 +1185,17 @@ begin
   FCapacity := 0;
   FItemSize := 1;
   FValues := nil;
+  GetMem(FHelperBuf, FItemSize);
+  FHelperBufSize := FItemSize;
 end;
 
 destructor THArray.Destroy;
 begin
   ClearMem;
   FItemSize := 0;
+  FreeMem(FHelperBuf);
+  FHelperBuf := nil;
+  FHelperBufSize := 0;
   inherited Destroy;
 end;
 
@@ -1138,12 +1243,13 @@ begin
   if FCount > FCapacity then FCount := FCapacity;
 end;
 
-function THArray.AddFillValues(Cnt: Cardinal): Pointer;
+function THArray.AddFillValues(Cnt: Cardinal; Value: Byte = $0): Pointer;
 begin
   if FCount + Cnt > Capacity then GrowTo(FCount + Cnt);
   Result := CalcAddr(FCount);
   //FillChar(PByte(CalcAddr(FCount))^, Cnt * ItemSize, 0);
-  memclr(Result, Cnt*FItemSize);
+  //memclr(Result, Cnt*FItemSize);
+  memset(Result, Value, Cnt*FItemSize);
   FCount := FCount + Cnt;
 end;
 
@@ -1192,6 +1298,8 @@ end;
 procedure THArray.InsertMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal);
 begin
   if Cnt = 0 then exit; // nothing to do
+  Assert(pValue <> nil);
+
   Error(StartIndex, FCount + 1);
   if FCount + Cnt > FCapacity then GrowTo(FCount + Cnt);
   FCount := FCount + Cnt;
@@ -1199,6 +1307,8 @@ begin
   UpdateMany(StartIndex, pValue, Cnt);
 end;
 
+//TODO: shall we implement function Update with Count parameter when less then ITemSize bytes need to be copied into array
+// remaing space should be filled by zeros then
 procedure THArray.Update(Index: Cardinal; pValue: Pointer);
 begin
   Error(Index, FCount);
@@ -1207,16 +1317,41 @@ begin
     else memcpy(pValue, GetAddr(Index), FItemSize);
 end;
 
-//TODO: what if pValue=nil?
-procedure THArray.UpdateMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal);
+procedure THArray.UpdateMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal; Expand: Boolean = False);
+var
+  Last: Cardinal;
 begin
   if Cnt = 0 then exit;  // nothing to update
-  Error(StartIndex + Cnt - 1, FCount);
+  Assert(pValue <> nil);
+
+//TODO: shall we allow StartIndex to be >FCount? In this case we may have 'holes' with random data in THarray
+  Last := StartIndex + Cnt;
+  if Expand then begin
+    if Last > FCount then begin
+      GrowTo(Last);
+      FCount := Last;
+    end;
+  end
+  else Error(Last - 1, FCount);
+
   memcpy(pValue, GetAddr(StartIndex), FItemSize*Cnt);
+end;
+
+function THArray.GetMany(StartIndex: Cardinal; pValue: Pointer; Cnt: Cardinal): Cardinal;
+begin
+  Error(StartIndex, FCount);
+  Assert(pValue <> nil);
+
+  Result := IfThen(StartIndex + Cnt > FCount, FCount - startIndex, Cnt);
+  //if StartIndex + Cnt > FCount
+  //  then Result := FCount - startIndex
+  //  else Result := Cnt;
+  memcpy(CalcAddr(StartIndex), pValue, FItemSize*Result);
 end;
 
 procedure THArray.Get(Index: Cardinal; pValue: Pointer);
 begin
+  Assert(pValue <> nil);
   memcpy(GetAddr(Index), pValue, FItemSize);
 end;
 
@@ -1228,12 +1363,12 @@ end;
 
 function THArray.CalcAddr(Index: Cardinal): Pointer;
 begin
-  Result := Pointer(NativeInt(FValues) + NativeInt(Index * FItemSize));
+  Result := Pointer(ConvertInt(FValues) + ConvertInt(Index * FItemSize));
 end;
 
 procedure THArray.Error(Value, MaxValue: Cardinal);
 begin
-  if Value >= MaxValue then raise ERangeError.Create(Format(SItemNotFound, [Value]));
+  if Value >= MaxValue then raise ERangeError.CreateFmt(SItemNotFound, [Value]);
 end;
 
 // intentionally done: SetItemSize does not generate an exception when Size=0.
@@ -1241,8 +1376,9 @@ end;
 procedure THArray.SetItemSize(Size: Cardinal);
 begin
   ClearMem;
-  //TODO: is that ok that when Size=0 SetItemSize DOES NOT really change FItemSize?
-  if (FCount = 0) and (Size > 0) then FItemSize := Size;
+  FItemSize := Size;
+  ReallocMem(FHelperBuf, FItemSize);
+  FHelperBufSize := FItemSize;
 end;
 
 procedure THArray.MoveData(FromPos, Cnt: Cardinal; Offset: Integer);
@@ -1265,8 +1401,20 @@ begin
   end;
 end;
 
+procedure THArray.Swap(Index1, Index2: Cardinal);
+var a1, a2: Pointer;
+begin
+  if FHelperBufSize <> FItemSize then ReallocMem(FHelperBuf, FItemSize);
+
+  a1 := GetAddr(Index1);
+  a2 := GetAddr(Index2);
+  memcpy(a1, FHelperBuf, FItemSize);
+  memcpy(a2, a1, FItemSize);
+  memcpy(FHelperBuf, a2, FItemSize);
+end;
+
 // this is actually Selection Sort algorithm
-procedure THArray.Sort(CompareProc : TCompareProc);
+procedure THArray.SelectionSort(CompareProc : TCompareProc);
 var
   maxEl: Cardinal;
   i, j : Cardinal;
@@ -1282,11 +1430,7 @@ begin
       Inc(j);
     end;
 
-    if maxEl <> i then begin
-      Swap(i, maxEl);
-//      MoveData(i,1,maxEl-i);
-//      MoveData(maxEl-1,1,i-maxEl+1);
-    end;
+    if maxEl <> i then Swap(i, maxEl);
   end;
 end;
 
@@ -1311,32 +1455,74 @@ begin
   end;
 end;
 
-
-procedure THArray.Swap(Index1, Index2: Cardinal);
-var p: Pointer;
+{ // LOOKS LIKE WE CANNOT IMPLEMENT GENERIC INSERTION SORT WITHOUT USING GENERICS
+  // BECAUSE CompareProc(self, j, i) DOES NOT WORK WELL IN THIS ALGORITHM
+// Insertion sort
+// L..i-1 this is already sorted part of array
+// we take i'th element and find a proper place where to insert it in in sorted part
+// then we take i+1'th element, find place for it and so on
+procedure THArray.InternalInsertSort(CompareProc: TCompareProc; L, R: Cardinal);
+var
+  i, j: Cardinal;
+  tmp: Pointer;
 begin
-  p := AllocMem(FItemSize);
+  GetMem(tmp, FItemSize);
   try
-    memcpy(GetAddr(Index1), p, FItemSize);
-    memcpy(GetAddr(Index2), GetAddr(Index1), FItemSize);
-    memcpy(p,GetAddr(Index2), FItemSize);
+    for i := L + 1 to R do begin
+      memcpy(CalcAddr(i), tmp, FItemSize);
+      j := i - 1;
+      while (j >= L) and (CompareProc(self, j, i) > 0) do begin
+        memcpy(CalcAddr(j), CalcAddr(j + 1), FItemSize);
+        Dec(j);
+      end;
+      memcpy(tmp, CalcAddr(j + 1), FItemSize);
+    end;
   finally
-    FreeMem(p);
+    FreeMem(tmp);
   end;
 end;
 
-function THArray.ToBytes: TBytes;
-begin
-  if FCount = 0 then Exit;
-
-  SetLength(Result, FCount*FItemSize);
-  memcpy(FValues, @Result[0], FCount*FItemSize);
-end;
-
-procedure THArray.QuickSort(CompareProc: TCompareProc; SwapProc: TSwapProc);
+// see InternalInsertSort for brief description of algorithm.
+procedure THArray.InsertSort(CompareProc: TCompareProc);
 begin
   if FCount < 2 then exit;
-  InternalQuickSort(CompareProc, SwapProc, 0, FCount - 1);
+  if @CompareProc = nil then raise EArgumentException.Create(SNoCompareProc);
+
+  InternalInsertSort(CompareProc, 0, FCount - 1);
+end;
+ }
+// Shaker Sort
+procedure THArray.ShakerSort(CompareProc: TCompareProc);
+var
+  i, j: Cardinal;
+  Min, Max: Cardinal;
+begin
+  if FCount < 2 then exit;
+  if @CompareProc = nil then raise EArgumentException.Create(SNoCompareProc);
+
+    for i := 0 to (FCount div 2) - 1 do begin
+      if CompareProc(self, i, i + 1) > 0 then begin
+        Max := i;
+        Min := i + 1;
+      end else begin
+        Max := i + 1;
+        Min := i;
+      end;
+
+      for j := i + 2 to FCount - i - 1 do
+        if CompareProc(self, j, Max) > 0 then Max := j
+        else if CompareProc(self, j, Min) < 0 then Min := j;
+
+      Swap(i, Min);
+      if Max = i then Max := Min; // this is new place of Max element after Swap(i, Min);
+      Swap(FCount - i - 1, Max);
+    end;
+end;
+
+procedure THArray.QuickSort(CompareProc: TCompareProc);
+begin
+  if FCount < 2 then exit;
+  InternalQuickSort(CompareProc, nil, 0, FCount - 1);
 end;
 
 procedure THArray.InternalQuickSort(CompareProc: TCompareProc; SwapProc: TSwapProc; L, R: Cardinal);
@@ -1495,6 +1681,16 @@ end;
 fin: }
 end;
 
+{$IFDEF TBYTES}
+function THArray.ToBytes: TBytes;
+begin
+  if FCount = 0 then Exit;
+
+  SetLength(Result, FCount*FItemSize);
+  memcpy(FValues, @Result[0], FCount*FItemSize);
+end;
+{$ENDIF}
+
 procedure THArray.LoadFromStream(s: TStream);
 var i, oc: Cardinal;
 begin
@@ -1528,6 +1724,7 @@ begin
 end;
 
 { THArrayObjects }
+
 function THArrayObjects.AddValue(Value: TObject): Cardinal;
 begin
   Result := inherited Add(@Value);
@@ -1556,7 +1753,7 @@ var o: TObject;
 begin
   o := GetValue(Index);
   inherited;
-  FreeAndNil(o); // Assigned(o) then o.Free;
+  FreeAndNil(o);
 end;
 
 // SafeDelete does not free TObject only deletes its pointer from the array
@@ -1592,7 +1789,52 @@ begin
   end;
 end;
 
+{ THArrayShortInt }
+
+constructor THArrayShortInt.Create;
+begin
+  inherited Create;
+  FItemSize := sizeof(ShortInt);
+end;
+
+function THArrayShortInt.AddValue(Value:ShortInt): Cardinal;
+begin
+  Result := inherited Add(@Value);
+end;
+
+function THArrayShortInt.GetValue(Index: Cardinal): ShortInt;
+begin
+  Result := PShortInt(GetAddr(Index))^;
+end;
+
+procedure THArrayShortInt.SetItemSize(Size: Cardinal);
+begin
+  raise ENotSupportedException.Create(SWrongCallSetItemSize);
+end;
+
+procedure THArrayShortInt.SetValue(Index: Cardinal; Value: ShortInt);
+begin
+  Update(Index, @Value);
+end;
+
+function THArrayShortInt.IndexOf(Value: ShortInt): Integer;
+begin
+  Result := IndexOfFrom(Value, 0);
+end;
+
+function THArrayShortInt.IndexOfFrom(Value: ShortInt; Start: Cardinal): Integer;
+begin
+  Result := -1;
+  if Start >= FCount then exit;
+ //Error(Start, Integer(FCount) - 1);
+  if FValues <> nil then begin
+    Result := memfindword(GetAddr(Start), word(Value), FCount - Start);
+    if Result <> -1 then Result := Result + Integer(Start);
+  end;
+end;
+
 { THArrayByte }
+
 function THArrayByte.AddValue(Value: Byte): Cardinal;
 begin
   Result := inherited Add(@Value);
@@ -1627,10 +1869,11 @@ end;
 
 procedure THArrayByte.SetValue(Index: Cardinal; Value: Byte);
 begin
-  Update(Index,@Value);
+  Update(Index, @Value);
 end;
 
 { THArraySmallInt }
+
 constructor THArraySmallInt.Create;
 begin
   inherited Create;
@@ -1674,6 +1917,7 @@ begin
 end;
 
 { THArrayWord }
+
 constructor THArrayWord.Create;
 begin
   inherited Create;
@@ -1683,6 +1927,11 @@ end;
 function THArrayWord.AddValue(Value: Word): Cardinal;
 begin
   Result := inherited Add(@Value);
+end;
+
+function THArrayWord.InsertValue(Index: Cardinal; Value: Word): Cardinal;
+begin
+  Result := inherited Insert(Index, @Value);
 end;
 
 function THArrayWord.GetValue(Index: Cardinal): Word;
@@ -1712,6 +1961,7 @@ begin
 end;
 
 { THArrayLongWord }
+
 constructor THArrayLongWord.Create;
 begin
   inherited Create;
@@ -1751,6 +2001,7 @@ begin
 end;
 
  { THArrayInt64 }
+
 constructor THArrayInt64.Create;
 begin
   inherited Create;
@@ -1829,6 +2080,7 @@ end;
 
 
 { THArrayInteger }
+
 constructor THArrayInteger.Create;
 begin
   inherited Create;
@@ -1903,7 +2155,8 @@ end;
 function THArrayInteger.CalcMax: Integer;
 var i: Cardinal;
 begin
-  if FCount = 0 then exit(-1);
+  Result := -1;
+  if FCount = 0 then exit;
   Result := Value[0];
   for i := 1 to FCount - 1 do
     if Value[i] > Result then Result := Value[i];
@@ -1933,6 +2186,7 @@ begin
 end;}
 
 { THArrayPointer }
+
 constructor THArrayPointer.Create;
 begin
   inherited Create;
@@ -1953,7 +2207,6 @@ function THArrayPointer.IndexOfFrom(Value: Pointer; Start: Cardinal): Integer;
 begin
   Result := -1;
   if Start >= FCount then exit;
-  //Error(Start, Integer(FCount) - 1);
   if FValues <> nil then begin
     Result := memfindgeneral(GetAddr(Start), @Value, sizeof(Value), FCount - Start); //memfinddword(GetAddr(Start), v, FCount - Start);
     if Result <> -1 then Result := Result + Integer(Start);
@@ -1971,6 +2224,7 @@ begin
 end;
 
  { THArrayBoolean }
+
 constructor THArrayBoolean.Create;
 begin
   inherited Create;
@@ -1980,6 +2234,11 @@ end;
 function THArrayBoolean.AddValue(Value: Boolean): Cardinal;
 begin
   Result := inherited Add(@Value);
+end;
+
+function THArrayBoolean.InsertValue(Index: Cardinal; Value: Boolean): Cardinal;
+begin
+  Result := inherited Insert(Index, @Value);
 end;
 
 function THArrayBoolean.GetValue(Index: Cardinal): Boolean;
@@ -2001,7 +2260,6 @@ function THArrayBoolean.IndexOfFrom(Value: Boolean; Start: Cardinal): Integer;
 begin
   Result := -1;
   if Start >= FCount then exit;
-  //Error(Start, Integer(FCount) - 1);
   if Assigned(FValues) then begin
     Result := memfindbyte(GetAddr(Start), Byte(Value), FCount - Start);
     if Result <> -1 then Result := Result + Integer(Start);
@@ -2009,6 +2267,7 @@ begin
 end;
 
 { THArrayDouble }
+
 constructor THArrayDouble.Create;
 begin
   inherited Create;
@@ -2039,7 +2298,6 @@ function THArrayDouble.IndexOfFrom(Value: Double; Start: Cardinal): Integer;
 begin
   Result := -1;
   if Start >= FCount then exit;
- //Error(Start, Integer(FCount) - 1);
   if Assigned(FValues) then begin
     Result := memfindgeneral(FValues, @Value, ItemSize, FCount - Start);
     if Result <> -1 then Result := Result + Integer(Start);
@@ -2047,6 +2305,7 @@ begin
 end;
 
 { THArrayCurrency }
+
 constructor THArrayCurrency.Create;
 begin
   inherited Create;
@@ -2077,7 +2336,6 @@ function THArrayCurrency.IndexOfFrom(Value: Currency; Start: Cardinal): Integer;
 begin
   Result := -1;
   if Start >= FCount then exit;
-  //Error(Start, Integer(FCount) - 1);
   if Assigned(FValues) then begin
     Result := memfindgeneral(FValues, @Value, ItemSize, FCount - Start);
     if Result <> -1 then Result := Result + Integer(Start);
@@ -2085,6 +2343,7 @@ begin
 end;
 
 { THArrayExtended }
+
 constructor THArrayExtended.Create;
 begin
   inherited Create;
@@ -2115,20 +2374,60 @@ function THArrayExtended.IndexOfFrom(Value: Extended; Start: Cardinal): Integer;
 begin
   Result := -1;
   if Start >= FCount then exit;
-  //Error(Start, Integer(FCount) - 1);
   if Assigned(FValues) then begin
     Result := memfindgeneral(FValues, @Value, ItemSize, FCount - Start);
     if Result <> -1 then Result := Result + Integer(Start);
   end;
 end;
 
+{ THArraySingle }
+
+constructor THArraySingle.Create;
+begin
+  inherited Create;
+  FItemSize := sizeof(Single);
+end;
+
+function THArraySingle.GetValue(Index: Cardinal): Single;
+begin
+  Result := PSingle(GetAddr(Index))^;
+end;
+
+function THArraySingle.AddValue(Value: Single): Cardinal;
+begin
+  Result := inherited Add(@Value);
+end;
+
+procedure THArraySingle.SetValue(Index: Cardinal; Value: Single);
+begin
+  Update(Index, @Value);
+end;
+
+function THArraySingle.IndexOf(Value: Single): Integer;
+begin
+  Result := IndexOfFrom(Value, 0);
+end;
+
+function THArraySingle.IndexOfFrom(Value: Single; Start: Cardinal): Integer;
+begin
+  Result := -1;
+  if Start >= FCount then exit;
+  if Assigned(FValues) then begin
+    Result := memfindgeneral(FValues, @Value, ItemSize, FCount - Start);
+    if Result <> -1 then Result := Result + Integer(Start);
+  end;
+end;
+
+
 { TWideString }
+
 constructor TWideString.Create(Value: WideString);
 begin
-  Str := Value;
+  FStr := Value;
 end;
 
 { THArrayWideStrings }
+
 function THArrayWideStrings.AddValue(Value: WideString): Cardinal;
 begin
   Result := inherited AddValue(TWideString.Create(Value));
@@ -2136,7 +2435,7 @@ end;
 
 function THArrayWideStrings.GetValue(Index: Cardinal): WideString;
 begin
-  Result := TWideString(inherited GetValue(Index)).Str;
+  Result := TWideString(inherited GetValue(Index)).FStr;
 end;
 
 function THArrayWideStrings.IndexOf(Value: WideString): Integer;
@@ -2159,7 +2458,7 @@ end;
 
 procedure THArrayWideStrings.SetValue(Index: Cardinal; Value: WideString);
 begin
-  TWideString(inherited GetValue(Index)).Str := Value;
+  TWideString(inherited GetValue(Index)).FStr := Value;
 end;
 
 { THArrayString }  {
@@ -2187,7 +2486,7 @@ end;
 
 function THArrayString.CalcAddr(num: Cardinal): Pointer;
 begin
-  Result := Pointer(NativeInt(str_ptr.FValues) + NativeInt(num * FItemSize));
+  Result := Pointer(ConvertInt(str_ptr.FValues) + ConvertInt(num * FItemSize));
 end;
 
 function THArrayString.AddValue(Value: String): Cardinal;
@@ -2317,51 +2616,72 @@ begin
   str_ptr.Swap(Index1, Index2);
 end;                }
 
+
 { THArrayAnsiStringFix }
 
 function THArrayAnsiStringFix.AddValue(Value: AnsiString): Cardinal;
-var
-  buf: Pointer;
 begin
-  buf := AllocMem(FItemSize + 1);
-  //FillChar(buf^, FItemSize + 1, 0);
-  memclr(buf, FItemSize + 1);
-  try
-    AnsiStrings.StrPLCopy(buf, Value, FItemSize);
-    Result := inherited Add(buf);
-  finally
-    FreeMem(buf);
-  end;
+  memclr(FHelperBuf, FHelperBufSize); //TODO: for performance reasons we may delete this memclr, leaving termination zero only, this will not take effect to functionality.
+//  SysUtils.StrPLCopy(FHelperBuf, Value, FItemSize div sizeof(AnsiChar));
+  memcpy(PAnsiChar(Value), FHelperBuf, min(FItemSize, Length(Value)*sizeof(AnsiChar)));
+
+  Result := inherited Add(FHelperBuf);  // copies FItemSize bytes from buf to its internal storage
+end;
+
+destructor THArrayAnsiStringFix.Destroy;
+begin
+  FreeMem(FHelperBuf);
+  FHelperBuf := nil;
+  FHelperBufSize := 0;
+  inherited Destroy;
 end;
 
 constructor THArrayAnsiStringFix.Create;
 begin
-  raise ENotSupportedException.Create(SUseCreateSizeConsructor);
+  raise ENotSupportedException.Create(Format(SUseCreateSizeConsructor, ['THArrayAnsiStringFix']));
 end;
 
+// SizeOfItem - in characters, however for AnsiString it equivalent bytes
 // It is possible to create THArrayAnsiStringFix with size 0. needed for Oracle fields
-constructor THArrayAnsiStringFix.CreateSize(Size: Cardinal);
+constructor THArrayAnsiStringFix.CreateSize(SizeOfItem: Cardinal);
 begin
   inherited Create;
-  // if Size = 0 then raise EInvalidOpException.Create('Value of parameter Size should be greater than zero.');
-  FItemSize := Size;
+  FItemSize := SizeOfItem * sizeof(AnsiChar);
+  FHelperBufSize := FItemSize + sizeof(AnsiChar);
+  FHelperBuf := AllocMem(FHelperBufSize);
 end;
 
 function THArrayAnsiStringFix.GetValue(Index: Cardinal): AnsiString;
 var
-  buf: PAnsiChar;
+  addr: Pointer;
+  ind: integer;
 begin
-  buf := AllocMem(FItemSize + 1);
-  //FillChar(buf^, FItemSize + 1, 0);
-  memclr(buf, FItemSize + 1);
-  try
-    memcpy(GetAddr(Index), buf, FItemSize);
-    Result := AnsiString(buf);
-    //SetString(Result, buf, FItemSize);
-    //SetLength(Result, FItemSize);
-  finally
-    FreeMem(buf);
-  end;
+  // because we call memclr, byte with index FItemSize + 1 sets to zero. Further when we copied FItemSize bytes by memcpy then this zero byte terminates the string
+  //memclr(FHelperBuf, FHelperBufSize);
+  //memcpy(GetAddr(Index), FHelperBuf, FItemSize);
+  //Result := AnsiString(FHelperBuf);
+  //SetString(Result, buf, FItemSize);
+  //SetLength(Result, FItemSize);
+
+  SetLength(Result, FItemSize div sizeof(AnsiChar));
+  addr := GetAddr(Index);
+  ind := memfindbyte(addr, $00, FItemSize);
+    if ind = -1 then begin
+      memcpy(addr, PAnsiChar(Result), FItemSize) //FItemSize is in BYTES!
+    end else begin
+      Assert(ind >= 0);
+      Assert(ind < FItemSize);
+      memcpy(addr, @Result[1], ind*sizeof(AnsiChar));
+      SetLength(Result, ind);
+    end;
+end;
+
+procedure THArrayAnsiStringFix.SetValue(Index: Cardinal; Value: AnsiString);
+begin
+  memclr(FHelperBuf, FHelperBufSize); //TODO: for performance reasons we may delete this memclr, this will not take effect to functionality.
+  memcpy(PAnsiChar(Value), FHelperBuf, min(FItemSize, Length(Value)*sizeof(AnsiChar)));
+  //SysUtils.StrPLCopy(FHelperBuf, Value, FItemSize div sizeof(AnsiChar));
+  inherited Update(Index, FHelperBuf);
 end;
 
 function THArrayAnsiStringFix.IndexOf(Value: AnsiString): Integer;
@@ -2370,42 +2690,34 @@ begin
 end;
 
 function THArrayAnsiStringFix.IndexOfFrom(Value: AnsiString; Start: Cardinal): Integer;
-var Index: Cardinal;
 begin
   Result := -1;
   if Start >= FCount then Exit;
-  //Error(Start, Integer(FCount) - 1);
-  if Assigned(FValues) then
-    for Index := Start to FCount - 1 do
-      if self.Value[Index] = Value then begin Result := Integer(Index); Exit; end;
-  //Result := -1;
+    for Result := Start to FCount - 1 do
+      if self.Value[Result] = Value then Exit;
+  Result := -1;
 end;
 
-procedure THArrayAnsiStringFix.SetValue(Index: Cardinal; Value: AnsiString);
-var
-  buf: Pointer;
+procedure THArrayAnsiStringFix.SetItemSize(Size: Cardinal);
 begin
-  buf := AllocMem(FItemSize + 1);
-  //FillChar(buf^, ItemSize + 1, 0);
-  memclr(buf, FItemSize + 1);
-  try
-    AnsiStrings.StrPLCopy(buf, Value, FItemSize);
-    inherited Update(Index, buf);
-  finally
-    FreeMem(buf);
-  end;
+  raise ENotSupportedException.Create(SWrongCallSetItemSize);
 end;
 
 { THArrayStringFix }
 
+//TODO: there is an optimization in THArrayAnsiStringFix, apply it to THArrayStringFix?
 function THArrayStringFix.AddValue(Value: string): Cardinal;
-var buf: Pointer;
+var
+  buf: Pointer;
+  len: Cardinal;
 begin
-  buf := AllocMem(FItemSize + 1);
-  //FillChar(buf^, FItemSize + 1, 0);
-  memclr(buf, FItemSize + 1);
+  buf := AllocMem(FItemSize {+ sizeof(Char)});
+  memclr(buf, FItemSize {+ sizeof(Char)});
   try
-    StrPLCopy(buf, Value, FItemSize);
+    len := Min(FItemSize, Length(Value)*sizeof(Char));
+    //if len > 0 then
+    memcpy(PChar(Value), buf, len);
+    //StrPLCopy(buf, Value, FItemSize div sizeof(Char));
     Result := inherited Add(buf);
   finally
     FreeMem(buf);
@@ -2414,26 +2726,55 @@ end;
 
 constructor THArrayStringFix.Create;
 begin
-  raise ENotSupportedException.Create(SUseCreateSizeConsructor);
+  raise ENotSupportedException.Create(Format(SUseCreateSizeConsructor, ['THArrayStringFix']));
 end;
 
 // SizeOfItem - in characters, not bytes !!!!
-constructor THArrayStringFix.CreateSize(SizeofItem: Cardinal);
+// It is possible to create THArrayStringFix with size 0. needed for Oracle fields
+constructor THArrayStringFix.CreateSize(SizeOfItem: Cardinal);
 begin
   inherited Create;
-  FItemSize := SizeofItem * sizeof(Char);  // remember string is UNICODE and sizeof(Char) may be equal 2
+  FItemSize := SizeOfItem * sizeof(Char);  // remember string is UNICODE and sizeof(Char) may be equal 2
 end;
 
 function THArrayStringFix.GetValue(Index: Cardinal): string;
-var buf: Pointer;
+var
+  addr: Pointer;
+  ind: integer;
 begin
-  buf := AllocMem(FItemSize + 1);
-  //FillChar(PByte(buf)^, FItemSize + 1, 0);
-  memclr(buf, FItemSize + 1);
+  //buf := AllocMem(FItemSize + sizeof(Char));
+  //memclr(buf, FItemSize + sizeof(Char)); //TODO: we can avoid memclr, just set to zero two last bytes of buf
   try
-    memcpy(GetAddr(Index), buf, FItemSize);
-    Result := PChar(buf);
-    //SetLength(Result, FItemSize);
+    SetLength(Result, FItemSize div sizeof(Char));
+    addr := GetAddr(Index);
+    ind := memfindword(addr, $00, FItemSize div 2);
+    if ind = -1 then begin
+      memcpy(addr, PChar(Result), FItemSize) //FItemSize is in BYTES!
+    end else begin
+      Assert(ind >= 0);
+      Assert(ind < FItemSize);
+      memcpy(addr, @Result[1], ind*sizeof(Char));
+      SetLength(Result, ind);
+    end;
+    //Result := PChar(buf);
+  finally
+    //FreeMem(buf);
+  end;
+end;
+
+procedure THArrayStringFix.SetValue(Index: Cardinal; Value: string);
+var
+  buf: Pointer;
+  len: Cardinal;
+begin
+  buf := AllocMem(FItemSize {+ sizeof(Char)});  // extra char is needed for StrPLCopy (for zero terminator)
+  memclr(buf, FItemSize {+ sizeof(Char)}); // alt: memclr(buf + len, FItemSize - len);
+  try
+    len := Min(FItemSize, Length(Value)*sizeof(Char));
+    //if len > 0 then
+    memcpy(PChar(Value), buf, len);
+    //StrPLCopy(buf, Value, FItemSize div sizeof(Char));
+    inherited Update(Index, buf);
   finally
     FreeMem(buf);
   end;
@@ -2445,32 +2786,22 @@ begin
 end;
 
 function THArrayStringFix.IndexOfFrom(Value: string; Start: Cardinal): Integer;
-var Index: Cardinal;
 begin
   Result := -1;
   if Start >= FCount then Exit;
-  //Error(Start, Integer(FCount) - 1);
-  if Assigned(FValues) then
-    for Index := Start to FCount - 1 do
-      if self.Value[Index] = Value then begin Result := Integer(Index); Exit; end;
-  //Result := -1;
+    for Result := Start to FCount - 1 do
+      if self.Value[Result] = Value then Exit;
+  Result := -1;
 end;
 
-procedure THArrayStringFix.SetValue(Index: Cardinal; Value: string);
-var buf: Pointer;
+procedure THArrayStringFix.SetItemSize(Size: Cardinal);
 begin
-  buf := AllocMem(FItemSize + 1);
-  //FillChar(buf^, FItemSize + 1, 0);
-  memclr(buf, FItemSize + 1);
-  try
-    StrPLCopy(buf, Value, FItemSize);
-    inherited Update(Index, buf);
-  finally
-    FreeMem(buf);
-  end;
+  raise ENotSupportedException.Create(SWrongCallSetItemSize);
 end;
+
 
 { THash }
+
 constructor THash.Create;
 begin
   FReadOnly := False;
@@ -3320,13 +3651,13 @@ begin
   end;
 end;
 
-{ THArrayString }
+{ THArrayString - stores pointers to zero terminated strings}
 
 function THArrayString.Add(pValue: Pointer): Cardinal;
-var pStr: PChar;
+//var pStr: PChar;
 begin
-  pStr := DublicateStr(pValue);
-  Result := inherited Add(@pStr);
+// pStr := DublicateStr(pValue);
+  Result := inherited Add(pValue{pStr}); // Add calls Update which in turn calls DuplicateStr.
 end;
 
 function THArrayString.AddValue(Value: string): Cardinal;
@@ -3354,15 +3685,15 @@ var
   pStr: PChar;
 begin
   for i := 1 to Count do begin
-   Get(i - 1, pStr);
+   Get(i - 1, @pStr);
    StrDispose(pStr);
   end;
 end;
 
 procedure THArrayString.Delete(num: Cardinal);
-var pStr:PChar;
+var pStr: PChar;
 begin
-  Get(num, pStr);
+  Get(num, @pStr);
   StrDispose(pStr);
   inherited Delete(num);
 end;
@@ -3377,9 +3708,9 @@ function THArrayString.DublicateStr(pValue: Pointer): PChar;
 var len: Cardinal;
 begin
   if pValue <> nil then begin
-    len := StrLen(PChar(pValue)) + 1;
-    Result := StrAlloc(len);
-    memcpy(pValue, Result, len* sizeof(Char)); // terminating zero also copied here
+    len := StrLen(PChar(pValue)) + 1; // extra symbol for null-terminate
+    Result := StrAlloc(len*sizeof(Char));
+    memcpy(pValue, Result, len*sizeof(Char)); // terminating zero also copied here
   end else
     Result := nil;
 end;
@@ -3404,13 +3735,23 @@ begin
   Result := Insert(num, Pointer(PChar(Value)));
 end;
 
+procedure THArrayString.Update(num: Cardinal; pValue: Pointer);
+var pStr : PChar;
+begin
+  Get(num, @pStr);
+  StrDispose(pStr);
+  pStr := DublicateStr(pValue);
+  inherited Update(num, @pStr);
+end;
+
+{
 function THArrayString.Insert(num: Cardinal; pValue: Pointer): Cardinal;
 var pStr: PChar;
 begin
   pStr := DublicateStr(pValue);
   Result := inherited Insert(num, pStr);
 end;
-
+ }
 procedure THArrayString.LoadFromStream(s: TStream);
 
   function LoadString(Stream: TStream): PChar;
@@ -3449,7 +3790,7 @@ begin
   i := Count;
   s.Write(i, sizeof(i)); // number of elements
   for i := 1 to Count do begin
-    Get(i - 1, pStr);
+    Get(i - 1, @pStr);
     SaveString(s, pStr);
   end;
 end;
@@ -3459,17 +3800,5 @@ begin
   Update(Index, PChar(Value));
 end;
 
-procedure THArrayString.Update(num: Cardinal; pValue: Pointer);
-var
-  pStr : PChar;
- // l    : Integer;
-begin
-  Get(num, pStr);
-  StrDispose(pStr);
-  pStr := DublicateStr(pValue);
-  inherited Update(num, pStr);
-end;
-
 
 end.
-

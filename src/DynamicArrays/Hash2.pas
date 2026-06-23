@@ -6,18 +6,20 @@ uses DynamicArray, Hash;
 
 type
 
-(************************************************************************************************************)
-(*  THash2
-(* THash2 can be considered as kind of table where values can be accessed by two keys (two indexes).
-(* Keys can be any type, indexes can be any type too.
-*)
+(******************************************************************************************************)
+(*                                                                                                    *)
+(*  THash2                                                                                            *)
+(*  THash2 can be considered as kind of table where values can be accessed by two keys (two indexes). *)
+(*  Keys can be any type, indexes can be any type too.                                                *)
+(*                                                                                                    *)
+(******************************************************************************************************)
 
   THash2<K1; K2; V> = class
   private type
    THashChildType = THash<K2, V>;
    THashValuesType = THash<K1, THashChildType>;
   public type
-   PointerV = THashChildType.PointerV;
+   PointerV = ^V; //THashChildType.PointerV;
   private
    FValues: THashValuesType;
    function GetKey(Index: Cardinal): K1;
