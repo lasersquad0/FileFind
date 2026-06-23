@@ -20,12 +20,12 @@ uses
   Settings in '..\..\src\Settings.pas',
   SettingsForm in '..\..\src\SettingsForm.pas' {SettingsForm1},
   CacheItem in '..\..\src\CacheItem.pas',
-  DynamicArray in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
-  DynamicArrays in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\DynamicArrays.pas',
-  Hash in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\Hash.pas',
-  Hash2 in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\Hash2.pas',
-  SortedArray in '..\..\..\DynamicArrays\dynamicarrays\src\Delphi\SortedArray.pas',
-  Logger in '..\..\src\Logger.pas';
+  Logger in '..\..\src\Logger.pas',
+  DynamicArray in '..\..\src\DynamicArrays\DynamicArray.pas',
+  DynamicArrays in '..\..\src\DynamicArrays\DynamicArrays.pas',
+  Hash in '..\..\src\DynamicArrays\Hash.pas',
+  Hash2 in '..\..\src\DynamicArrays\Hash2.pas',
+  SortedArray in '..\..\src\DynamicArrays\SortedArray.pas';
 
 {$R *.res}
 
