@@ -4,12 +4,15 @@ Improvements:
 
 + Added 'Start Minimised' option when FinderX starts together with Windows 
 + Added text hints for controls on Settings form
-* New (updated) MFTReaderDLL.dll library for fast reading NTFS volumes. Fixed crashes, improved reading for different NTFS filesystems
+* New (updated) MFTReaderDLL_xx.dll library for fast reading NTFS volumes. Fixed crashes, improved reading for different NTFS filesystems
 * More strings moved into resource string sections and available for translation to other languages
 + Added resource file FinxedX.ru that contains translated strings and interface (forms, messages). It automatically loaded when your locale set to RU
+* When fast reading NTFS method fails, application tries to use ordinary reading method which is more reliable but much slower.
 * Improved work with Owner column
 * Improved handling of incorrect index file
 + Added compile time checks for sizes of NTFS structures
++ New About window
+* Fixed bug when column sorting was changed at the time when icons were being loading
 * Logging uses recently introduced log levels for convenience
 
 FinderX version 1.3.0
