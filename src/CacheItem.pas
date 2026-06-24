@@ -48,12 +48,12 @@ type
    function IsReparsePoint: Boolean;
  end;
 
-  TCacheItemExt = class(TCacheItem)
-  public
-    CacheItem: TCacheItem;
-  end;
+ TCacheItemExt = class(TCacheItem)
+ public
+   CacheItem: TCacheItem;
+ end;
 
-  function MakeFileSize(hi, lo: Cardinal) : UInt64; inline;
+ function MakeFileSize(hi, lo: Cardinal) : UInt64; inline;
 
 
 implementation
