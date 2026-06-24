@@ -72,7 +72,7 @@
         <UWP_DelphiLogo150>$(BDS)\bin\Artwork\Windows\UWP\delphi_UwpDefault_150.png</UWP_DelphiLogo150>
         <SanitizedProjectName>FinderX</SanitizedProjectName>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.3.0.55;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.3.0;Comments=Probably the best application for file search</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.3.1.55;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.3.1;Comments=Possibly the best file search application</VerInfo_Keys>
         <DCC_ShowGeneralMessages>true</DCC_ShowGeneralMessages>
         <DCC_MinStackSize>4048576</DCC_MinStackSize>
         <DCC_MaxStackSize>4048576</DCC_MaxStackSize>
@@ -91,6 +91,7 @@
         <VerInfo_Build>55</VerInfo_Build>
         <PostBuildEvent><![CDATA[copy /Y ..\..\Build\MFTReaderDLL.dll $(OutputDir)
 $(PostBuildEvent)]]></PostBuildEvent>
+        <VerInfo_Release>1</VerInfo_Release>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win32)'!=''">
         <DCC_UsePackage>vclwinx;DataSnapServer;fmx;emshosting;vclie;DbxCommonDriver;bindengine;VCLRESTComponents;DBXMSSQLDriver;FireDACCommonODBC;emsclient;FireDACCommonDriver;appanalytics;vclx;dbxcds;vcledge;bindcompvclwinx;emsedge;bindcompfmx;DBXFirebirdDriver;inetdb;FireDACSqliteDriver;DbxClientDriver;FireDACASADriver;vclactnband;fmxFireDAC;dbexpress;FireDACInfxDriver;DBXMySQLDriver;VclSmp;inet;DataSnapCommon;fmxase;vcltouch;DBXOdbcDriver;dbrtl;FireDACDBXDriver;FireDACOracleDriver;fmxdae;FireDACMSAccDriver;CustomIPTransport;FireDACMSSQLDriver;DataSnapIndy10ServerTransport;DataSnapConnectors;vcldsnap;DBXInterBaseDriver;FireDACMongoDBDriver;FireDACTDataDriver;vcldb;vclFireDAC;bindcomp;FireDACCommon;DataSnapServerMidas;FireDACODBCDriver;emsserverresource;RESTBackendComponents;bindcompdbx;rtl;FireDACMySQLDriver;FireDACADSDriver;RESTComponents;DBXSqliteDriver;vcl;dsnapcon;DataSnapClient;adortl;DataSnapProviderClient;DBXSybaseASEDriver;DBXDb2Driver;vclimg;DataSnapFireDAC;emsclientfiredac;FireDACPgDriver;FireDAC;inetdbxpress;FireDACDSDriver;xmlrtl;tethering;bindcompvcl;dsnap;CloudService;DBXSybaseASADriver;DBXOracleDriver;FireDACDb2Driver;DBXInformixDriver;fmxobj;bindcompvclsmp;DataSnapNativeClient;DatasnapConnectorsFreePascal;soaprtl;FireDACIBDriver;$(DCC_UsePackage)</DCC_UsePackage>
@@ -136,12 +137,8 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DCC_DebugInfoInTds>true</DCC_DebugInfoInTds>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
-        <AppDPIAwarenessMode>PerMonitorV2</AppDPIAwarenessMode>
-        <Icon_MainIcon>Images\Uwp_logo44.ico</Icon_MainIcon>
-        <DCC_DynamicBase>false</DCC_DynamicBase>
-        <DCC_HighEntropyVa>false</DCC_HighEntropyVa>
-        <DCC_DUPLICATE_CTOR_DTOR>false</DCC_DUPLICATE_CTOR_DTOR>
-        <DCC_UNSAFE_CAST>false</DCC_UNSAFE_CAST>
+        <VerInfo_Build>60</VerInfo_Build>
+        <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.3.1.60;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.3.1;Comments=Possibly the best file search application</VerInfo_Keys>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
@@ -195,6 +192,10 @@ $(PostBuildEvent)]]></PostBuildEvent>
         <DCCReference Include="..\..\src\DynamicArrays\Hash.pas"/>
         <DCCReference Include="..\..\src\DynamicArrays\Hash2.pas"/>
         <DCCReference Include="..\..\src\DynamicArrays\SortedArray.pas"/>
+        <DCCReference Include="..\..\src\AboutForm.pas">
+            <Form>Form1</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <None Include="FinderX.todo"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
@@ -217,18 +218,8 @@ $(PostBuildEvent)]]></PostBuildEvent>
                     <Source Name="MainSource">FinderX.dpr</Source>
                 </Source>
                 <Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclBindCompFireDAC290.bpl">LiveBinding Expression Components FireDac</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclFMXFireDAC290.bpl">Embarcadero FMX FireDAC Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclVclFireDAC290.bpl">Embarcadero VCL FireDAC Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclFireDACEnt290.bpl">Embarcadero FireDAC C\S Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\DataExplorerFireDACPlugin290.bpl">FireDAC Data Explorer Integration</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\Skia.Package.FMX.Designtime290.bpl">Skia4Delphi FMX Designtime package</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclsoapmidas290.bpl">Embarcadero SOAP Midas Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclsoapserver290.bpl">Embarcadero SOAP Server Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\bcboffice2k290.bpl">Embarcadero C++Builder Office 2000 Servers Package</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\bcbofficexp290.bpl">Embarcadero C++Builder Office XP Servers Package</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k290.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
-                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp290.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dcloffice2k370.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="$(BDSBIN)\dclofficexp370.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="5">
