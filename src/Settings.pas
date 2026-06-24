@@ -75,8 +75,8 @@ type
     class function GetDefaultExcludeFoldersList: TArray<string>;
 
   const
-    APPKEY = 'SOFTWARE\NotepadCo\FinderX';
-    HISTORYKEY = APPKEY + '\SearchHistory';
+    APPKEY = 'SOFTWARE\LaserSquad\FinderX';
+    HISTORYKEY = APPKEY + '\SearchHistory'; // store search history here
     MAINWINDOWKEY = APPKEY + '\MainWindow';
     INDEX_FILENAME = 'FinderXIndexDB.idx'; // default file name for FinderX index database
   end;
@@ -241,9 +241,9 @@ begin
      // merge list of volumes actually availalbe on the PC with list read from registry.
      if IncludeNewFixedVolumes OR IncludeNewRemovableVolumes then begin
        var Drives := GetLogicalDrives;
-       for i := 1 to Length(Drives) do begin
+       for i := 1 to Cardinal(Length(Drives)) do begin
          Found := False;
-         for j := 1 to Length(VolumesToIndex) do
+         for j := 1 to Cardinal(Length(VolumesToIndex)) do
            if Drives[i - 1] = VolumesToIndex[j - 1] then begin
              Found := True; // found volume in stored list of volumes
              break
@@ -260,7 +260,7 @@ begin
 
      // remove offline drives from VolumesToIndex
      if RemoveOfflineVolumes then begin
-       i := Length(VolumesToIndex);
+       i := Cardinal(Length(VolumesToIndex));
        while i > 0  do begin
          res := GetVolumeInformation(PChar(VolumesToIndex[i - 1]), nil, 0, nil, MaxComponentLen, SystemFlags, nil, 0);
          if res = False then begin
