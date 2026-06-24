@@ -260,7 +260,7 @@ var
   MaxComponentLen, SystemFlags: DWORD;
   res: LongBool;
   //Found: Boolean;
-  TmpFolders: TArray<string>;
+  //TmpFolders: TArray<string>;
 begin
   AppSettings.Load; // load settings from registry each time settings form is shown
 
@@ -316,7 +316,7 @@ begin
     }
   VolumesListBox.Clear;
   FVolumes := AppSettings.VolumesToIndex;
-  VolCnt := Length(FVolumes);
+  VolCnt := Cardinal(Length(FVolumes));
   for i := 1 to VolCnt do begin
     CurrVol := FVolumes[i - 1];
     SetLength(VolName, MAX_PATH);
