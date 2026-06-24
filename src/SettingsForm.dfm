@@ -142,6 +142,7 @@ object SettingsForm1: TSettingsForm1
         Height = 23
         TabOrder = 6
         Text = 'FinderX_debug.log'
+        TextHint = '<enter log file name here>'
       end
       object StartMinimizedCheckBox: TCheckBox
         Left = 28
