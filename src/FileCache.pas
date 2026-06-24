@@ -460,8 +460,8 @@ end;
 
 procedure TVolumeCache.FillFileData(const FilePath: string; var FileData: TWin32FindData);
 var
-  hf: THandle;
-  fileSize: LARGE_INTEGER;
+  //hf: THandle;
+  //fileSize: LARGE_INTEGER;
   data: TWin32FileAttributeData;
   res: LongBool;
 begin
@@ -1316,12 +1316,14 @@ class function TVolumeCache.MFTCallbackFunc(progress: Integer): Integer;
 begin
   TLogger.InfoFmt('Callback called. Progress: %d', [progress]);
   FVolCache.NotifyProgress(progress);
+  Result := 1;  // not used at the moment
 end;
 
 function TVolumeCache.ReadVolumeFast(Volume: string; ExclusionsList: TArray<string>): UInt64;
 var
   fileCache: PPFileLevel;
-  i, cnt: Cardinal;
+  i: Int64;
+  cnt: Cardinal;
   str: string;
   err: TError;
 
@@ -1353,11 +1355,14 @@ begin
   NotifyProgress(50);
 
   // call DLL function
+  //TODO: what happen when exception generated inside this function call?
   err := ReadVolumeDirect(PChar(Volume), cnt, Pointer(fileCache), MFTCallbackFunc);
 
   if err.HasError then begin
     TLogger.ErrorFmt('Error loading volume %s. Error code: %d. Error msg: %s.', [Volume, err.ErrCode, err.Msg]);
-    NotifyError(err);
+    // we are not calling NotifyError here because failover mechanizm
+    // if ReadVolumeFast fails then app call ReadVolume and silently tries to read data by ReadVolume.
+    //NotifyError(err);
     raise EInOutError.Create(err.ErrText, Volume);
   end else begin
     TLogger.Info('[ReadVolumeDirect] Finished successfully');
@@ -1891,7 +1896,15 @@ begin
   vol := GetOrCreateVolume(Volume);
 
   vol.FProgressListeners := FProgressListeners;
-  vol.ReadVolumeFast(Volume, ExclusionsList);
+
+  // when ReadVolumeFast fails try to read volume using ReadVolume which is more reliable, but slower.
+  try
+    vol.ReadVolumeFast(Volume, ExclusionsList);
+  except
+    on E:Exception do
+      vol.ReadVolume(Volume, ExclusionsList);
+  end;
+
   vol.FProgressListeners := nil;
 end;
 
