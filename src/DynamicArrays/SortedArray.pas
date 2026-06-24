@@ -24,7 +24,7 @@ type
     procedure BubbleSort(CompareProc: THArrayG<T>.TCompareProc); override;
     procedure SelectionSort(CompareProc: THArrayG<T>.TCompareProc); override;
     procedure InsertSort(CompareProc: THArrayG<T>.TCompareProc2); override;
-    procedure QuickSort(CompareProc: THArrayG<T>.TCompareProc); override;
+    procedure QuickSort(CompareProc: THArrayG<T>.TCompareProc; SwapProc: THArrayG<T>.TSwapProc); override;
     procedure ShakerSort(CompareProc: THArrayG<T>.TCompareProc2); override;
   protected
     // override this method to implement comparing of elements make proper (sorted) order of elemenets in the array
@@ -289,7 +289,7 @@ begin
   raise EInvalidOpException.Create(SOperationNotSupportedBySortedArray);
 end;
 
-procedure THCustomArraySorted<T>.QuickSort(CompareProc: THArrayG<T>.TCompareProc);
+procedure THCustomArraySorted<T>.QuickSort(CompareProc: THArrayG<T>.TCompareProc; SwapProc: THArrayG<T>.TSwapProc);
 begin
   raise EInvalidOpException.Create(SOperationNotSupportedBySortedArray);
 end;
