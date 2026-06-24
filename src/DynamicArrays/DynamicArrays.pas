@@ -59,6 +59,8 @@ uses Classes, SysUtils;
   (*   -1 - arr[i] < arr[j] }                                   *)
   (**************************************************************)
 
+  // this function is useful when you need access other elements than arr[i], arr[j] for comparing
+  // or you have quicker method of access ith and jth elements in the array
   TCompareProc = function(arr : THArray; i, j : Cardinal) : Integer of object;
 
   (**************************************************************)
@@ -1342,7 +1344,7 @@ begin
   Error(StartIndex, FCount);
   Assert(pValue <> nil);
 
-  Result := IfThen(StartIndex + Cnt > FCount, FCount - startIndex, Cnt);
+  Result := Cardinal(IfThen(StartIndex + Cnt > FCount, FCount - startIndex, Cnt));
   //if StartIndex + Cnt > FCount
   //  then Result := FCount - startIndex
   //  else Result := Cnt;
@@ -2623,7 +2625,7 @@ function THArrayAnsiStringFix.AddValue(Value: AnsiString): Cardinal;
 begin
   memclr(FHelperBuf, FHelperBufSize); //TODO: for performance reasons we may delete this memclr, leaving termination zero only, this will not take effect to functionality.
 //  SysUtils.StrPLCopy(FHelperBuf, Value, FItemSize div sizeof(AnsiChar));
-  memcpy(PAnsiChar(Value), FHelperBuf, min(FItemSize, Length(Value)*sizeof(AnsiChar)));
+  memcpy(PAnsiChar(Value), FHelperBuf, min(FItemSize, Cardinal(Length(Value)*sizeof(AnsiChar))));
 
   Result := inherited Add(FHelperBuf);  // copies FItemSize bytes from buf to its internal storage
 end;
@@ -2679,7 +2681,7 @@ end;
 procedure THArrayAnsiStringFix.SetValue(Index: Cardinal; Value: AnsiString);
 begin
   memclr(FHelperBuf, FHelperBufSize); //TODO: for performance reasons we may delete this memclr, this will not take effect to functionality.
-  memcpy(PAnsiChar(Value), FHelperBuf, min(FItemSize, Length(Value)*sizeof(AnsiChar)));
+  memcpy(PAnsiChar(Value), FHelperBuf, Min(FItemSize, Cardinal(Length(Value)*sizeof(AnsiChar))));
   //SysUtils.StrPLCopy(FHelperBuf, Value, FItemSize div sizeof(AnsiChar));
   inherited Update(Index, FHelperBuf);
 end;
@@ -2714,7 +2716,7 @@ begin
   buf := AllocMem(FItemSize {+ sizeof(Char)});
   memclr(buf, FItemSize {+ sizeof(Char)});
   try
-    len := Min(FItemSize, Length(Value)*sizeof(Char));
+    len := Min(FItemSize, Cardinal(Length(Value)*sizeof(Char)));
     //if len > 0 then
     memcpy(PChar(Value), buf, len);
     //StrPLCopy(buf, Value, FItemSize div sizeof(Char));
