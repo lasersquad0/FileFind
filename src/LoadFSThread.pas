@@ -52,6 +52,10 @@ end;
 
   }
 
+const
+  THREAD_FAIL = 0;
+  THREAD_SUCCESS = 1;
+
 implementation
 
 uses SysUtils, System.UITypes, Vcl.Dialogs, Windows, Functions, Logger;
@@ -64,7 +68,7 @@ uses SysUtils, System.UITypes, Vcl.Dialogs, Windows, Functions, Logger;
 // ExclusionsList array is empty here when "exclude folders" option is off in settings
 constructor TLoadFSThread.Create(Volumes: TArray<string>; ExclusionsList: TArray<string>; FastNTFS: Boolean);
 var
-  i: Cardinal;
+  i: Int64;
 begin
   inherited Create(True); // create suspended
   FreeOnTerminate := True;
@@ -82,7 +86,7 @@ end;
 
 procedure TLoadFSThread.DoTerminate;
 var
-  i: Integer;
+  i: Int64;
 begin
   for i := 0 to High(FDisableCtrls) do FDisableCtrls[i].Enabled := True;
   for i := 0 to High(FShowCtrls)    do FShowCtrls[i].Visible    := False;
@@ -94,14 +98,15 @@ end;
 procedure TLoadFSThread.Execute;
 var
   MaxComponentLen, SystemFlags: DWORD;
-  i, start: Cardinal;
+  i: Int64;
+  start: Cardinal;
   inst2: TCache;
   fsType: string;
   res: LongBool;
   error: Cardinal;
 begin
   TLogger.Info('[IndexingThread] START');
-  SetReturnValue(0); // mark that thread didnt finish successfully
+  SetReturnValue(THREAD_FAIL); // mark that thread didnt finish successfully
 
   try
     if TCache.HasNewInstance then TCache.FreeInst2;
@@ -127,7 +132,7 @@ begin
 
          if fsType.StartsWith('NTFS', True)
            then inst2.ReadVolumeFast(ExecData[i].VolumeName, FExclusionsList)
-           else inst2.ReadVolume(ExecData[i].VolumeName, FExclusionsList); // if not NTFS call ReadVolume function that works with all volume types (but slower)
+           else inst2.ReadVolume(ExecData[i].VolumeName, FExclusionsList); // if not NTFS, call ReadVolume function that works with all volume types (but slower)
 
       end else begin
         // otherwise call ReadVolume function that works with all volume types (but slower)
@@ -142,7 +147,7 @@ begin
     end;
 
     inst2.RemoveProgressListener(FListener);
-    SetReturnValue(1); // finished successfully
+    SetReturnValue(THREAD_SUCCESS); // finished successfully
   except
     on E: EOperationCancelled do begin
       TCache.FreeInst2; // clear half filled Instance2
@@ -172,7 +177,7 @@ end;
 
 procedure TLoadFSThread.Start(DisableCtrls, ShowCtrls, HideCtrls: TArray<TControl>; Listener: IIndexingProgress);
 var
-  i: Integer;
+  i: Int64;
 begin
   FDisableCtrls := DisableCtrls;
   FShowCtrls := ShowCtrls;
