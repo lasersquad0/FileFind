@@ -25,7 +25,8 @@ uses
   DynamicArrays in '..\..\src\DynamicArrays\DynamicArrays.pas',
   Hash in '..\..\src\DynamicArrays\Hash.pas',
   Hash2 in '..\..\src\DynamicArrays\Hash2.pas',
-  SortedArray in '..\..\src\DynamicArrays\SortedArray.pas';
+  SortedArray in '..\..\src\DynamicArrays\SortedArray.pas',
+  AboutForm in '..\..\src\AboutForm.pas' {Form1};
 
 {$R *.res}
 
@@ -82,6 +83,7 @@ begin
   Application.CreateForm(TAboutBox, AboutBox);
   Application.CreateForm(TIndexingLogForm, IndexingLogForm);
   Application.CreateForm(TSettingsForm1, SettingsForm1);
+  Application.CreateForm(TFrmAbout, FrmAbout);
   TLogger.Info('All application forms are created:' + MillisecToStr(GetTickcount - start) + ' (time from start)');
   Application.Run;
 
