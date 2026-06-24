@@ -12,7 +12,7 @@ object AboutBox: TAboutBox
   Font.Name = 'MS Sans Serif'
   Font.Style = []
   Position = poMainFormCenter
-  TextHeight = 13
+  TextHeight = 14
   object Panel1: TPanel
     Left = 8
     Top = 8
@@ -59,8 +59,8 @@ object AboutBox: TAboutBox
     object ProductName: TLabel
       Left = 88
       Top = 16
-      Width = 36
-      Height = 13
+      Width = 37
+      Height = 14
       Caption = 'FinderX'
       IsControl = True
     end
@@ -68,23 +68,23 @@ object AboutBox: TAboutBox
       Left = 88
       Top = 40
       Width = 24
-      Height = 13
+      Height = 14
       Caption = '1.3.0'
       IsControl = True
     end
     object Copyright: TLabel
       Left = 8
       Top = 104
-      Width = 230
-      Height = 39
+      Width = 234
+      Height = 42
       Caption = 'Copyright '#13#10#13#10'Andrey Romanchenko     lasersquad@gmail.com'
       IsControl = True
     end
     object Comments: TLabel
       Left = 88
       Top = 59
-      Width = 169
-      Height = 13
+      Width = 102
+      Height = 28
       Caption = 'Possibly the best file find application'
       WordWrap = True
       IsControl = True
