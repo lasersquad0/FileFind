@@ -1,16 +1,20 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
+  Margins.Left = 4
+  Margins.Top = 4
+  Margins.Right = 4
+  Margins.Bottom = 4
   Caption = 'FinderX - find files quick!'
-  ClientHeight = 497
-  ClientWidth = 1296
+  ClientHeight = 613
+  ClientWidth = 1163
   Color = clBtnFace
-  Constraints.MinHeight = 200
-  Constraints.MinWidth = 200
+  Constraints.MinHeight = 250
+  Constraints.MinWidth = 250
   DoubleBuffered = True
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -12
+  Font.Height = -15
   Font.Name = 'Segoe UI'
   Font.Style = []
   Icon.Data = {
@@ -214,40 +218,57 @@ object MainForm: TMainForm
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   OnDestroy = FormDestroy
-  TextHeight = 15
+  PixelsPerInch = 120
+  TextHeight = 20
   object CancelBtn: TSpeedButton
-    Left = 1040
-    Top = 480
-    Width = 60
-    Height = 19
+    Left = 1300
+    Top = 600
+    Width = 75
+    Height = 24
+    Margins.Left = 4
+    Margins.Top = 4
+    Margins.Right = 4
+    Margins.Bottom = 4
     Caption = 'Cancel'
     Visible = False
     OnClick = CancelBtnClick
   end
   object ProgressLabel: TLabel
-    Left = 811
-    Top = 480
-    Width = 73
-    Height = 15
+    Left = 1014
+    Top = 600
+    Width = 92
+    Height = 20
+    Margins.Left = 4
+    Margins.Top = 4
+    Margins.Right = 4
+    Margins.Bottom = 4
     Caption = 'ProgressLabel'
     Visible = False
   end
   object SearchPanel: TPanel
     Left = 0
-    Top = 28
-    Width = 1296
-    Height = 40
+    Top = 35
+    Width = 1163
+    Height = 50
+    Margins.Left = 4
+    Margins.Top = 4
+    Margins.Right = 4
+    Margins.Bottom = 4
     Align = alTop
     BevelOuter = bvNone
     TabOrder = 2
     DesignSize = (
-      1296
-      40)
+      1163
+      50)
     object AdvancedSearchButton: TSpeedButton
-      Left = 1140
-      Top = 7
-      Width = 150
-      Height = 26
+      Left = 968
+      Top = 9
+      Width = 187
+      Height = 32
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       AllowAllUp = True
       Anchors = [akTop, akRight]
       GroupIndex = 1
@@ -258,26 +279,38 @@ object MainForm: TMainForm
       OnClick = AdvancedSearchButtonClick
     end
     object Label1: TLabel
-      Left = 94
-      Top = 77
-      Width = 71
-      Height = 15
+      Left = 118
+      Top = 96
+      Width = 91
+      Height = 20
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'date between'
     end
     object SearchByFileSize: TCheckBox
-      Left = 11
-      Top = 43
-      Width = 66
-      Height = 17
+      Left = 14
+      Top = 54
+      Width = 82
+      Height = 21
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'File Size'
       TabOrder = 0
       OnClick = SearchByFileSizeClick
     end
     object FileSizeOp: TComboBox
-      Left = 114
-      Top = 40
-      Width = 49
-      Height = 23
+      Left = 143
+      Top = 50
+      Width = 61
+      Height = 28
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Style = csDropDownList
       ItemIndex = 0
       TabOrder = 1
@@ -288,17 +321,26 @@ object MainForm: TMainForm
         '<')
     end
     object SearchFileSize: TNumberBox
-      Left = 169
-      Top = 40
-      Width = 82
-      Height = 23
+      Left = 211
+      Top = 50
+      Width = 103
+      Height = 28
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       TabOrder = 2
+      SpinButtonOptions.ButtonWidth = 21
     end
     object FileSizeFactor: TComboBox
-      Left = 257
-      Top = 40
-      Width = 83
-      Height = 23
+      Left = 321
+      Top = 50
+      Width = 104
+      Height = 28
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Style = csDropDownList
       ItemIndex = 1
       TabOrder = 3
@@ -310,96 +352,140 @@ object MainForm: TMainForm
         'Gigabytes')
     end
     object DateTimePickerFrom: TDateTimePicker
-      Left = 174
-      Top = 72
-      Width = 150
-      Height = 23
-      Date = 45444.000000000000000000
-      Time = 45444.000000000000000000
+      Left = 218
+      Top = 90
+      Width = 187
+      Height = 28
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
+      Date = 46174.000000000000000000
+      Time = 46174.000000000000000000
       Checked = False
       Kind = dtkDateTime
       TabOrder = 4
     end
     object DateTimePickerTo: TDateTimePicker
-      Left = 336
-      Top = 72
-      Width = 150
-      Height = 23
-      Date = 45444.000000000000000000
-      Time = 45444.000000000000000000
+      Left = 420
+      Top = 90
+      Width = 188
+      Height = 28
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
+      Date = 46174.000000000000000000
+      Time = 46174.000000000000000000
       Kind = dtkDateTime
       TabOrder = 5
     end
     object SearchByAttributes: TCheckBox
-      Left = 11
-      Top = 108
-      Width = 78
-      Height = 17
+      Left = 14
+      Top = 135
+      Width = 97
+      Height = 21
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'Attributes'
       TabOrder = 6
       OnClick = SearchByAttributesClick
     end
     object AttrArchive: TCheckBox
-      Left = 200
-      Top = 108
-      Width = 79
-      Height = 17
+      Left = 250
+      Top = 135
+      Width = 99
+      Height = 21
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'Archive'
       TabOrder = 7
     end
     object AttrHidden: TCheckBox
-      Left = 455
-      Top = 108
-      Width = 79
-      Height = 17
+      Left = 569
+      Top = 135
+      Width = 99
+      Height = 21
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'Hidden'
       TabOrder = 8
     end
     object AttrDirectory: TCheckBox
-      Left = 115
-      Top = 108
-      Width = 81
-      Height = 17
+      Left = 144
+      Top = 135
+      Width = 101
+      Height = 21
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'Directory'
       TabOrder = 9
     end
     object AttrEncrypted: TCheckBox
-      Left = 735
-      Top = 108
-      Width = 122
-      Height = 17
+      Left = 919
+      Top = 135
+      Width = 152
+      Height = 21
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'Encrypted'
       TabOrder = 10
     end
     object AttrCompressed: TCheckBox
-      Left = 540
-      Top = 108
-      Width = 89
-      Height = 17
+      Left = 675
+      Top = 135
+      Width = 111
+      Height = 21
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'Compressed'
       TabOrder = 11
     end
     object AttrReadonly: TCheckBox
-      Left = 285
-      Top = 108
-      Width = 80
-      Height = 17
+      Left = 356
+      Top = 135
+      Width = 100
+      Height = 21
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'Readonly'
       TabOrder = 12
     end
     object AttrSystem: TCheckBox
-      Left = 370
-      Top = 108
-      Width = 79
-      Height = 17
+      Left = 463
+      Top = 135
+      Width = 98
+      Height = 21
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'System'
       TabOrder = 13
     end
     object SearchBtn: TBitBtn
-      Left = 467
-      Top = 7
-      Width = 75
-      Height = 26
+      Left = 593
+      Top = 8
+      Width = 95
+      Height = 32
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'Search'
       ImageIndex = 3
       Images = ImageList1
@@ -407,10 +493,14 @@ object MainForm: TMainForm
       OnClick = SearchBtnClick
     end
     object IndexingBitBtn: TBitBtn
-      Left = 556
-      Top = 7
-      Width = 140
-      Height = 26
+      Left = 695
+      Top = 8
+      Width = 175
+      Height = 32
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'Refresh Index...'
       ImageIndex = 7
       Images = ImageList1
@@ -420,10 +510,14 @@ object MainForm: TMainForm
       OnClick = IndexingBitBtnClick
     end
     object DateTypeComboBox: TComboBox
-      Left = 11
-      Top = 72
-      Width = 78
-      Height = 23
+      Left = 14
+      Top = 90
+      Width = 97
+      Height = 28
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Style = csDropDownList
       ItemIndex = 0
       TabOrder = 16
@@ -436,98 +530,110 @@ object MainForm: TMainForm
         'Last access')
     end
     object AttrTemp: TCheckBox
-      Left = 635
-      Top = 108
-      Width = 100
-      Height = 17
+      Left = 794
+      Top = 135
+      Width = 125
+      Height = 21
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Caption = 'Temporary'
       TabOrder = 17
     end
   end
   object StatusBar1: TStatusBar
     Left = 0
-    Top = 473
-    Width = 1296
-    Height = 24
+    Top = 583
+    Width = 1163
+    Height = 30
+    Margins.Left = 4
+    Margins.Top = 4
+    Margins.Right = 4
+    Margins.Bottom = 4
     Panels = <
       item
         Text = 'Found : 0'
-        Width = 120
+        Width = 150
       end
       item
         Text = 'Search time: 0'
-        Width = 170
+        Width = 213
       end
       item
         Text = 'Load time: 0'
-        Width = 200
+        Width = 250
       end
       item
         Text = 'Items: 0'
-        Width = 170
+        Width = 213
       end
       item
         Text = 'Size: 0'
-        Width = 150
+        Width = 188
       end>
   end
   object ListView1: TListView
     Left = 0
-    Top = 68
-    Width = 1296
-    Height = 402
+    Top = 85
+    Width = 1163
+    Height = 495
+    Margins.Left = 4
+    Margins.Top = 4
+    Margins.Right = 4
+    Margins.Bottom = 4
     Align = alClient
     Columns = <
       item
         Caption = 'Name'
-        Width = 200
+        Width = 250
       end
       item
         Alignment = taRightJustify
         Caption = 'Size'
         Tag = 1
-        Width = 100
+        Width = 125
       end
       item
         Caption = 'Type'
         Tag = 2
-        Width = 130
+        Width = 163
       end
       item
         Caption = 'Modified'
         Tag = 3
-        Width = 100
+        Width = 125
       end
       item
         Caption = 'Last Access'
         Tag = 4
-        Width = 100
+        Width = 125
       end
       item
         Caption = 'Created'
         Tag = 5
-        Width = 100
+        Width = 125
       end
       item
         Caption = 'Attributes'
         Tag = 6
-        Width = 70
+        Width = 88
       end
       item
         Caption = 'Path'
         Tag = 7
-        Width = 400
+        Width = 500
       end
       item
         Alignment = taRightJustify
         Caption = 'Items Count'
         Tag = 8
-        Width = 80
+        Width = 100
       end
       item
         Caption = 'Owner'
         Tag = 9
-        Width = 70
+        Width = 88
       end>
     FullDrag = True
     OwnerData = True
@@ -542,22 +648,28 @@ object MainForm: TMainForm
     OnContextPopup = ListView1ContextPopup
     OnData = ListView1Data
     OnDblClick = ListView1DblClick
-    ExplicitTop = 200
-    ExplicitHeight = 270
   end
   object ProgressBar1: TProgressBar
-    Left = 890
-    Top = 478
-    Width = 150
-    Height = 17
+    Left = 1113
+    Top = 598
+    Width = 187
+    Height = 21
+    Margins.Left = 4
+    Margins.Top = 4
+    Margins.Right = 4
+    Margins.Bottom = 4
     TabOrder = 3
     Visible = False
   end
   object AlertPanel1: TPanel
     Left = 0
     Top = 0
-    Width = 1296
-    Height = 28
+    Width = 1163
+    Height = 35
+    Margins.Left = 4
+    Margins.Top = 4
+    Margins.Right = 4
+    Margins.Bottom = 4
     Align = alTop
     Alignment = taLeftJustify
     BevelKind = bkSoft
@@ -568,7 +680,7 @@ object MainForm: TMainForm
     Color = clInfoBk
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
-    Font.Height = -12
+    Font.Height = -15
     Font.Name = 'Segoe UI'
     Font.Style = [fsBold]
     ParentBackground = False
@@ -576,10 +688,14 @@ object MainForm: TMainForm
     TabOrder = 4
     Visible = False
     object Image1: TImage
-      Left = 5
-      Top = 3
-      Width = 18
-      Height = 18
+      Left = 6
+      Top = 4
+      Width = 23
+      Height = 22
+      Margins.Left = 4
+      Margins.Top = 4
+      Margins.Right = 4
+      Margins.Bottom = 4
       Picture.Data = {
         0954506E67496D61676589504E470D0A1A0A0000000D49484452000000100000
         001008060000001FF3FF610000000373424954080808DBE14FE0000000017352
@@ -627,9 +743,13 @@ object MainForm: TMainForm
   end
   object ProgressBarFileInfo: TProgressBar
     Left = 0
-    Top = 470
-    Width = 1296
+    Top = 580
+    Width = 1163
     Height = 3
+    Margins.Left = 4
+    Margins.Top = 4
+    Margins.Right = 4
+    Margins.Bottom = 4
     Align = alBottom
     Position = 50
     TabOrder = 5
@@ -643,7 +763,7 @@ object MainForm: TMainForm
   end
   object MainMenu1: TMainMenu
     Images = ImageList1
-    Left = 160
+    Left = 140
     Top = 208
     object File1: TMenuItem
       Caption = 'File'
@@ -1316,7 +1436,7 @@ object MainForm: TMainForm
   end
   object PopupMenuTray: TPopupMenu
     Left = 768
-    Top = 152
+    Top = 162
     object OpenMenuItem: TMenuItem
       Caption = '&Open FinderX'
       OnClick = TrayIcon1DblClick
