@@ -7,10 +7,9 @@ uses
 
 type
 
-  TEnumString = class(TInterfacedObject, IEnumString)
-  private
-  type
-     TPointerList = array[0..0] of Pointer; //avoid bug of Classes.pas declaration TPointerList = array of Pointer;
+  TEnumString = class (TInterfacedObject, IEnumString)
+  private type
+    TPointerList = array[0..0] of Pointer; //avoid bug of Classes.pas declaration TPointerList = array of Pointer;
   var
     FStrings: TStringList;
     FCurrIndex: Integer;
@@ -71,7 +70,8 @@ uses
 function TEnumString.Clone(out enm: IEnumString): HResult;
 begin
   Result := E_NOTIMPL;
-  Pointer(enm) := nil;
+  //Pointer(enm) := nil;
+  enm := nil;
 end;
 
 constructor TEnumString.Create;
@@ -139,15 +139,25 @@ begin
   EditLabel.Caption := 'Search here';
   FACList := TEnumString.Create;
   FACList.FStrings.Assign(AppSettings.SearchHistory);
+
   FACEnabled := True;
   FACOptions := [acAutoAppend, acAutoSuggest, acUseArrowKey];
 end;
 
 destructor TSearchEdit.Destroy;
 begin
+  if FAutoComplete <> nil then begin
+    FAutoComplete.Enable(False);
+    FAutoComplete := nil;
+  end;
 
+  // one reference made by FAutoComplete.Init still exists for some reason
+  // after destroying FAutoComplete this reference should be freed by it still exists
+  // that is why we call _Relese before FreeAndNil because .Free fails if there are references.
+  Assert(FACList.RefCount = 1);
+  FACList._Release; // calls .Free for FACList
   FACList := nil;
-  //FACList._Release;
+
   inherited;
 end;
 
@@ -175,18 +185,19 @@ begin
       end;
     except
       on E: Exception do
-       TLogger.ErrorFmt('Error in creating COM object(s) by TSerchEdit: %s', [E.Message]);
+       TLogger.ErrorFmt('Error in creating COM object(s) by TSearchEdit: %s', [E.Message]);
       //CLSID_IAutoComplete is not available
     end;
+    Strings := nil;
   end;
 end;
 
 procedure TSearchEdit.DestroyWnd;
 begin
-  if (FAutoComplete <> nil) then begin
+  {if (FAutoComplete <> nil) then begin
     FAutoComplete.Enable(False);
     FAutoComplete := nil;
-  end;
+  end;}
   inherited;
 end;
 
