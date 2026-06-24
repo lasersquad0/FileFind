@@ -18,9 +18,6 @@ type
   EBadFileFormat = class(Exception)
   end;
 
-   // thread for background filling IconIndex, FileType string, and DisplayName fields in TCacheItem(s)
-   // for each item we need make a call to ShGetFileInfo API function. It takes too much time and slows down search process.
-   // it is possible to make searches during this bg process, but they will work a bit slowly because ShGetFileInfo will be called for search result item
 const
   //WM_FILESHELLINFO_MSG = WM_APP + 1;
   WM_SEARCHRESULTSSHELLINFO_MSG = WM_APP + 2;
