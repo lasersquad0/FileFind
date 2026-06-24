@@ -18,19 +18,26 @@ type
  THArrayG<T> = class
  public type
 
- (*       Compare callback functions.    *)
- (*  Return values must be:              *)
- (*    0 - elements are equal            *)
- (*    1 - arr[i] > arr[j]               *)
- (*   -1 - arr[i] < arr[j]               *)
+  (**************************************************************)
+  (*          Compare callback functions                        *)
+  (*  Return values must be:                                    *)
+  (*    0 - elements are equal                                  *)
+  (*    1 - arr[i] > arr[j]                                     *)
+  (*   -1 - arr[i] < arr[j] }                                   *)
+  (**************************************************************)
 
-  // this function is useful when you need access to other elements than arr[i], arr[j] for comparing
+  // this function is useful when you need access other elements than arr[i], arr[j] for comparing
   // or you have quicker method of access ith and jth elements in the array
   TCompareProc = function(arr : THArrayG<T>; i, j: Cardinal): Integer of object;
 
-  // standard compare function
+  // another compare function
   TCompareProc2 = function(item1, item2: T): Integer of object;
- // TSwapProc = procedure(arr : THArrayG<T>; i, j : Cardinal) of object;
+
+  // SwapProc is useful when you want to perform sorting by building a so called sorting index.
+  // In this case elements in original array are not actually moved, instead elements in index array are moved during sorting
+  // This is useful when moving/swapping elements in original array is a costly procedure
+  // or when you want to have several different sortings for a single array.
+  TSwapProc = procedure(arr : THArrayG<T>; i, j : Cardinal) of object;
 
   private type
    TInternalArrayType = array of T;
@@ -45,8 +52,8 @@ type
    // internal array of values
    FValues: TInternalArrayType;
    procedure Error(Value, max: Cardinal);
-   procedure InternalQuickSort(CompareProc: TCompareProc; L, R: Cardinal);
-   procedure InternalInsertSort(CompareProc: TCompareProc2; L, R: Cardinal);
+   procedure InternalQuickSort(L, R: Cardinal; CompareProc: TCompareProc; SwapProc: TSwapProc = nil);
+   procedure InternalInsertSort(L, R: Cardinal; CompareProc: TCompareProc2);
   public type
    PointerT = ^T;
 
@@ -158,7 +165,7 @@ type
    /// The fastest algorithm is QuickSort.</remarks>
    procedure BubbleSort(CompareProc: TCompareProc); virtual;
    procedure SelectionSort(CompareProc: TCompareProc); virtual;
-   procedure QuickSort(CompareProc: TCompareProc); virtual;
+   procedure QuickSort(CompareProc: TCompareProc; SwapProc: TSwapProc = nil); virtual;
    procedure InsertSort(CompareProc: TCompareProc2); virtual;
    procedure ShakerSort(CompareProc: TCompareProc2); virtual;
 
@@ -555,13 +562,13 @@ begin
   end;
 end;
 
-procedure THArrayG<T>.QuickSort(CompareProc: TCompareProc);
+procedure THArrayG<T>.QuickSort(CompareProc: TCompareProc; SwapProc: TSwapProc = nil);
 begin
   if FCount < 2 then exit;
-  InternalQuickSort(CompareProc, 0, FCount - 1);
+  InternalQuickSort(0, FCount - 1, CompareProc, SwapProc);
 end;
 
-procedure THArrayG<T>.InternalQuickSort(CompareProc: TCompareProc; L, R: Cardinal);
+procedure THArrayG<T>.InternalQuickSort(L, R: Cardinal; CompareProc: TCompareProc; SwapProc: TSwapProc = nil);
 var
   i, j: Cardinal;
   P: Cardinal;
@@ -574,7 +581,7 @@ begin
   P := (i + j) shr 1;  // pivot element
 
   while i < j do begin
-    if @CompareProc = nil then begin
+    if @CompareProc = nil then begin //TODO: optimization: think of moving this 'if' out of while loop
       while (cmp.Compare(FValues[i], FValues[P]) < 0) do Inc(i);
       while (cmp.Compare(FValues[j], FValues[P]) > 0) do Dec(j);
     end else begin
@@ -585,8 +592,7 @@ begin
     if i <= j then begin
       if i = P then P := j // count a case when element with index P will be swapped and receive another index
       else if j = P then P := i;
-      Swap(i, j);
-      //if @SwapProc = nil then Swap(i, j) else SwapProc(self, i, j);
+      if @SwapProc = nil then Swap(i, j) else SwapProc(self, i, j);
       Inc(i);
 
       //TODO: to avoid out of range exception then Dec(j) when j=0. I think there should be better solution to bypasss this situation
@@ -597,15 +603,15 @@ begin
     end;
   end;
 
-  if L < j then InternalQuickSort(CompareProc, L, j);
-  if i < R then InternalQuickSort(CompareProc, i, R);
+  if L < j then InternalQuickSort(L, j, CompareProc, SwapProc);
+  if i < R then InternalQuickSort(i, R, CompareProc, SwapProc);
 end;
 
 // Insertion sort
 // L..i-1 this is already sorted part of array
 // we take i'th element and find a proper place where to insert it in in sorted part
 // then we take i+1'th element , find place for it and so on
-procedure THArrayG<T>.InternalInsertSort(CompareProc: TCompareProc2; L, R: Cardinal);
+procedure THArrayG<T>.InternalInsertSort(L, R: Cardinal; CompareProc: TCompareProc2);
 var
   i, j: Cardinal;
   tmp: T;
@@ -641,7 +647,7 @@ end;
 procedure THArrayG<T>.InsertSort(CompareProc: TCompareProc2);
 begin
   if FCount < 2 then exit;
-  InternalInsertSort(CompareProc, 0, FCount - 1);
+  InternalInsertSort(0, FCount - 1, CompareProc);
 end;
 
 // Shaker Sort
