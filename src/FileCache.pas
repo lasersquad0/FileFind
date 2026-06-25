@@ -1301,10 +1301,10 @@ type
 
 // function from MFT DLL
 {$IFDEF CPUX64}
-function ReadVolumeDirect(Volume: PChar; var Cnt: Cardinal; var Data: Pointer; callback: TCallback): TError; stdcall; external 'MFTReaderDLL_64.dll' name 'ReadVolume';
+function ReadVolumeDirect(Volume: PChar; ExclFolders: PChar; var Cnt: Cardinal; var Data: Pointer; Callback: TCallback): TError; stdcall; external 'MFTReaderDLL_64.dll' name 'ReadVolume';
 {$ELSE}
 {$IFDEF CPUX86}
-function ReadVolumeDirect(Volume: PChar; var Cnt: Cardinal; var Data: Pointer; callback: TCallback): TError; stdcall; external 'MFTReaderDLL.dll' name 'ReadVolume';
+function ReadVolumeDirect(Volume: PChar; ExclFolders: PChar; var Cnt: Cardinal; var Data: Pointer; Callback: TCallback): TError; stdcall; external 'MFTReaderDLL.dll' name 'ReadVolume';
 {$ELSE}
 {$MESSAGE ERROR 'Neither CPUX64 nor CPUX86 is defined.'}
 {$ENDIF}
@@ -1355,8 +1355,7 @@ begin
   NotifyProgress(50);
 
   // call DLL function
-  //TODO: what happen when exception generated inside this function call?
-  err := ReadVolumeDirect(PChar(Volume), cnt, Pointer(fileCache), MFTCallbackFunc);
+  err := ReadVolumeDirect(PChar(Volume), PChar(Volume), cnt, Pointer(fileCache), MFTCallbackFunc);
 
   if err.HasError then begin
     TLogger.ErrorFmt('Error loading volume %s. Error code: %d. Error msg: %s.', [Volume, err.ErrCode, err.Msg]);
