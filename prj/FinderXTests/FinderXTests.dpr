@@ -15,14 +15,15 @@ uses
   {$ENDIF }
   DUnitX.TestFramework,
   MaskSearchTest in 'MaskSearchTest.pas',
-  DUnitX.Loggers.GUI.VCL in 'C:\Program Files (x86)\Embarcadero\Studio\23.0\source\DunitX\DUnitX.Loggers.GUI.VCL.pas' {GUIVCLTestRunner},
   MaskSearch in '..\..\src\MaskSearch.pas',
-  DynamicArray in 'C:\SourceForge\DynamicArrays\dynamicarrays\src\Delphi\DynamicArray.pas',
+  DynamicArray in '..\..\src\DynamicArrays\DynamicArray.pas',
   Functions in '..\..\src\Functions.pas',
   CacheItem in '..\..\src\CacheItem.pas',
   Hash in '..\..\src\DynamicArrays\Hash.pas',
   SortedArray in '..\..\src\DynamicArrays\SortedArray.pas',
-  FunctionsTest in 'FunctionsTest.pas';
+  FunctionsTest in 'FunctionsTest.pas',
+  Logger in '..\..\src\Logger.pas',
+  DUnitX.Loggers.GUI.VCL in 'C:\Program Files (x86)\Embarcadero\Studio\37.0\source\DunitX\DUnitX.Loggers.GUI.VCL.pas' {GUIVCLTestRunner};
 
 { keep comment here to protect the following conditional from being removed by the IDE when adding a unit }
 {$IFNDEF TESTINSIGHT}
