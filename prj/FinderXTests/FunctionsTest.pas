@@ -38,13 +38,44 @@ type
     [TestCase('TestD4', 'b//b/,/,2')]
     [TestCase('TestD5', '///ab///ab///ab///,/,3')]
     [TestCase('TestD6', '///ab///ab///ab///,a,4')]
-    procedure TestStringToarray(const AStr: string; const Delim: Char; const ACount: Cardinal);
+    procedure TestStringToArray(const AStr: string; const Delim: Char; const ACount: Cardinal);
 
     [TestCase('TestA', '///ab///ab///ab///,a,4')]
     procedure TestPerformance(const AStr: string; const Delim: Char; const ACount: Cardinal);
 
     [TestCase('TestA', '///ab///ab///ab///,a,4')]
-    procedure TestPerformanceAccum(const AStr : string; const Delim: Char; const ACount: Cardinal);
+    procedure TestPerformanceAccum(const AStr: string; const Delim: Char; const ACount: Cardinal);
+
+    [TestCase('TestA', '')]
+    [TestCase('TestB', 'a')]
+    [TestCase('TestC', 'ab')]
+    [TestCase('TestD', '12;34')]
+    [TestCase('TestE', '12;34;')]
+    [TestCase('TestF', 'ab;cd;ab;;cd')]
+    [TestCase('TestG', 'a;c;d;e')]
+    [TestCase('TestK', 'ab1;cd1;ab1;1;cd123456789')]
+    procedure TestDelphiArrayToZStrArray(const AStr: string);
+
+    [TestCase('TestA', '')]
+    [TestCase('TestB', 'a')]
+    [TestCase('TestC', 'ab')]
+    [TestCase('TestD', '12;34')]
+    [TestCase('TestE', '12;34;')]
+    [TestCase('TestF', 'ab;cd;ab;;cd')]
+    [TestCase('TestG', 'a;c;d;e')]
+    [TestCase('TestK', 'ab1;cd1;ab1;1;cd123456789')]
+    procedure TestDelphiArrayToZStrArrayStr(const AStr: string);
+
+    [TestCase('TestA', '')]
+    [TestCase('TestB', 'a')]
+    [TestCase('TestC', 'ab')]
+    [TestCase('TestD', '12;34')]
+    [TestCase('TestE', '12;34;')]
+    [TestCase('TestF', 'ab;cd;ab;;cd')]
+    [TestCase('TestG', 'a;c;d;e')]
+    [TestCase('TestK', 'ab1;cd1;ab1;1;cd123456789')]
+    procedure TestSplitByStrings(const ASearchStr: string; const AStr: string);
+
   end;
 
 implementation
@@ -62,6 +93,26 @@ begin
   FreeAndNil(FArr);
 end;
 
+procedure TFunctionsTest.TestSplitByStrings(const ASearchStr: string; const AStr: string);
+var
+  res: THArrayG<SplitRec>;
+  delim: THArrayG<string>;
+begin
+  res := THArrayG<SplitRec>.Create;
+  delim := THArrayG<string>.Create;
+
+  try
+    HGetTokens(ASearchStr, '*?', False, delim);
+
+    SplitByStrings(AStr, delim, res);
+
+
+  finally
+    res.Free;
+    delim.Free;
+  end;
+end;
+
 procedure TFunctionsTest.TestStringToArray(const AStr : string; const Delim: Char; const ACount: Cardinal);
 begin
   StringToArray(AStr, FArr, Delim);
@@ -71,6 +122,50 @@ begin
   StringToArrayAccum(AStr, FArr, Delim);
   Assert.AreEqual(ACount, FArr.Count);
 end;
+
+procedure TFunctionsTest.TestDelphiArrayToZStrArray(const AStr: string);
+begin
+  var Arr := StringToArray(AStr, ';');
+  var Res := DelphiArrayToZStrArray(Arr);
+
+  var Curr: PChar := Res;
+  var i: Integer := 0;
+  while (True) do begin
+    if Curr[0] = #0 then break;
+    Assert.IsTrue(i < Length(Arr));
+    Assert.AreEqual(string(Curr), Arr[i]);
+    Inc(Curr, Strlen(Curr));
+    Assert.AreEqual(#0, Curr[0]);
+    Inc(Curr);
+    Inc(i);
+  end;
+
+  Assert.AreEqual(Integer(Length(Arr)), i);
+
+  FreeMem(Res);
+end;
+
+procedure TFunctionsTest.TestDelphiArrayToZStrArrayStr(const AStr: string);
+begin
+  var Arr := StringToArray(AStr, ';');
+  var Res := DelphiArrayToZStrArrayStr(Arr);
+
+  var Curr: PChar := @Res[1];
+  var i: Integer := 0;
+  while (True) do begin
+    if Curr[0] = #0 then break;
+    Assert.IsTrue(i < Length(Arr));
+    Assert.AreEqual(string(Curr), Arr[i]);
+    Inc(Curr, Strlen(Curr));
+    Assert.AreEqual(#0, Curr[0]);
+    Inc(Curr);
+    Inc(i);
+  end;
+
+  Assert.AreEqual(Integer(Length(Arr)), i);
+
+end;
+
 
 procedure TFunctionsTest.TestPerformance(const AStr : string; const Delim: Char; const ACount: Cardinal);
 const
