@@ -24,7 +24,8 @@ const
   WM_RESTORE_MAINFORM_MSG = WM_APP + 3;
 
   // split string to array of strings using Delim as delimiter
-  procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
+  procedure StringToArray(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});overload;
+  function  StringToArray(const str: string; const Delim: Char {= '\n'}): TArray<string>; overload;
 
   // splits string to array of strings using Delim as delimiter
   procedure StringToArrayAccum(const str: string; var arr: THArrayG<string>; const Delim: Char {= '\n'});
@@ -53,6 +54,11 @@ const
   function IsAppRunningAsAdminMode(): Boolean;
   function CheckTokenMembership(TokenHandle: THandle; SidToCheck: PSID; IsMember: PLongBool): LongBool; stdcall;
   function GetFileOwnerName(FilePath: string): string;
+
+  function ZStrArrayToDelphiArray(ZStrings: PChar): TArray<string>;
+  function DelphiArrayToZStrArray(arr: TArray<string>): PChar;
+  function DelphiArrayToZStrArrayStr(arr: TArray<string>): string;
+
 
   // function  GetErrorMessageText(lastError: Cardinal; const errorPlace: string): string;
   // function  GetLocalTime(ftm: TFileTime): string;
@@ -107,7 +113,7 @@ var
   sz:Int64;
 begin
   sz := Length(Arr);
-  for i := 0 to sz - 1 do Strings.Add(Arr[i]);
+  for i := 1 to sz do Strings.Add(Arr[i-1]);
 end;
 
 function StringListToArray(Strings: TStrings): TArray<string>;
@@ -115,7 +121,7 @@ var
   i: Integer;
 begin
   SetLength(Result, Strings.Count);
-  for i := 0 to Strings.Count - 1 do Result[i] := Strings[i];
+  for i := 1 to Strings.Count do Result[i-1] := Strings[i-1];
 end;
 
 // split string to array of strings using Delim as delimiter
@@ -161,6 +167,26 @@ begin
     end;
 
     if gStringb.Length > 0 then arr.AddValue(gStringb.ToString);
+end;
+
+function StringToArray(const str: string; const Delim: Char {= '\n'}): TArray<string>;
+var
+  i, len: Cardinal;
+begin
+  i := 1;
+  len := Cardinal(Length(str));
+
+    gStringb.Clear;  // Clear sets Capacity to 16 (default capacity)
+    while i <= len do begin
+      if str[i] = Delim then begin
+        if gStringb.Length > 0 then Insert(gStringb.ToString, Result, Length(Result));
+        gStringb.Clear;
+      end else
+        gStringb.Append(str[i]);
+      Inc(i);
+    end;
+
+    if gStringb.Length > 0 then Insert(gStringb.ToString, Result, Length(Result));
 end;
 
 // splits string to array of strings using Delim as delimiter
@@ -452,6 +478,59 @@ begin
     Insert(ZStrings, Result, Length(Result));
     ZStrings := ZStrings + Strlen(ZStrings) + 1;
   end;
+end;
+
+function DelphiArrayToZStrArray(arr: TArray<string>): PChar;
+var
+  total: Cardinal;
+  buf: PChar;
+  i, len: Integer;
+begin
+  total := 0;
+  for i := Low(arr) to High(arr) do
+    Inc(total, Length(arr[i]) + 1); // +1 for zero teminator
+
+  Inc(total); // +1 for final zero terminator
+
+  GetMem(Result, total*sizeof(Char));
+  buf := Result;
+
+  for i := Low(arr) to High(arr) do begin
+    len := Length(arr[i]);
+    CopyMemory(buf, PChar(arr[i]), len*sizeof(Char));
+    Inc(buf, len);
+    buf[0] := #0;
+    Inc(buf);
+  end;
+
+  buf[0] := #0; // final zero terminator
+end;
+
+function DelphiArrayToZStrArrayStr(arr: TArray<string>): string;
+var
+  total: Cardinal;
+  buf: PChar;
+  i, len: Integer;
+begin
+  total := 0;
+  for i := Low(arr) to High(arr) do
+    Inc(total, Length(arr[i]) + 1); // +1 for zero teminator
+
+  Inc(total); // +1 for final zero terminator
+
+  SetLength(Result, total);
+  buf := @Result[1];
+
+  for i := Low(arr) to High(arr) do begin
+    len := Length(arr[i]);
+    CopyMemory(buf, PChar(arr[i]), len*sizeof(Char));
+    Inc(buf, len);
+    buf[0] := #0;
+    Inc(buf);
+    Assert((buf - @Result[1]) < total);
+  end;
+
+  buf[0] := #0; // final zero terminator
 end;
 
 function GetLogicalDrives: TArray<string>;
