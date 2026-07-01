@@ -12,11 +12,17 @@ Any questions or suggestions are welcome to this email:
 
 TO DO
 --------
+
+- how can I perform extended search in specified folder and its subfolders. Use-case - I need to find what large files my folder '3D' has.
+
+- calculate number of files with each extension and total size for each extension.
+- add some disk cleanup functions (see WinDirstat for ideas)
+- add button Clear or Reset to extended search parameters to reset filter values 
+- add Quick search options containing most common search scenarios/parameters
 - build two versions of FinderX 32bit and 64bit?
 - how to look for files which DO NOT have attribute 'Archived'.
 - make list of exclusion work with Fast Reading NTFS
 
-- change registry path where settings are saved
 - [DONE] during first run on clean laptop it tells error that access is denied and yellow message about need to index disappeared.
 - [DONE] add option Fast NTFS read/other_method to Setttings screen OR do it automatically if Fast returned error then turn off it locally and use 
   standard reading method. => if FastNTFS fails then application uses other fs reading method that is more reliable, but slower.
