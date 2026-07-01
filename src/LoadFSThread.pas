@@ -153,6 +153,10 @@ begin
       TCache.FreeInst2; // clear half filled Instance2
       Synchronize(procedure begin MessageDlg(sUserCancelledIndexingOperation, mtInformation, [mbOK], 0) end);
     end;
+    on E: EInOutError do begin
+      TLogger.ErrorFmt('[TLoadFSThread.Execute] IO Error: %s', [E.Message]);
+      TCache.FreeInst2; // clear half filled Instance2
+    end;
     on E: Exception do begin
       TLogger.ErrorFmt('[TLoadFSThread.Execute] unhandled exception caught: %s', [E.Message]);
       TCache.FreeInst2; // clear half filled Instance2
